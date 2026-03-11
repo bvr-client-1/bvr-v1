@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BVR Menu — Order Food Online</title>
+    <meta name="description"
+        content="Browse the BVR Bangaru Vakili menu. Biryani, starters, curries & more. Order online for dine-in or delivery." />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;800&family=Poppins:wght@300;400;500;600;700&display=swap');
+
+        :root {
+            --bg: #0a0500;
+            --card-bg: #1a0e00;
+            --border: #d4a01740;
+            --gold: #d4a017;
+            --bright-gold: #f5c842;
+            --text: #f5e6c8;
+            --muted: #a07840;
+            --green: #22c55e;
+            --red: #ef4444
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            overflow-x: hidden
+        }
+
+        h1,
+        h2,
+        h3,
+        h4,
+        h5,
+        h6 {
+            font-family: 'Playfair Display', serif
+        }
+
+        .gold-glow {
+            box-shadow: 0 0 20px #d4a01760
+        }
+
+        .btn-gold {
+            background: linear-gradient(135deg, #d4a017, #f5c842);
+            color: #1a0e00;
+            font-weight: 700;
+            border-radius: 9999px;
+            min-height: 48px;
+            padding: 12px 24px;
+            border: none;
+            cursor: pointer;
+            transition: all .2s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-size: 1rem;
+            font-family: 'Poppins', sans-serif;
+            text-decoration: none
+        }
+
+        .btn-gold:hover {
+            box-shadow: 0 0 25px #d4a01780;
+            transform: translateY(-2px)
+        }
+
+        /* Navbar */
+        .navbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            background: #0a050095;
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-bottom: 1px solid var(--border);
+            padding: 12px 20px
+        }
+
+        /* Category tabs */
+        .tabs-wrap {
+            position: sticky;
+            top: 64px;
+            z-index: 90;
+            background: #0a0500ee;
+            backdrop-filter: blur(8px);
+            border-bottom: 1px solid var(--border);
+            padding: 10px 16px;
+            overflow-x: auto;
+            display: flex;
+            gap: 8px;
+            -webkit-overflow-scrolling: touch
+        }
+
+        .tabs-wrap::-webkit-scrollbar {
+            display: none
+        }
+
+        .tab-btn {
+            flex-shrink: 0;
+            padding: 8px 18px;
+            border-radius: 9999px;
+            border: 1px solid var(--border);
+            background: transparent;
+            color: var(--muted);
+            font-size: .85rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all .2s ease;
+            font-family: 'Poppins', sans-serif;
+            white-space: nowrap
+        }
+
+        .tab-btn.active {
+            background: linear-gradient(135deg, #d4a017, #f5c842);
+            color: #1a0e00;
+            border-color: transparent;
+            font-weight: 600
+        }
+
+        /* Menu grid */
+        .menu-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            padding: 16px
+        }
+
+        .menu-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 1rem;
+            padding: 16px;
+            transition: all .2s ease;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between
+        }
+
+        .menu-card:hover {
+            box-shadow: 0 0 15px #d4a01720
+        }
+
+        /* Quantity controls */
+        .qty-wrap {
+            display: flex;
+            align-items: center;
+            gap: 0;
+            border-radius: 9999px;
+            overflow: hidden;
+            border: 1px solid var(--gold)
+        }
+
+        .qty-btn {
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #d4a017, #f5c842);
+            color: #1a0e00;
+            font-weight: 700;
+            font-size: 1.1rem;
+            border: none;
+            cursor: pointer;
+            transition: all .2s
+        }
+
+        .qty-num {
+            width: 32px;
+            text-align: center;
+            font-weight: 600;
+            color: var(--bright-gold);
+            font-size: .95rem;
+            background: transparent
+        }
+
+        /* Add button */
+        .add-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #d4a017, #f5c842);
+            color: #1a0e00;
+            font-weight: 700;
+            font-size: 1.3rem;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all .2s
+        }
+
+        .add-btn:hover {
+            box-shadow: 0 0 12px #d4a01760;
+            transform: scale(1.1)
+        }
+
+        /* Floating cart */
+        .float-cart {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 90;
+            display: none;
+            animation: slideUp .3s ease
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateX(-50%) translateY(20px)
+            }
+
+            to {
+                opacity: 1;
+                transform: translateX(-50%) translateY(0)
+            }
+        }
+
+        @media(min-width:640px) {
+            .menu-grid {
+                grid-template-columns: repeat(3, 1fr);
+                gap: 16px;
+                max-width: 900px;
+                margin: auto
+            }
+        }
+
+        @media(min-width:1024px) {
+            .menu-grid {
+                grid-template-columns: repeat(4, 1fr);
+                max-width: 1100px
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- NAVBAR -->
+    <nav class="navbar">
+        <div style="max-width:1200px;margin:auto;display:flex;align-items:center;justify-content:space-between;">
+            <a href="index.html"
+                style="color:#d4a017;text-decoration:none;font-size:1.4rem;display:flex;align-items:center;gap:8px;">
+                ← <span style="font-size:0.9rem;color:#f5e6c8;">Back</span>
+            </a>
+            <h1 style="font-size:1.15rem;color:#d4a017;">BVR Menu</h1>
+            <div style="position:relative;">
+                <a href="cart.html" style="color:#d4a017;text-decoration:none;font-size:1.5rem;" id="cartIcon">🛒</a>
+                <span id="cartBadge"
+                    style="position:absolute;top:-6px;right:-10px;background:#ef4444;color:#fff;font-size:0.65rem;font-weight:700;width:18px;height:18px;border-radius:50%;display:none;align-items:center;justify-content:center;">0</span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- CATEGORY TABS -->
+    <div class="tabs-wrap" style="margin-top:64px;">
+        <button class="tab-btn active" data-cat="all">All</button>
+        <button class="tab-btn" data-cat="biryani">Biryani</button>
+        <button class="tab-btn" data-cat="starters">Starters</button>
+        <button class="tab-btn" data-cat="curries">Curries</button>
+        <button class="tab-btn" data-cat="breads">Breads</button>
+        <button class="tab-btn" data-cat="rice">Rice & Noodles</button>
+        <button class="tab-btn" data-cat="desserts">Desserts</button>
+        <button class="tab-btn" data-cat="drinks">Drinks</button>
+    </div>
+
+    <!-- MENU GRID -->
+    <div class="menu-grid" id="menuGrid"></div>
+
+    <!-- FLOATING CART BUTTON -->
+    <div class="float-cart" id="floatCart">
+        <a href="cart.html" class="btn-gold gold-glow" style="padding:14px 28px;font-size:1rem;">
+            <span id="floatCartText">View Cart (0 items) → ₹0</span>
+        </a>
+    </div>
+
+    <script>
+        // ========== SHARED UTILITIES ==========
+        function formatPrice(amount) { return '₹' + amount; }
+        function formatTime(isoString) {
+            try { return new Date(isoString).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }); }
+            catch (e) { return isoString || '—'; }
+        }
+        function timeAgo(isoString) {
+            try {
+                const diff = Math.floor((Date.now() - new Date(isoString).getTime()) / 1000);
+                if (diff < 60) return diff + 's ago';
+                if (diff < 3600) return Math.floor(diff / 60) + ' mins ago';
+                if (diff < 86400) return Math.floor(diff / 3600) + ' hrs ago';
+                return Math.floor(diff / 86400) + ' days ago';
+            } catch (e) { return '—'; }
+        }
+        function generateOrderId() { return 'BVR' + Math.floor(100000 + Math.random() * 900000); }
+        function showToast(message, type = 'success') {
+            const existing = document.getElementById('bvr-toast');
+            if (existing) existing.remove();
+            const colors = { success: '#d4a017', error: '#ef4444', info: '#3b82f6' };
+            const toast = document.createElement('div');
+            toast.id = 'bvr-toast';
+            toast.textContent = message;
+            Object.assign(toast.style, {
+                position: 'fixed', bottom: '80px', left: '50%', transform: 'translateX(-50%)',
+                background: colors[type] || colors.success, color: type === 'success' ? '#1a0e00' : '#fff',
+                padding: '10px 24px', borderRadius: '9999px', fontFamily: "'Poppins',sans-serif",
+                fontSize: '.85rem', fontWeight: '600', zIndex: '999', whiteSpace: 'nowrap',
+                boxShadow: '0 4px 20px rgba(0,0,0,0.4)', transition: 'opacity 0.3s ease', opacity: '1'
+            });
+            document.body.appendChild(toast);
+            setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 3000);
+        }
+        function safeGetJSON(key, fallback) {
+            try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; }
+            catch (e) { console.warn('Failed to parse', key, e); return fallback; }
+        }
+        function safeSetJSON(key, value) {
+            try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) { console.error('Failed to save', key, e); }
+        }
+
+        // ========== MENU DATA ==========
+        const menuItems = [
+            { id: 'item_001', name: 'Chicken Biryani', desc: 'Aromatic basmati rice with tender chicken', price: 180, cat: 'biryani' },
+            { id: 'item_002', name: 'Mutton Biryani', desc: 'Slow-cooked mutton dum biryani', price: 220, cat: 'biryani' },
+            { id: 'item_003', name: 'Veg Biryani', desc: 'Fragrant vegetable biryani', price: 120, cat: 'biryani' },
+            { id: 'item_004', name: 'Chicken 65', desc: 'Spicy deep-fried chicken bites', price: 160, cat: 'starters' },
+            { id: 'item_005', name: 'Paneer Tikka', desc: 'Grilled cottage cheese with spices', price: 140, cat: 'starters' },
+            { id: 'item_006', name: 'Fish Fry', desc: 'Crispy masala fried fish fillets', price: 180, cat: 'starters' },
+            { id: 'item_007', name: 'Chicken Curry', desc: 'Traditional spicy chicken curry', price: 160, cat: 'curries' },
+            { id: 'item_008', name: 'Mutton Curry', desc: 'Rich and flavorful mutton gravy', price: 200, cat: 'curries' },
+            { id: 'item_009', name: 'Dal Tadka', desc: 'Yellow lentils with tempered spices', price: 100, cat: 'curries' },
+            { id: 'item_010', name: 'Roti', desc: 'Fresh whole wheat flatbread', price: 15, cat: 'breads' },
+            { id: 'item_011', name: 'Parotta', desc: 'Layered flaky South Indian bread', price: 20, cat: 'breads' },
+            { id: 'item_012', name: 'Naan', desc: 'Soft tandoor-baked bread', price: 25, cat: 'breads' },
+            { id: 'item_013', name: 'Veg Fried Rice', desc: 'Wok-tossed rice with vegetables', price: 110, cat: 'rice' },
+            { id: 'item_014', name: 'Chicken Fried Rice', desc: 'Indo-Chinese style fried rice', price: 140, cat: 'rice' },
+            { id: 'item_015', name: 'Veg Noodles', desc: 'Stir-fried Hakka noodles', price: 100, cat: 'rice' },
+            { id: 'item_016', name: 'Gulab Jamun', desc: 'Sweet milk solids in rose syrup', price: 60, cat: 'desserts' },
+            { id: 'item_017', name: 'Double Ka Meetha', desc: 'Hyderabadi bread pudding dessert', price: 80, cat: 'desserts' },
+            { id: 'item_018', name: 'Qubani Ka Meetha', desc: 'Apricot compote with cream', price: 90, cat: 'desserts' },
+            { id: 'item_019', name: 'Lassi', desc: 'Refreshing sweet yogurt drink', price: 60, cat: 'drinks' },
+            { id: 'item_020', name: 'Cold Drink', desc: 'Chilled soft drink 300ml', price: 40, cat: 'drinks' },
+            { id: 'item_021', name: 'Water Bottle', desc: 'Packaged mineral water 1L', price: 20, cat: 'drinks' },
+        ];
+
+        // ========== CART ==========
+        let cart = safeGetJSON('bvr_cart', []);
+
+        function saveCart() {
+            safeSetJSON('bvr_cart', cart);
+            updateCartUI();
+            console.log('[BVR] Cart saved:', cart.length, 'items');
+        }
+
+        function getCartItem(id) { return cart.find(c => c.id === id); }
+
+        function addToCart(id) {
+            const existing = getCartItem(id);
+            if (existing) {
+                existing.quantity++;
+            } else {
+                const item = menuItems.find(m => m.id === id);
+                cart.push({ id: item.id, name: item.name, price: item.price, quantity: 1, category: item.cat });
+            }
+            saveCart();
+            renderMenu(currentCat);
+            const item = menuItems.find(m => m.id === id);
+            showToast(`${item.name} added to cart`);
+        }
+
+        function removeFromCart(id) {
+            const existing = getCartItem(id);
+            if (existing) {
+                existing.quantity--;
+                if (existing.quantity <= 0) cart = cart.filter(c => c.id !== id);
+            }
+            saveCart();
+            renderMenu(currentCat);
+        }
+
+        function updateCartUI() {
+            const totalItems = cart.reduce((s, c) => s + c.quantity, 0);
+            const totalPrice = cart.reduce((s, c) => s + c.quantity * c.price, 0);
+            const badge = document.getElementById('cartBadge');
+            const floatCart = document.getElementById('floatCart');
+            const floatText = document.getElementById('floatCartText');
+
+            if (totalItems > 0) {
+                badge.style.display = 'flex';
+                badge.textContent = totalItems;
+                floatCart.style.display = 'block';
+                floatText.textContent = `View Cart (${totalItems} item${totalItems > 1 ? 's' : ''}) → ${formatPrice(totalPrice)}`;
+            } else {
+                badge.style.display = 'none';
+                floatCart.style.display = 'none';
+            }
+        }
+
+        // ========== RENDER ==========
+        let currentCat = 'all';
+
+        function renderMenu(cat) {
+            currentCat = cat;
+            const grid = document.getElementById('menuGrid');
+            const items = cat === 'all' ? menuItems : menuItems.filter(m => m.cat === cat);
+            grid.style.opacity = '0';
+            setTimeout(() => {
+                grid.innerHTML = items.map(item => {
+                    const inCart = getCartItem(item.id);
+                    return `
+              <div class="menu-card">
+                <div>
+                  <h3 style="font-size:0.95rem;color:#f5c842;margin-bottom:4px;font-family:'Playfair Display',serif;">${item.name}</h3>
+                  <p style="font-size:0.75rem;color:#a07840;margin-bottom:10px;line-height:1.3;">${item.desc}</p>
+                </div>
+                <div style="display:flex;align-items:center;justify-content:space-between;">
+                  <span style="color:#f5c842;font-weight:700;font-size:1.05rem;">${formatPrice(item.price)}</span>
+                  ${inCart ? `
+                    <div class="qty-wrap">
+                      <button class="qty-btn" onclick="removeFromCart('${item.id}')">−</button>
+                      <span class="qty-num">${inCart.quantity}</span>
+                      <button class="qty-btn" onclick="addToCart('${item.id}')">+</button>
+                    </div>
+                  ` : `
+                    <button class="add-btn" onclick="addToCart('${item.id}')" aria-label="Add ${item.name}">+</button>
+                  `}
+                </div>
+              </div>
+            `;
+                }).join('');
+                grid.style.transition = 'opacity 0.2s ease';
+                grid.style.opacity = '1';
+            }, 50);
+        }
+
+        // ========== TABS ==========
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                renderMenu(btn.dataset.cat);
+            });
+        });
+
+        // ========== INIT ==========
+        renderMenu('all');
+        updateCartUI();
+        console.log('[BVR] Menu page loaded. Cart has', cart.length, 'items');
+    </script>
+</body>
+
+</html>

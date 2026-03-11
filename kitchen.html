@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Kitchen Dashboard — BVR Restaurant</title>
+    <meta name="description" content="BVR Restaurant kitchen dashboard for order preparation." />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;800&family=Poppins:wght@300;400;500;600;700&display=swap');
+
+        :root {
+            --bg: #0a0500;
+            --card-bg: #1a0e00;
+            --border: #d4a01740;
+            --gold: #d4a017;
+            --bright-gold: #f5c842;
+            --text: #f5e6c8;
+            --muted: #a07840;
+            --green: #22c55e;
+            --red: #ef4444
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            overflow-x: hidden
+        }
+
+        h1,
+        h2,
+        h3 {
+            font-family: 'Playfair Display', serif
+        }
+
+        .navbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            background: #0a050095;
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-bottom: 1px solid var(--border);
+            padding: 12px 20px
+        }
+
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 1rem;
+            padding: 16px;
+            transition: all .2s ease
+        }
+
+        .card-ready {
+            border-color: #22c55e40;
+            background: #0f1a0a
+        }
+
+        /* Password overlay */
+        .pw-overlay {
+            position: fixed;
+            inset: 0;
+            background: var(--bg);
+            z-index: 300;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px
+        }
+
+        .pw-box {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 1.5rem;
+            padding: 40px 30px;
+            text-align: center;
+            max-width: 340px;
+            width: 100%
+        }
+
+        .pw-input {
+            width: 100%;
+            padding: 14px 18px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            background: #0f0700;
+            color: var(--text);
+            font-size: 1rem;
+            font-family: 'Poppins', sans-serif;
+            min-height: 48px;
+            outline: none;
+            text-align: center;
+            letter-spacing: 4px;
+            transition: border-color .2s
+        }
+
+        .pw-input:focus {
+            border-color: var(--gold)
+        }
+
+        .btn-gold {
+            background: linear-gradient(135deg, #d4a017, #f5c842);
+            color: #1a0e00;
+            font-weight: 700;
+            border-radius: 9999px;
+            min-height: 48px;
+            padding: 12px 24px;
+            border: none;
+            cursor: pointer;
+            transition: all .2s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-size: 1rem;
+            font-family: 'Poppins', sans-serif;
+            text-decoration: none;
+            width: 100%
+        }
+
+        .btn-gold:hover {
+            box-shadow: 0 0 25px #d4a01780;
+            transform: translateY(-2px)
+        }
+
+        /* Action buttons */
+        .act-btn {
+            padding: 10px 20px;
+            border-radius: 9999px;
+            border: none;
+            font-size: .85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all .2s;
+            font-family: 'Poppins', sans-serif;
+            min-height: 44px;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px
+        }
+
+        .act-cook {
+            background: linear-gradient(135deg, #f97316, #fbbf24);
+            color: #1a0e00
+        }
+
+        .act-cook:hover {
+            box-shadow: 0 0 15px #f9731660
+        }
+
+        .act-ready {
+            background: linear-gradient(135deg, #22c55e, #4ade80);
+            color: #0f1a0a
+        }
+
+        .act-ready:hover {
+            box-shadow: 0 0 15px #22c55e60
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 9999px;
+            font-size: .7rem;
+            font-weight: 600
+        }
+
+        .badge-dinein {
+            background: #d4a01720;
+            color: #d4a017
+        }
+
+        .badge-delivery {
+            background: #22c55e20;
+            color: #22c55e
+        }
+
+        /* Stats */
+        .stats-row {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px
+        }
+
+        .stat-card {
+            flex: 1;
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 1rem;
+            padding: 14px;
+            text-align: center
+        }
+
+        .stat-num {
+            font-size: 1.5rem;
+            font-weight: 700;
+            font-family: 'Playfair Display', serif
+        }
+
+        .stat-label {
+            font-size: .7rem;
+            color: var(--muted);
+            margin-top: 2px
+        }
+
+        /* Shake animation */
+        @keyframes shake {
+
+            0%,
+            100% {
+                transform: translateX(0)
+            }
+
+            20%,
+            60% {
+                transform: translateX(-8px)
+            }
+
+            40%,
+            80% {
+                transform: translateX(8px)
+            }
+        }
+
+        .shake {
+            animation: shake .4s ease
+        }
+
+        /* Timer */
+        .timer {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 10px;
+            border-radius: 9999px;
+            background: #f9731620;
+            color: #f97316;
+            font-size: .75rem;
+            font-weight: 600
+        }
+
+        /* Desktop columns */
+        @media(min-width:768px) {
+            .kitchen-grid {
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 12px
+            }
+        }
+
+        @media(min-width:1024px) {
+            .kitchen-grid {
+                grid-template-columns: repeat(3, 1fr)
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- PASSWORD OVERLAY -->
+    <div class="pw-overlay" id="pwOverlay">
+        <div class="pw-box" id="pwBox">
+            <div style="font-size:3rem;margin-bottom:16px;">👨‍🍳</div>
+            <h2 style="color:#d4a017;font-size:1.3rem;margin-bottom:6px;">Kitchen Access</h2>
+            <p style="color:var(--muted);font-size:.85rem;margin-bottom:24px;">Enter password to continue</p>
+            <input type="password" class="pw-input" id="pwInput" placeholder="••••••" autofocus />
+            <p id="pwError" style="color:var(--red);font-size:.8rem;margin-top:8px;min-height:20px;"></p>
+            <button class="btn-gold" style="margin-top:12px;" onclick="checkPassword()">Enter Kitchen</button>
+        </div>
+    </div>
+
+    <!-- NAVBAR -->
+    <nav class="navbar">
+        <div style="max-width:1200px;margin:auto;display:flex;align-items:center;justify-content:space-between;">
+            <h1 style="font-size:1.05rem;color:#d4a017;display:flex;align-items:center;gap:8px;">
+                👨‍🍳 BVR Kitchen
+            </h1>
+            <a href="index.html" style="color:var(--muted);text-decoration:none;font-size:.85rem;">Exit</a>
+        </div>
+    </nav>
+
+    <main style="padding:76px 16px 32px;max-width:1100px;margin:auto;">
+
+        <!-- AUTO REFRESH NOTE -->
+        <p style="text-align:center;color:var(--muted);font-size:.75rem;margin-bottom:16px;">
+            🔄 Orders refresh automatically · <span id="clock"></span>
+        </p>
+
+        <!-- STATS ROW -->
+        <div class="stats-row">
+            <div class="stat-card">
+                <div class="stat-num" style="color:#f5c842;" id="kPending">2</div>
+                <div class="stat-label">Pending</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-num" style="color:#f97316;" id="kProgress">1</div>
+                <div class="stat-label">In Progress</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-num" style="color:#22c55e;" id="kReady">1</div>
+                <div class="stat-label">Ready</div>
+            </div>
+        </div>
+
+        <!-- ORDERS GRID -->
+        <div class="kitchen-grid" id="kitchenGrid"></div>
+    </main>
+
+    <script>
+        // ========== SHARED UTILITIES ==========
+        function formatPrice(amount) { return '₹' + amount; }
+        function formatTime(isoString) {
+            try { return new Date(isoString).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }); }
+            catch (e) { return isoString || '—'; }
+        }
+        function timeAgo(isoString) {
+            try {
+                const diff = Math.floor((Date.now() - new Date(isoString).getTime()) / 1000);
+                if (diff < 60) return diff + 's ago';
+                if (diff < 3600) return Math.floor(diff / 60) + ' mins ago';
+                return Math.floor(diff / 3600) + ' hrs ago';
+            } catch (e) { return '—'; }
+        }
+        function showToast(message, type = 'success') {
+            const existing = document.getElementById('bvr-toast');
+            if (existing) existing.remove();
+            const colors = { success: '#d4a017', error: '#ef4444', info: '#3b82f6' };
+            const toast = document.createElement('div');
+            toast.id = 'bvr-toast';
+            toast.textContent = message;
+            Object.assign(toast.style, {
+                position: 'fixed', bottom: '80px', left: '50%', transform: 'translateX(-50%)',
+                background: colors[type] || colors.success, color: type === 'success' ? '#1a0e00' : '#fff',
+                padding: '10px 24px', borderRadius: '9999px', fontFamily: "'Poppins',sans-serif",
+                fontSize: '.85rem', fontWeight: '600', zIndex: '999', whiteSpace: 'nowrap',
+                boxShadow: '0 4px 20px rgba(0,0,0,0.4)', transition: 'opacity 0.3s ease', opacity: '1'
+            });
+            document.body.appendChild(toast);
+            setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 3000);
+        }
+        function safeGetJSON(key, fallback) {
+            try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; }
+            catch (e) { return fallback; }
+        }
+        function safeSetJSON(key, value) {
+            try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) { console.error(e); }
+        }
+
+        // ========== PASSWORD ==========
+        function checkPassword() {
+            const input = document.getElementById('pwInput').value;
+            if (input === 'bvr123') {
+                localStorage.setItem('bvr_kitchen_auth', 'true');
+                document.getElementById('pwOverlay').style.opacity = '0';
+                setTimeout(() => {
+                    document.getElementById('pwOverlay').style.display = 'none';
+                }, 300);
+                loadKitchen();
+                showToast('Kitchen unlocked! 🔥');
+                console.log('[BVR] Kitchen authenticated');
+            } else {
+                const box = document.getElementById('pwBox');
+                const err = document.getElementById('pwError');
+                box.classList.remove('shake');
+                void box.offsetWidth; // reflow
+                box.classList.add('shake');
+                err.textContent = '❌ Wrong password. Ask manager.';
+                document.getElementById('pwInput').value = '';
+                document.getElementById('pwInput').focus();
+            }
+        }
+
+        // Allow Enter key
+        document.getElementById('pwInput').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') checkPassword();
+        });
+
+        // Check if already authed
+        function checkKitchenAuth() {
+            if (localStorage.getItem('bvr_kitchen_auth') === 'true') {
+                document.getElementById('pwOverlay').style.display = 'none';
+                loadKitchen();
+            } else {
+                document.getElementById('pwOverlay').style.display = 'flex';
+                document.getElementById('pwOverlay').style.transition = 'opacity 0.3s ease';
+            }
+        }
+
+        // ========== LOCK KITCHEN ==========
+        function lockKitchen() {
+            localStorage.removeItem('bvr_kitchen_auth');
+            document.getElementById('pwOverlay').style.display = 'flex';
+            document.getElementById('pwOverlay').style.opacity = '1';
+            document.getElementById('pwInput').value = '';
+            document.getElementById('pwError').textContent = '';
+            document.getElementById('pwInput').focus();
+            showToast('Kitchen locked 🔒', 'info');
+            console.log('[BVR] Kitchen locked');
+        }
+
+        // Override the Exit link to be a Lock button
+        const exitLink = document.querySelector('a[href="index.html"]');
+        if (exitLink) {
+            exitLink.textContent = '🔒 Lock';
+            exitLink.href = '#';
+            exitLink.addEventListener('click', (e) => {
+                e.preventDefault();
+                lockKitchen();
+            });
+        }
+
+        // ========== KITCHEN ORDERS ==========
+        let allOrders = [];
+
+        function loadKitchen() {
+            allOrders = safeGetJSON('bvr_all_orders', []);
+            renderKitchen();
+        }
+
+        function getKitchenOrders() {
+            // Show CONFIRMED, IN_KITCHEN, and READY (ready for 2 mins)
+            return allOrders.filter(o =>
+                o.status === 'CONFIRMED' || o.status === 'IN_KITCHEN' || o.status === 'READY'
+            ).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp)); // oldest first = priority
+        }
+
+        function renderKitchen() {
+            const grid = document.getElementById('kitchenGrid');
+            const kitchenOrders = getKitchenOrders();
+
+            if (kitchenOrders.length === 0) {
+                grid.innerHTML = `<div style="text-align:center;padding:40px 20px;color:var(--muted);grid-column:1/-1;">
+                    <div style="font-size:3rem;margin-bottom:12px;">✅</div>
+                    <p style="font-size:1rem;">No active orders. Kitchen is clear!</p>
+                </div>`;
+            } else {
+                grid.innerHTML = kitchenOrders.map(o => {
+                    const typeBadge = o.type === 'dine-in'
+                        ? `<span class="badge badge-dinein">🪑 Table ${o.tableNumber}</span>`
+                        : `<span class="badge badge-delivery">🛵 Delivery</span>`;
+
+                    let statusSection = '';
+                    let cardClass = 'card';
+
+                    if (o.status === 'CONFIRMED') {
+                        statusSection = `
+                            <button class="act-btn act-cook" onclick="startCooking('${o.orderId}')">
+                                🔥 Start Cooking
+                            </button>`;
+                    } else if (o.status === 'IN_KITCHEN') {
+                        statusSection = `
+                            <div style="margin-bottom:10px;">
+                                <span class="timer" id="timer_${o.orderId}">⏱ 0:00</span>
+                            </div>
+                            <button class="act-btn act-ready" onclick="markReady('${o.orderId}')">
+                                ✅ Mark Ready
+                            </button>`;
+                    } else if (o.status === 'READY') {
+                        cardClass = 'card card-ready';
+                        const cookStart = o.cookStart;
+                        let doneTime = '';
+                        if (cookStart) {
+                            const mins = Math.floor((Date.now() - cookStart) / 60000);
+                            doneTime = ` · Done in ${mins} min${mins !== 1 ? 's' : ''}`;
+                        }
+                        statusSection = `
+                            <div style="text-align:center;padding:8px;background:#22c55e20;border-radius:12px;">
+                                <span style="color:#22c55e;font-weight:600;font-size:.9rem;">✅ Ready for pickup/delivery${doneTime}</span>
+                            </div>`;
+                    }
+
+                    return `
+                        <div class="${cardClass}" style="margin-bottom:0;">
+                            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
+                                <div>
+                                    <div style="font-weight:600;color:var(--text);font-size:.9rem;">#${o.orderId}</div>
+                                    <div style="font-size:.75rem;color:var(--muted);">${formatTime(o.timestamp)} · ${timeAgo(o.timestamp)}</div>
+                                </div>
+                                ${typeBadge}
+                            </div>
+                            <div style="margin-bottom:10px;">
+                                ${o.items.map(i => `
+                                    <div style="display:flex;justify-content:space-between;padding:4px 0;font-size:.85rem;border-bottom:1px solid #d4a01710;">
+                                        <span>${i.name}</span>
+                                        <span style="color:var(--bright-gold);font-weight:600;">×${i.quantity}</span>
+                                    </div>
+                                `).join('')}
+                            </div>
+                            ${statusSection}
+                        </div>`;
+                }).join('');
+            }
+
+            updateStats();
+            updateTimers();
+        }
+
+        function startCooking(id) {
+            const o = allOrders.find(x => x.orderId === id);
+            if (o) {
+                o.status = 'IN_KITCHEN';
+                o.cookStart = Date.now();
+                safeSetJSON('bvr_all_orders', allOrders);
+                // Sync current order
+                const currentOrder = safeGetJSON('bvr_current_order', null);
+                if (currentOrder && currentOrder.orderId === id) {
+                    currentOrder.status = 'IN_KITCHEN';
+                    currentOrder.cookStart = o.cookStart;
+                    safeSetJSON('bvr_current_order', currentOrder);
+                }
+                renderKitchen();
+                showToast(`🔥 Cooking #${id}`);
+                console.log('[BVR] Started cooking:', id);
+            }
+        }
+
+        function markReady(id) {
+            const o = allOrders.find(x => x.orderId === id);
+            if (o) {
+                o.status = 'READY';
+                safeSetJSON('bvr_all_orders', allOrders);
+                // Sync current order
+                const currentOrder = safeGetJSON('bvr_current_order', null);
+                if (currentOrder && currentOrder.orderId === id) {
+                    currentOrder.status = 'READY';
+                    safeSetJSON('bvr_current_order', currentOrder);
+                }
+                renderKitchen();
+                showToast(`✅ #${id} is ready!`);
+                console.log('[BVR] Marked ready:', id);
+            }
+        }
+
+        function updateStats() {
+            const kitchenOrders = getKitchenOrders();
+            document.getElementById('kPending').textContent = allOrders.filter(o => o.status === 'CONFIRMED').length;
+            document.getElementById('kProgress').textContent = allOrders.filter(o => o.status === 'IN_KITCHEN').length;
+            document.getElementById('kReady').textContent = allOrders.filter(o => o.status === 'READY').length;
+        }
+
+        function updateTimers() {
+            allOrders.filter(o => o.status === 'IN_KITCHEN' && o.cookStart).forEach(o => {
+                const el = document.getElementById('timer_' + o.orderId);
+                if (el) {
+                    const elapsed = Math.floor((Date.now() - o.cookStart) / 1000);
+                    const mins = Math.floor(elapsed / 60);
+                    const secs = elapsed % 60;
+                    el.textContent = `⏱ ${mins}:${secs.toString().padStart(2, '0')}`;
+                }
+            });
+        }
+
+        // Clock
+        function updateClock() {
+            document.getElementById('clock').textContent = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true });
+        }
+
+        // ========== AUTO REFRESH ==========
+        setInterval(() => {
+            if (localStorage.getItem('bvr_kitchen_auth') === 'true') {
+                const fresh = safeGetJSON('bvr_all_orders', []);
+                // Preserve cookStart timers from current in-memory orders
+                fresh.forEach(fo => {
+                    const existing = allOrders.find(ao => ao.orderId === fo.orderId);
+                    if (existing && existing.cookStart && !fo.cookStart) {
+                        fo.cookStart = existing.cookStart;
+                    }
+                });
+                allOrders = fresh;
+                renderKitchen();
+            }
+        }, 10000);
+
+        setInterval(updateTimers, 1000);
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        // ========== INIT ==========
+        checkKitchenAuth();
+        console.log('[BVR] Kitchen dashboard loaded');
+    </script>
+</body>
+
+</html>

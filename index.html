@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BVR Bangaru Vakili Family Restaurant — Nalgonda</title>
+  <meta name="description" content="Authentic Telugu flavors at BVR Bangaru Vakili Family Restaurant, Nalgonda. Dine-in, delivery & catering. Order now!" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;800&family=Poppins:wght@300;400;500;600;700&display=swap');
+
+    :root {
+      --bg: #0a0500;
+      --card-bg: #1a0e00;
+      --border: #d4a01740;
+      --gold: #d4a017;
+      --bright-gold: #f5c842;
+      --text: #f5e6c8;
+      --muted: #a07840;
+      --green: #22c55e;
+      --red: #ef4444;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'Poppins', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+    h1, h2, h3, h4, h5, h6 { font-family: 'Playfair Display', serif; }
+
+    .gold-glow { box-shadow: 0 0 20px #d4a01760; }
+    .gold-gradient { background: linear-gradient(135deg, #d4a017, #f5c842); }
+    .btn-gold {
+      background: linear-gradient(135deg, #d4a017, #f5c842);
+      color: #1a0e00;
+      font-weight: 700;
+      border-radius: 9999px;
+      min-height: 48px;
+      padding: 12px 32px;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-size: 1rem;
+      font-family: 'Poppins', sans-serif;
+      text-decoration: none;
+    }
+    .btn-gold:hover {
+      box-shadow: 0 0 25px #d4a01780;
+      transform: translateY(-2px);
+    }
+    .btn-gold:active { transform: translateY(0); }
+
+    /* Navbar */
+    .navbar {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+      background: #0a050095;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 20px;
+    }
+
+    /* Hero background pattern */
+    .hero-bg {
+      position: relative;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 100px 20px 60px;
+      overflow: hidden;
+    }
+    .hero-bg::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(ellipse at 50% 20%, #d4a01715 0%, transparent 60%),
+        radial-gradient(ellipse at 80% 80%, #d4a01708 0%, transparent 40%);
+      pointer-events: none;
+    }
+
+    /* Pulsing badge */
+    @keyframes pulse-glow {
+      0%, 100% { box-shadow: 0 0 30px #d4a01740; }
+      50% { box-shadow: 0 0 60px #d4a01780; }
+    }
+    .badge-pulse { animation: pulse-glow 3s ease-in-out infinite; }
+
+    /* Fade-in animation */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(24px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .fade-up {
+      opacity: 0;
+      animation: fadeUp 0.7s ease forwards;
+    }
+    .fade-up-d1 { animation-delay: 0.15s; }
+    .fade-up-d2 { animation-delay: 0.3s; }
+    .fade-up-d3 { animation-delay: 0.45s; }
+    .fade-up-d4 { animation-delay: 0.6s; }
+
+    /* Service cards scroll */
+    .services-scroll {
+      display: flex;
+      gap: 16px;
+      overflow-x: auto;
+      scroll-snap-type: x mandatory;
+      -webkit-overflow-scrolling: touch;
+      padding: 8px 4px;
+    }
+    .services-scroll::-webkit-scrollbar { display: none; }
+    .service-card {
+      flex: 0 0 calc(75vw - 24px);
+      max-width: 280px;
+      scroll-snap-align: start;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 1rem;
+      padding: 24px 20px;
+      transition: all 0.2s ease;
+      text-align: center;
+    }
+    .service-card:hover {
+      box-shadow: 0 0 20px #d4a01730;
+      transform: translateY(-4px);
+    }
+
+    /* Mobile menu */
+    .mobile-menu {
+      position: fixed;
+      top: 0; right: -100%;
+      width: 70%;
+      max-width: 300px;
+      height: 100vh;
+      background: #0f0700;
+      border-left: 1px solid var(--border);
+      z-index: 200;
+      padding: 80px 30px 30px;
+      transition: right 0.3s ease;
+    }
+    .mobile-menu.open { right: 0; }
+    .mobile-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      z-index: 150;
+      display: none;
+    }
+    .mobile-overlay.open { display: block; }
+
+    @media (min-width: 768px) {
+      .service-card { flex: 1; max-width: 320px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- NAVBAR -->
+  <nav class="navbar">
+    <div style="max-width:1200px;margin:auto;display:flex;align-items:center;justify-content:space-between;">
+      <a href="index.html" style="display:flex;align-items:center;gap:10px;text-decoration:none;">
+        <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#d4a017,#f5c842);display:flex;align-items:center;justify-content:center;font-weight:800;color:#1a0e00;font-size:14px;font-family:'Playfair Display',serif;">BVR</div>
+        <span style="font-family:'Playfair Display',serif;font-weight:700;font-size:1.25rem;color:#d4a017;">BVR</span>
+      </a>
+      <!-- Desktop Nav -->
+      <div style="display:none;gap:28px;align-items:center;" id="desktopNav">
+        <a href="index.html" style="color:#f5c842;text-decoration:none;font-weight:500;font-size:0.95rem;">Home</a>
+        <a href="menu.html" style="color:#f5e6c8;text-decoration:none;font-weight:400;font-size:0.95rem;transition:color 0.2s;" onmouseover="this.style.color='#f5c842'" onmouseout="this.style.color='#f5e6c8'">Menu</a>
+        <a href="#about" style="color:#f5e6c8;text-decoration:none;font-weight:400;font-size:0.95rem;transition:color 0.2s;" onmouseover="this.style.color='#f5c842'" onmouseout="this.style.color='#f5e6c8'">About</a>
+        <a href="#contact" style="color:#f5e6c8;text-decoration:none;font-weight:400;font-size:0.95rem;transition:color 0.2s;" onmouseover="this.style.color='#f5c842'" onmouseout="this.style.color='#f5e6c8'">Contact</a>
+      </div>
+      <!-- Hamburger -->
+      <button id="hamburger" style="background:none;border:none;cursor:pointer;display:flex;flex-direction:column;gap:5px;padding:8px;" aria-label="Open menu">
+        <span style="width:24px;height:2px;background:#d4a017;border-radius:2px;transition:0.2s;"></span>
+        <span style="width:24px;height:2px;background:#d4a017;border-radius:2px;transition:0.2s;"></span>
+        <span style="width:24px;height:2px;background:#d4a017;border-radius:2px;transition:0.2s;"></span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- MOBILE MENU OVERLAY -->
+  <div class="mobile-overlay" id="mobileOverlay"></div>
+  <div class="mobile-menu" id="mobileMenu">
+    <button id="closeMenu" style="position:absolute;top:24px;right:24px;background:none;border:none;color:#d4a017;font-size:28px;cursor:pointer;">✕</button>
+    <div style="display:flex;flex-direction:column;gap:28px;">
+      <a href="index.html" style="color:#f5c842;text-decoration:none;font-weight:600;font-size:1.15rem;">🏠 Home</a>
+      <a href="menu.html" style="color:#f5e6c8;text-decoration:none;font-weight:500;font-size:1.15rem;">🍽️ Menu</a>
+      <a href="#about" style="color:#f5e6c8;text-decoration:none;font-weight:500;font-size:1.15rem;" onclick="closeMobileMenu()">ℹ️ About</a>
+      <a href="#contact" style="color:#f5e6c8;text-decoration:none;font-weight:500;font-size:1.15rem;" onclick="closeMobileMenu()">📞 Contact</a>
+      <hr style="border:none;border-top:1px solid #d4a01730;" />
+      <a href="owner.html" style="color:#a07840;text-decoration:none;font-size:0.9rem;">🔒 Owner Dashboard</a>
+      <a href="kitchen.html" style="color:#a07840;text-decoration:none;font-size:0.9rem;">👨‍🍳 Kitchen Dashboard</a>
+    </div>
+  </div>
+
+  <!-- HERO SECTION -->
+  <section class="hero-bg">
+    <!-- Golden Badge -->
+    <div class="fade-up" style="width:120px;height:120px;border-radius:50%;background:linear-gradient(135deg,#d4a017,#f5c842,#d4a017);display:flex;align-items:center;justify-content:center;margin-bottom:28px;box-shadow:0 0 40px #d4a01760;" class="badge-pulse">
+      <span style="font-family:'Playfair Display',serif;font-weight:800;font-size:2rem;color:#1a0e00;">BVR</span>
+    </div>
+
+    <h1 class="fade-up fade-up-d1" style="font-size:clamp(2.2rem,7vw,3.5rem);color:#d4a017;line-height:1.15;margin-bottom:8px;">
+      Bangaru Vakili
+    </h1>
+    <p class="fade-up fade-up-d1" style="font-size:1.1rem;color:#f5e6c8;font-weight:500;margin-bottom:4px;">
+      Family Restaurant · Nalgonda
+    </p>
+    <p class="fade-up fade-up-d2" style="font-size:0.95rem;color:#a07840;margin-bottom:36px;max-width:340px;">
+      Authentic Telugu Flavors, Now at Your Fingertips
+    </p>
+
+    <a href="menu.html" class="btn-gold gold-glow fade-up fade-up-d3" style="font-size:1.1rem;padding:14px 40px;">
+      🍽️ Start Ordering
+    </a>
+    <p class="fade-up fade-up-d4" style="font-size:0.8rem;color:#a07840;margin-top:16px;">
+      Scan QR at your table to order
+    </p>
+  </section>
+
+  <!-- SERVICES ROW -->
+  <section id="about" style="padding:40px 20px;max-width:1200px;margin:auto;">
+    <h2 style="text-align:center;font-size:1.6rem;color:#d4a017;margin-bottom:24px;">Our Services</h2>
+    <div class="services-scroll">
+      <div class="service-card">
+        <div style="font-size:2.5rem;margin-bottom:12px;">🪑</div>
+        <h3 style="color:#f5c842;font-size:1.15rem;margin-bottom:6px;font-family:'Playfair Display',serif;">Dine In</h3>
+        <p style="color:#a07840;font-size:0.85rem;">Scan table QR & order instantly from your seat</p>
+      </div>
+      <div class="service-card">
+        <div style="font-size:2.5rem;margin-bottom:12px;">🛵</div>
+        <h3 style="color:#f5c842;font-size:1.15rem;margin-bottom:6px;font-family:'Playfair Display',serif;">Home Delivery</h3>
+        <p style="color:#a07840;font-size:0.85rem;">Order from anywhere, we deliver to your door</p>
+      </div>
+      <div class="service-card">
+        <div style="font-size:2.5rem;margin-bottom:12px;">🎪</div>
+        <h3 style="color:#f5c842;font-size:1.15rem;margin-bottom:6px;font-family:'Playfair Display',serif;">Outdoor Catering</h3>
+        <p style="color:#a07840;font-size:0.85rem;">Events, functions & party catering service</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- INFO STRIP -->
+  <section id="contact" style="background:#110900;border-top:1px solid #d4a01720;border-bottom:1px solid #d4a01720;padding:28px 20px;">
+    <div style="max-width:1000px;margin:auto;display:flex;flex-wrap:wrap;justify-content:center;gap:20px 40px;text-align:center;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="font-size:1.2rem;">📍</span>
+        <span style="color:#f5e6c8;font-size:0.9rem;">Shivaji Nagar Circle, Nalgonda - 508001</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="font-size:1.2rem;">📞</span>
+        <a href="tel:7337334474" style="color:#f5c842;text-decoration:none;font-size:0.9rem;">7337334474</a>
+        <span style="color:#a07840;">/</span>
+        <a href="tel:9701054013" style="color:#f5c842;text-decoration:none;font-size:0.9rem;">9701054013</a>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="font-size:1.2rem;">⏰</span>
+        <span style="color:#f5e6c8;font-size:0.9rem;">Open: 11:45 AM – 11:00 PM</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer style="padding:32px 20px;text-align:center;border-top:1px solid #d4a01715;">
+    <p style="color:#a07840;font-size:0.85rem;margin-bottom:6px;">© 2026 BVR Bangaru Vakili Family Restaurant</p>
+    <p style="color:#a0784060;font-size:0.75rem;">Powered by BVR Digital</p>
+  </footer>
+
+  <script>
+    // Mobile menu
+    const hamburger = document.getElementById('hamburger');
+    const mobileMenu = document.getElementById('mobileMenu');
+    const mobileOverlay = document.getElementById('mobileOverlay');
+    const closeMenu = document.getElementById('closeMenu');
+
+    function openMobileMenu() {
+      mobileMenu.classList.add('open');
+      mobileOverlay.classList.add('open');
+      document.body.style.overflow = 'hidden';
+    }
+    function closeMobileMenu() {
+      mobileMenu.classList.remove('open');
+      mobileOverlay.classList.remove('open');
+      document.body.style.overflow = '';
+    }
+    hamburger.addEventListener('click', openMobileMenu);
+    closeMenu.addEventListener('click', closeMobileMenu);
+    mobileOverlay.addEventListener('click', closeMobileMenu);
+
+    // Desktop nav visibility
+    function checkWidth() {
+      const dn = document.getElementById('desktopNav');
+      const hb = document.getElementById('hamburger');
+      if (window.innerWidth >= 768) {
+        dn.style.display = 'flex';
+        hb.style.display = 'none';
+        closeMobileMenu();
+      } else {
+        dn.style.display = 'none';
+        hb.style.display = 'flex';
+      }
+    }
+    window.addEventListener('resize', checkWidth);
+    checkWidth();
+  </script>
+</body>
+</html>

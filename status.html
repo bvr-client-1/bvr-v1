@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Order Status — BVR Restaurant</title>
+    <meta name="description" content="Track your BVR restaurant order in real-time." />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;800&family=Poppins:wght@300;400;500;600;700&display=swap');
+
+        :root {
+            --bg: #0a0500;
+            --card-bg: #1a0e00;
+            --border: #d4a01740;
+            --gold: #d4a017;
+            --bright-gold: #f5c842;
+            --text: #f5e6c8;
+            --muted: #a07840;
+            --green: #22c55e;
+            --red: #ef4444
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            overflow-x: hidden
+        }
+
+        h1,
+        h2,
+        h3 {
+            font-family: 'Playfair Display', serif
+        }
+
+        .navbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            background: #0a050095;
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-bottom: 1px solid var(--border);
+            padding: 12px 20px
+        }
+
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 1rem;
+            padding: 16px
+        }
+
+        /* Stepper */
+        .step {
+            display: flex;
+            gap: 14px;
+            position: relative;
+            padding-bottom: 28px
+        }
+
+        .step:last-child {
+            padding-bottom: 0
+        }
+
+        .step-line {
+            position: absolute;
+            left: 17px;
+            top: 36px;
+            width: 2px;
+            bottom: 0;
+            background: var(--border)
+        }
+
+        .step.completed .step-line {
+            background: var(--green)
+        }
+
+        .step.active .step-line {
+            background: linear-gradient(to bottom, var(--gold), var(--border))
+        }
+
+        .step-dot {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            font-size: .9rem;
+            border: 2px solid var(--border);
+            background: var(--bg);
+            position: relative;
+            z-index: 2
+        }
+
+        .step.completed .step-dot {
+            background: var(--green);
+            border-color: var(--green);
+            color: #fff
+        }
+
+        .step.active .step-dot {
+            background: var(--gold);
+            border-color: var(--gold);
+            color: #1a0e00
+        }
+
+        .step.pending .step-dot {
+            opacity: .4
+        }
+
+        .step.pending .step-info {
+            opacity: .4
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                box-shadow: 0 0 0 0 #d4a01760
+            }
+
+            50% {
+                box-shadow: 0 0 0 10px #d4a01700
+            }
+        }
+
+        .step.active .step-dot {
+            animation: pulse 2s ease-in-out infinite
+        }
+
+        .step-info {
+            flex: 1
+        }
+
+        .step-label {
+            font-weight: 600;
+            font-size: .9rem;
+            margin-bottom: 2px
+        }
+
+        .step-time {
+            font-size: .75rem;
+            color: var(--muted)
+        }
+
+        /* Collapsible */
+        .collapse-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            padding: 8px 0
+        }
+
+        .collapse-body {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height .3s ease
+        }
+
+        .collapse-body.open {
+            max-height: 500px
+        }
+
+        .btn-gold {
+            background: linear-gradient(135deg, #d4a017, #f5c842);
+            color: #1a0e00;
+            font-weight: 700;
+            border-radius: 9999px;
+            min-height: 48px;
+            padding: 12px 24px;
+            border: none;
+            cursor: pointer;
+            transition: all .2s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-size: 1rem;
+            font-family: 'Poppins', sans-serif;
+            text-decoration: none
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- NAVBAR -->
+    <nav class="navbar">
+        <div style="max-width:1200px;margin:auto;display:flex;align-items:center;justify-content:space-between;">
+            <a href="menu.html" style="color:#d4a017;text-decoration:none;font-size:.9rem;">← Menu</a>
+            <h1 style="font-size:1.15rem;color:#d4a017;">Order Status</h1>
+            <div style="width:50px;"></div>
+        </div>
+    </nav>
+
+    <main style="padding:80px 16px 32px;max-width:600px;margin:auto;">
+
+        <!-- ORDER INFO CARD -->
+        <div class="card" style="margin-bottom:16px;">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;">
+                <div>
+                    <h2 style="font-size:1.1rem;color:#d4a017;margin-bottom:4px;">Order #BVR2026001</h2>
+                    <span id="orderTypeBadge"
+                        style="display:inline-block;padding:4px 12px;border-radius:9999px;font-size:.75rem;font-weight:600;background:#d4a01720;color:#d4a017;">Dine-In</span>
+                </div>
+                <div style="text-align:right;">
+                    <div style="font-size:.8rem;color:var(--muted);" id="orderTime">12:30 PM</div>
+                    <div style="font-size:1rem;font-weight:700;color:var(--green);margin-top:4px;" id="orderTotal">₹360
+                        ✅</div>
+                </div>
+            </div>
+            <div style="font-size:.85rem;color:var(--muted);" id="orderDetail">Table 4 · Paid via UPI</div>
+        </div>
+
+        <!-- STATUS TRACKER -->
+        <div class="card" style="margin-bottom:16px;">
+            <h2 style="font-size:1rem;color:#d4a017;margin-bottom:16px;">Live Status</h2>
+            <div id="statusStepper">
+                <div class="step completed">
+                    <div class="step-line"></div>
+                    <div class="step-dot">✅</div>
+                    <div class="step-info">
+                        <div class="step-label">Order Placed</div>
+                        <div class="step-time" id="time0">12:30 PM</div>
+                    </div>
+                </div>
+                <div class="step completed">
+                    <div class="step-line"></div>
+                    <div class="step-dot">✅</div>
+                    <div class="step-info">
+                        <div class="step-label">Confirmed by Restaurant</div>
+                        <div class="step-time" id="time1">12:32 PM</div>
+                    </div>
+                </div>
+                <div class="step active">
+                    <div class="step-line"></div>
+                    <div class="step-dot">🔥</div>
+                    <div class="step-info">
+                        <div class="step-label" style="color:#d4a017;">In Kitchen (Preparing)</div>
+                        <div class="step-time" id="time2">12:35 PM</div>
+                    </div>
+                </div>
+                <div class="step pending">
+                    <div class="step-line"></div>
+                    <div class="step-dot">⬜</div>
+                    <div class="step-info">
+                        <div class="step-label">Ready</div>
+                        <div class="step-time">—</div>
+                    </div>
+                </div>
+                <div class="step pending" id="step4">
+                    <div class="step-line"></div>
+                    <div class="step-dot">⬜</div>
+                    <div class="step-info">
+                        <div class="step-label" id="step4Label">Served at Table</div>
+                        <div class="step-time">—</div>
+                    </div>
+                </div>
+                <div class="step pending">
+                    <div class="step-dot">⬜</div>
+                    <div class="step-info">
+                        <div class="step-label">Completed</div>
+                        <div class="step-time">—</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- DELIVERY PERSON CARD (hidden by default) -->
+        <div class="card" id="deliveryCard" style="margin-bottom:16px;display:none;">
+            <h2 style="font-size:1rem;color:#d4a017;margin-bottom:12px;">🛵 Your Delivery Partner</h2>
+            <div style="display:flex;align-items:center;gap:14px;">
+                <div
+                    style="width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,#d4a017,#f5c842);display:flex;align-items:center;justify-content:center;font-size:1.3rem;">
+                    👤</div>
+                <div style="flex:1;">
+                    <div style="font-weight:600;font-size:.95rem;">Raju Kumar</div>
+                    <a href="tel:9876543210" style="color:#f5c842;text-decoration:none;font-size:.85rem;">📞
+                        9876543210</a>
+                </div>
+            </div>
+            <p style="font-size:.75rem;color:var(--muted);margin-top:10px;">No live tracking — call delivery partner if
+                needed</p>
+        </div>
+
+        <!-- ITEMS SUMMARY (collapsible) -->
+        <div class="card" style="margin-bottom:16px;">
+            <div class="collapse-header" onclick="toggleItems()">
+                <h2 style="font-size:1rem;color:#d4a017;">Items Ordered</h2>
+                <span style="color:var(--muted);font-size:1.2rem;transition:transform .2s;" id="collapseArrow">▾</span>
+            </div>
+            <div class="collapse-body" id="collapseBody">
+                <div id="itemsList" style="padding-top:8px;"></div>
+            </div>
+        </div>
+
+        <!-- AUTO REFRESH NOTE -->
+        <p style="text-align:center;color:var(--muted);font-size:.75rem;">
+            🔄 Status updates automatically every 10 seconds
+        </p>
+
+        <!-- BACK TO MENU -->
+        <div style="text-align:center;margin-top:20px;">
+            <a href="menu.html" class="btn-gold"
+                style="width:auto;display:inline-flex;font-size:.9rem;padding:10px 24px;">
+                🍽️ Order More
+            </a>
+        </div>
+    </main>
+
+    <script>
+        // ========== SHARED UTILITIES ==========
+        function formatPrice(amount) { return '₹' + amount; }
+        function formatTime(isoString) {
+            try { return new Date(isoString).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }); }
+            catch (e) { return isoString || '—'; }
+        }
+        function timeAgo(isoString) {
+            try {
+                const diff = Math.floor((Date.now() - new Date(isoString).getTime()) / 1000);
+                if (diff < 60) return diff + 's ago';
+                if (diff < 3600) return Math.floor(diff / 60) + ' mins ago';
+                return Math.floor(diff / 3600) + ' hrs ago';
+            } catch (e) { return '—'; }
+        }
+        function showToast(message, type = 'success') {
+            const existing = document.getElementById('bvr-toast');
+            if (existing) existing.remove();
+            const colors = { success: '#d4a017', error: '#ef4444', info: '#3b82f6' };
+            const toast = document.createElement('div');
+            toast.id = 'bvr-toast';
+            toast.textContent = message;
+            Object.assign(toast.style, {
+                position: 'fixed', bottom: '80px', left: '50%', transform: 'translateX(-50%)',
+                background: colors[type] || colors.success, color: type === 'success' ? '#1a0e00' : '#fff',
+                padding: '10px 24px', borderRadius: '9999px', fontFamily: "'Poppins',sans-serif",
+                fontSize: '.85rem', fontWeight: '600', zIndex: '999', whiteSpace: 'nowrap',
+                boxShadow: '0 4px 20px rgba(0,0,0,0.4)', transition: 'opacity 0.3s ease', opacity: '1'
+            });
+            document.body.appendChild(toast);
+            setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 3000);
+        }
+        function safeGetJSON(key, fallback) {
+            try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; }
+            catch (e) { return fallback; }
+        }
+        function safeSetJSON(key, value) {
+            try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) { console.error(e); }
+        }
+
+        // ========== STATUS CONFIG ==========
+        const STATUS_STEPS_DINEIN = ['NEW', 'CONFIRMED', 'IN_KITCHEN', 'READY', 'SERVED', 'COMPLETED'];
+        const STATUS_STEPS_DELIVERY = ['NEW', 'CONFIRMED', 'IN_KITCHEN', 'READY', 'OUT_FOR_DELIVERY', 'COMPLETED'];
+        const STATUS_LABELS = {
+            NEW: 'Order Placed', CONFIRMED: 'Confirmed by Restaurant',
+            IN_KITCHEN: 'In Kitchen (Preparing)', READY: 'Food Ready',
+            OUT_FOR_DELIVERY: 'Out for Delivery', SERVED: 'Served at Table', COMPLETED: 'Completed'
+        };
+        const STATUS_ICONS = {
+            completed: '✅', active: '🔥', pending: '⬜'
+        };
+
+        let lastRefresh = Date.now();
+
+        function loadOrder() {
+            return safeGetJSON('bvr_current_order', null);
+        }
+
+        function renderStatus() {
+            const order = loadOrder();
+            if (!order) {
+                document.querySelector('main').innerHTML = `
+                    <div style="text-align:center;padding:80px 20px;">
+                        <div style="font-size:3rem;margin-bottom:16px;">📋</div>
+                        <h2 style="color:#d4a017;font-size:1.3rem;margin-bottom:8px;">No active order found</h2>
+                        <p style="color:#a07840;margin-bottom:24px;font-size:.9rem;">Place an order from the menu</p>
+                        <a href="menu.html" class="btn-gold" style="width:auto;display:inline-flex;">🍽️ Go to Menu</a>
+                    </div>`;
+                return;
+            }
+
+            const steps = order.type === 'delivery' ? STATUS_STEPS_DELIVERY : STATUS_STEPS_DINEIN;
+            const currentIdx = steps.indexOf(order.status);
+
+            // Update order info card
+            const titleEl = document.querySelector('main .card h2');
+            if (titleEl) titleEl.textContent = 'Order #' + order.orderId;
+
+            const badge = document.getElementById('orderTypeBadge');
+            if (order.type === 'delivery') {
+                badge.textContent = '🛵 Delivery';
+                badge.style.background = '#22c55e20'; badge.style.color = '#22c55e';
+            } else {
+                badge.textContent = '🪑 Dine-In · Table ' + (order.tableNumber || '?');
+            }
+
+            document.getElementById('orderTime').textContent = formatTime(order.timestamp);
+            document.getElementById('orderTotal').textContent = formatPrice(order.total) + ' ✅';
+            document.getElementById('orderDetail').textContent =
+                order.type === 'delivery'
+                    ? (order.deliveryAddress || 'Delivery') + ' · Paid via UPI'
+                    : 'Table ' + (order.tableNumber || '?') + ' · Paid via UPI';
+
+            // Render stepper
+            const stepper = document.getElementById('statusStepper');
+            stepper.innerHTML = steps.map((step, i) => {
+                let cls = 'pending', icon = STATUS_ICONS.pending, timeStr = '—';
+                if (i < currentIdx) {
+                    cls = 'completed'; icon = STATUS_ICONS.completed;
+                    // Simulate past timestamps
+                    const t = new Date(new Date(order.timestamp).getTime() + i * 120000);
+                    timeStr = formatTime(t.toISOString());
+                } else if (i === currentIdx) {
+                    cls = 'active'; icon = STATUS_ICONS.active;
+                    timeStr = i === 0 ? formatTime(order.timestamp) : 'In progress';
+                }
+                const isLast = i === steps.length - 1;
+                const labelStyle = cls === 'active' ? ' style="color:#d4a017;"' : '';
+                return `
+                    <div class="step ${cls}">
+                        ${!isLast ? '<div class="step-line"></div>' : ''}
+                        <div class="step-dot">${icon}</div>
+                        <div class="step-info">
+                            <div class="step-label"${labelStyle}>${STATUS_LABELS[step]}</div>
+                            <div class="step-time">${timeStr}</div>
+                        </div>
+                    </div>`;
+            }).join('');
+
+            // Delivery person card
+            const deliveryCard = document.getElementById('deliveryCard');
+            if (order.status === 'OUT_FOR_DELIVERY' && order.deliveryPerson) {
+                deliveryCard.style.display = 'block';
+                deliveryCard.querySelector('div[style*="font-weight:600"]').textContent = order.deliveryPerson;
+            } else {
+                deliveryCard.style.display = 'none';
+            }
+
+            // Update step4 label
+            const step4Label = document.getElementById('step4Label');
+            if (step4Label) {
+                step4Label.textContent = order.type === 'delivery' ? 'Out for Delivery' : 'Served at Table';
+            }
+
+            // Items list
+            const itemsEl = document.getElementById('itemsList');
+            if (order.items && order.items.length > 0) {
+                itemsEl.innerHTML = order.items.map(i => `
+                    <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #d4a01710;font-size:.85rem;">
+                        <span>${i.name} × ${i.quantity}</span>
+                        <span style="color:var(--bright-gold);">${formatPrice(i.price * i.quantity)}</span>
+                    </div>
+                `).join('');
+            }
+
+            lastRefresh = Date.now();
+            console.log('[BVR] Status rendered:', order.status);
+        }
+
+        // ========== SIMULATE BUTTON (Dev Only) ==========
+        function addSimulateButton() {
+            const main = document.querySelector('main');
+            const simDiv = document.createElement('div');
+            simDiv.style.cssText = 'text-align:center;margin-top:20px;';
+            simDiv.innerHTML = `
+                <button onclick="simulateNext()" style="background:#1a0e00;border:1px dashed #a07840;color:#a07840;padding:8px 16px;border-radius:9999px;font-size:.75rem;cursor:pointer;font-family:'Poppins',sans-serif;">
+                    ⚡ Simulate Next Status (Dev Only)
+                </button>
+                <p style="font-size:.7rem;color:#a0784060;margin-top:6px;">Last updated: <span id="lastUpdateCounter">0s ago</span></p>`;
+            main.appendChild(simDiv);
+        }
+
+        function simulateNext() {
+            const order = loadOrder();
+            if (!order) return;
+            const steps = order.type === 'delivery' ? STATUS_STEPS_DELIVERY : STATUS_STEPS_DINEIN;
+            const currentIdx = steps.indexOf(order.status);
+            if (currentIdx < steps.length - 1) {
+                order.status = steps[currentIdx + 1];
+                // Add delivery person when going to OUT_FOR_DELIVERY
+                if (order.status === 'OUT_FOR_DELIVERY') {
+                    order.deliveryPerson = 'Raju Kumar';
+                }
+                safeSetJSON('bvr_current_order', order);
+                // Also update in bvr_all_orders
+                const allOrders = safeGetJSON('bvr_all_orders', []);
+                const idx = allOrders.findIndex(o => o.orderId === order.orderId);
+                if (idx >= 0) { allOrders[idx] = order; safeSetJSON('bvr_all_orders', allOrders); }
+                showToast('Status → ' + STATUS_LABELS[order.status]);
+                renderStatus();
+                console.log('[BVR] Simulated status advance to:', order.status);
+            } else {
+                showToast('Order already completed!', 'info');
+            }
+        }
+
+        function toggleItems() {
+            const body = document.getElementById('collapseBody');
+            const arrow = document.getElementById('collapseArrow');
+            body.classList.toggle('open');
+            arrow.style.transform = body.classList.contains('open') ? 'rotate(180deg)' : 'rotate(0)';
+        }
+
+        // ========== AUTO REFRESH ==========
+        setInterval(() => {
+            renderStatus();
+            const counter = document.getElementById('lastUpdateCounter');
+            if (counter) counter.textContent = '0s ago';
+        }, 10000);
+
+        // Update "last updated" counter
+        setInterval(() => {
+            const counter = document.getElementById('lastUpdateCounter');
+            if (counter) {
+                const secs = Math.floor((Date.now() - lastRefresh) / 1000);
+                counter.textContent = secs + 's ago';
+            }
+        }, 1000);
+
+        // Init
+        renderStatus();
+        addSimulateButton();
+        console.log('[BVR] Status page loaded');
+    </script>
+</body>
+
+</html>

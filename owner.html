@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Owner Dashboard — BVR Restaurant</title>
+    <meta name="description" content="BVR Restaurant owner dashboard for order management." />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;800&family=Poppins:wght@300;400;500;600;700&display=swap');
+
+        :root {
+            --bg: #0a0500;
+            --card-bg: #1a0e00;
+            --border: #d4a01740;
+            --gold: #d4a017;
+            --bright-gold: #f5c842;
+            --text: #f5e6c8;
+            --muted: #a07840;
+            --green: #22c55e;
+            --red: #ef4444
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            overflow-x: hidden
+        }
+
+        h1,
+        h2,
+        h3 {
+            font-family: 'Playfair Display', serif
+        }
+
+        .navbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            background: #0a050095;
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-bottom: 1px solid var(--border);
+            padding: 12px 20px
+        }
+
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 1rem;
+            padding: 16px;
+            transition: all .2s ease
+        }
+
+        /* Stats scroll */
+        .stats-scroll {
+            display: flex;
+            gap: 12px;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            padding: 4px
+        }
+
+        .stats-scroll::-webkit-scrollbar {
+            display: none
+        }
+
+        .stat-card {
+            flex: 0 0 140px;
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 1rem;
+            padding: 16px;
+            text-align: center
+        }
+
+        .stat-num {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--bright-gold);
+            font-family: 'Playfair Display', serif
+        }
+
+        .stat-label {
+            font-size: .75rem;
+            color: var(--muted);
+            margin-top: 4px
+        }
+
+        /* Tabs */
+        .tabs-wrap {
+            display: flex;
+            gap: 6px;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            padding: 4px
+        }
+
+        .tabs-wrap::-webkit-scrollbar {
+            display: none
+        }
+
+        .tab-btn {
+            flex-shrink: 0;
+            padding: 8px 14px;
+            border-radius: 9999px;
+            border: 1px solid var(--border);
+            background: transparent;
+            color: var(--muted);
+            font-size: .8rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all .2s ease;
+            font-family: 'Poppins', sans-serif;
+            white-space: nowrap
+        }
+
+        .tab-btn.active {
+            background: linear-gradient(135deg, #d4a017, #f5c842);
+            color: #1a0e00;
+            border-color: transparent;
+            font-weight: 600
+        }
+
+        /* Action buttons */
+        .act-btn {
+            padding: 8px 16px;
+            border-radius: 9999px;
+            border: none;
+            font-size: .8rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all .2s;
+            font-family: 'Poppins', sans-serif;
+            min-height: 40px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px
+        }
+
+        .act-btn:hover {
+            transform: translateY(-1px)
+        }
+
+        .act-confirm {
+            background: #22c55e;
+            color: #fff
+        }
+
+        .act-cancel {
+            background: #ef4444;
+            color: #fff
+        }
+
+        .act-gold {
+            background: linear-gradient(135deg, #d4a017, #f5c842);
+            color: #1a0e00
+        }
+
+        .act-outline {
+            background: transparent;
+            border: 1px solid var(--gold);
+            color: var(--gold)
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 9999px;
+            font-size: .7rem;
+            font-weight: 600
+        }
+
+        .badge-dinein {
+            background: #d4a01720;
+            color: #d4a017
+        }
+
+        .badge-delivery {
+            background: #22c55e20;
+            color: #22c55e
+        }
+
+        /* Dropdown */
+        select.act-select {
+            padding: 8px 12px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            background: #0f0700;
+            color: var(--text);
+            font-size: .8rem;
+            font-family: 'Poppins', sans-serif;
+            outline: none;
+            min-height: 40px
+        }
+
+        select.act-select:focus {
+            border-color: var(--gold)
+        }
+
+        .btn-gold {
+            background: linear-gradient(135deg, #d4a017, #f5c842);
+            color: #1a0e00;
+            font-weight: 700;
+            border-radius: 9999px;
+            min-height: 48px;
+            padding: 10px 20px;
+            border: none;
+            cursor: pointer;
+            transition: all .2s;
+            font-family: 'Poppins', sans-serif;
+            text-decoration: none;
+            font-size: .9rem
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- NAVBAR -->
+    <nav class="navbar">
+        <div style="max-width:1200px;margin:auto;display:flex;align-items:center;justify-content:space-between;">
+            <h1 style="font-size:1.05rem;color:#d4a017;display:flex;align-items:center;gap:8px;">
+                <span style="font-size:1.2rem;">👑</span> BVR Owner Dashboard
+            </h1>
+            <div style="display:flex;align-items:center;gap:12px;">
+                <span style="font-size:.75rem;color:var(--muted);display:none;" id="ownerLabel">Owner</span>
+                <a href="index.html" class="btn-gold"
+                    style="min-height:36px;padding:6px 16px;font-size:.8rem;">Logout</a>
+            </div>
+        </div>
+    </nav>
+
+    <main style="padding:76px 16px 32px;max-width:900px;margin:auto;">
+
+        <!-- STATS ROW -->
+        <div class="stats-scroll" style="margin-bottom:20px;">
+            <div class="stat-card">
+                <div class="stat-num" id="statTotal">24</div>
+                <div class="stat-label">Today's Orders</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-num" style="color:#f5c842;" id="statPending">3</div>
+                <div class="stat-label">Pending</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-num" style="color:#f97316;" id="statKitchen">2</div>
+                <div class="stat-label">In Kitchen</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-num" style="color:#22c55e;" id="statCompleted">19</div>
+                <div class="stat-label">Completed</div>
+            </div>
+        </div>
+
+        <!-- FILTER TABS -->
+        <div class="tabs-wrap" style="margin-bottom:16px;">
+            <button class="tab-btn active" data-filter="all">All</button>
+            <button class="tab-btn" data-filter="new">New</button>
+            <button class="tab-btn" data-filter="confirmed">Confirmed</button>
+            <button class="tab-btn" data-filter="kitchen">In Kitchen</button>
+            <button class="tab-btn" data-filter="ready">Ready</button>
+            <button class="tab-btn" data-filter="delivery">Delivery</button>
+            <button class="tab-btn" data-filter="completed">Completed</button>
+        </div>
+
+        <!-- ORDERS LIST -->
+        <div id="ordersList" style="display:flex;flex-direction:column;gap:12px;"></div>
+    </main>
+
+    <script>
+        // ========== SHARED UTILITIES ==========
+        function formatPrice(amount) { return '₹' + amount; }
+        function formatTime(isoString) {
+            try { return new Date(isoString).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }); }
+            catch (e) { return isoString || '—'; }
+        }
+        function timeAgo(isoString) {
+            try {
+                const diff = Math.floor((Date.now() - new Date(isoString).getTime()) / 1000);
+                if (diff < 60) return diff + 's ago';
+                if (diff < 3600) return Math.floor(diff / 60) + ' mins ago';
+                return Math.floor(diff / 3600) + ' hrs ago';
+            } catch (e) { return '—'; }
+        }
+        function showToast(message, type = 'success') {
+            const existing = document.getElementById('bvr-toast');
+            if (existing) existing.remove();
+            const colors = { success: '#d4a017', error: '#ef4444', info: '#3b82f6' };
+            const toast = document.createElement('div');
+            toast.id = 'bvr-toast';
+            toast.textContent = message;
+            Object.assign(toast.style, {
+                position: 'fixed', bottom: '80px', left: '50%', transform: 'translateX(-50%)',
+                background: colors[type] || colors.success, color: type === 'success' ? '#1a0e00' : '#fff',
+                padding: '10px 24px', borderRadius: '9999px', fontFamily: "'Poppins',sans-serif",
+                fontSize: '.85rem', fontWeight: '600', zIndex: '999', whiteSpace: 'nowrap',
+                boxShadow: '0 4px 20px rgba(0,0,0,0.4)', transition: 'opacity 0.3s ease', opacity: '1'
+            });
+            document.body.appendChild(toast);
+            setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 3000);
+        }
+        function safeGetJSON(key, fallback) {
+            try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; }
+            catch (e) { return fallback; }
+        }
+        function safeSetJSON(key, value) {
+            try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) { console.error(e); }
+        }
+
+        // ========== AUTH ==========
+        const OWNER_EMAIL = 'owner@bvr.com';
+        const OWNER_PASS = 'bvr@owner123';
+        let isLoggedIn = false;
+
+        function checkAuth() {
+            const session = safeGetJSON('bvr_staff_session', null);
+            if (session && session.role === 'OWNER' && session.loggedIn) {
+                isLoggedIn = true;
+                hideLoginOverlay();
+                loadDashboard();
+            } else {
+                showLoginOverlay();
+            }
+        }
+
+        function showLoginOverlay() {
+            // Inject login overlay if not present
+            if (!document.getElementById('loginOverlay')) {
+                const overlay = document.createElement('div');
+                overlay.id = 'loginOverlay';
+                Object.assign(overlay.style, {
+                    position: 'fixed', inset: '0', background: '#0a0500', zIndex: '300',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px'
+                });
+                overlay.innerHTML = `
+                    <div style="background:#1a0e00;border:1px solid #d4a01740;border-radius:1.5rem;padding:40px 30px;text-align:center;max-width:340px;width:100%;" id="loginBox">
+                        <div style="font-size:3rem;margin-bottom:16px;">👑</div>
+                        <h2 style="color:#d4a017;font-size:1.3rem;margin-bottom:6px;font-family:'Playfair Display',serif;">Owner Login</h2>
+                        <p style="color:#a07840;font-size:.85rem;margin-bottom:24px;">Enter credentials to continue</p>
+                        <input type="email" id="loginEmail" placeholder="Email" style="width:100%;padding:12px 16px;border-radius:12px;border:1px solid #d4a01740;background:#0f0700;color:#f5e6c8;font-size:.95rem;font-family:'Poppins',sans-serif;min-height:48px;outline:none;margin-bottom:12px;transition:border-color .2s;" />
+                        <input type="password" id="loginPass" placeholder="Password" style="width:100%;padding:12px 16px;border-radius:12px;border:1px solid #d4a01740;background:#0f0700;color:#f5e6c8;font-size:.95rem;font-family:'Poppins',sans-serif;min-height:48px;outline:none;margin-bottom:8px;transition:border-color .2s;" />
+                        <p id="loginError" style="color:#ef4444;font-size:.8rem;min-height:20px;margin-bottom:12px;"></p>
+                        <button class="btn-gold" onclick="doLogin()" style="width:100%;">Login</button>
+                    </div>`;
+                document.body.appendChild(overlay);
+                // Enter key
+                document.getElementById('loginPass').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+                document.getElementById('loginEmail').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('loginPass').focus(); });
+            }
+            document.getElementById('loginOverlay').style.display = 'flex';
+        }
+
+        function hideLoginOverlay() {
+            const overlay = document.getElementById('loginOverlay');
+            if (overlay) overlay.style.display = 'none';
+        }
+
+        function doLogin() {
+            const email = document.getElementById('loginEmail').value.trim();
+            const pass = document.getElementById('loginPass').value;
+            if (email === OWNER_EMAIL && pass === OWNER_PASS) {
+                const session = { role: 'OWNER', name: 'Punnam Nagaraju', loggedIn: true };
+                safeSetJSON('bvr_staff_session', session);
+                isLoggedIn = true;
+                hideLoginOverlay();
+                loadDashboard();
+                showToast('Welcome, Owner!');
+                console.log('[BVR] Owner logged in');
+            } else {
+                const box = document.getElementById('loginBox');
+                box.style.animation = 'none'; void box.offsetWidth;
+                box.style.animation = 'shake 0.4s ease';
+                document.getElementById('loginError').textContent = '❌ Invalid email or password';
+                document.getElementById('loginPass').value = '';
+                document.getElementById('loginPass').focus();
+            }
+        }
+
+        function doLogout() {
+            localStorage.removeItem('bvr_staff_session');
+            isLoggedIn = false;
+            showLoginOverlay();
+            showToast('Logged out', 'info');
+            console.log('[BVR] Owner logged out');
+        }
+
+        // ========== DEMO ORDERS ==========
+        const DEMO_ORDERS = [
+            {
+                orderId: 'BVR2026005', type: 'dine-in', tableNumber: '7',
+                customerName: 'Anita Reddy', customerPhone: '9876543215',
+                deliveryAddress: '', items: [{ id: 'item_001', name: 'Chicken Biryani', price: 180, quantity: 2, category: 'biryani' }, { id: 'item_020', name: 'Cold Drink', price: 40, quantity: 2, category: 'drinks' }],
+                subtotal: 440, deliveryCharge: 0, total: 440, status: 'NEW', paymentStatus: 'PAID',
+                timestamp: new Date(Date.now() - 300000).toISOString(), deliveryPerson: null, cookStart: null
+            },
+            {
+                orderId: 'BVR2026004', type: 'delivery', tableNumber: '',
+                customerName: 'Rahul Sharma', customerPhone: '9876543210',
+                deliveryAddress: 'Plot 12, Beside SBI Bank, Nalgonda',
+                items: [{ id: 'item_002', name: 'Mutton Biryani', price: 220, quantity: 1, category: 'biryani' }, { id: 'item_019', name: 'Lassi', price: 60, quantity: 2, category: 'drinks' }],
+                subtotal: 340, deliveryCharge: 30, total: 370, status: 'CONFIRMED', paymentStatus: 'PAID',
+                timestamp: new Date(Date.now() - 900000).toISOString(), deliveryPerson: null, cookStart: null
+            },
+            {
+                orderId: 'BVR2026003', type: 'dine-in', tableNumber: '4',
+                customerName: 'Priya Devi', customerPhone: '9876543211',
+                deliveryAddress: '',
+                items: [{ id: 'item_004', name: 'Chicken 65', price: 160, quantity: 1, category: 'starters' }, { id: 'item_007', name: 'Chicken Curry', price: 160, quantity: 1, category: 'curries' }, { id: 'item_010', name: 'Roti', price: 15, quantity: 4, category: 'breads' }],
+                subtotal: 380, deliveryCharge: 0, total: 380, status: 'IN_KITCHEN', paymentStatus: 'PAID',
+                timestamp: new Date(Date.now() - 1500000).toISOString(), deliveryPerson: null, cookStart: Date.now() - 600000
+            },
+            {
+                orderId: 'BVR2026002', type: 'delivery', tableNumber: '',
+                customerName: 'Suresh Kumar', customerPhone: '9876543212',
+                deliveryAddress: 'Near Bus Stand, Main Road, Nalgonda',
+                items: [{ id: 'item_003', name: 'Veg Biryani', price: 120, quantity: 2, category: 'biryani' }, { id: 'item_005', name: 'Paneer Tikka', price: 140, quantity: 1, category: 'starters' }],
+                subtotal: 380, deliveryCharge: 30, total: 410, status: 'READY', paymentStatus: 'PAID',
+                timestamp: new Date(Date.now() - 2400000).toISOString(), deliveryPerson: null, cookStart: null
+            },
+            {
+                orderId: 'BVR2026001', type: 'dine-in', tableNumber: '2',
+                customerName: 'Lakshmi Devi', customerPhone: '9876543213',
+                deliveryAddress: '',
+                items: [{ id: 'item_008', name: 'Mutton Curry', price: 200, quantity: 1, category: 'curries' }, { id: 'item_012', name: 'Naan', price: 25, quantity: 3, category: 'breads' }, { id: 'item_019', name: 'Lassi', price: 60, quantity: 1, category: 'drinks' }],
+                subtotal: 335, deliveryCharge: 0, total: 335, status: 'COMPLETED', paymentStatus: 'PAID',
+                timestamp: new Date(Date.now() - 3600000).toISOString(), deliveryPerson: null, cookStart: null
+            },
+        ];
+
+        const deliveryPartners = ['Raju Kumar', 'Suresh Babu', 'Mahesh Yadav'];
+        let currentFilter = 'all';
+        let orders = [];
+
+        // ========== LOAD & RENDER ==========
+        function loadDashboard() {
+            orders = safeGetJSON('bvr_all_orders', []);
+            if (orders.length === 0) {
+                orders = DEMO_ORDERS.map(o => ({ ...o }));
+                safeSetJSON('bvr_all_orders', orders);
+                console.log('[BVR] Loaded demo orders');
+            }
+            renderOrders();
+            updateStats();
+        }
+
+        // Map filter tab values to status values
+        const FILTER_MAP = {
+            all: null, new: 'NEW', confirmed: 'CONFIRMED', kitchen: 'IN_KITCHEN',
+            ready: 'READY', delivery: 'OUT_FOR_DELIVERY', completed: 'COMPLETED'
+        };
+
+        function renderOrders() {
+            const list = document.getElementById('ordersList');
+            let filtered = orders;
+            if (currentFilter !== 'all') {
+                const statusVal = FILTER_MAP[currentFilter];
+                filtered = orders.filter(o => o.status === statusVal);
+            }
+            // Sort newest first
+            filtered.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+            if (filtered.length === 0) {
+                list.innerHTML = `<div style="text-align:center;padding:40px 20px;color:var(--muted);">
+                    <div style="font-size:2rem;margin-bottom:8px;">📋</div>
+                    <p>No orders in this category</p>
+                </div>`;
+                return;
+            }
+
+            list.innerHTML = filtered.map(o => {
+                const statusBadge = getStatusBadge(o.status);
+                const typeBadge = o.type === 'dine-in'
+                    ? `<span class="badge badge-dinein">🪑 DINE-IN · Table ${o.tableNumber}</span>`
+                    : `<span class="badge badge-delivery">🛵 DELIVERY</span>`;
+
+                let actions = '';
+                if (o.status === 'NEW') {
+                    actions = `
+                        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                            <button class="act-btn act-confirm" onclick="updateStatus('${o.orderId}','CONFIRMED')">✅ Confirm</button>
+                            <button class="act-btn act-cancel" onclick="updateStatus('${o.orderId}','CANCELLED')">❌ Cancel</button>
+                        </div>`;
+                } else if (o.status === 'CONFIRMED') {
+                    actions = `<div style="font-size:.8rem;color:var(--muted);font-style:italic;">→ Will be sent to kitchen automatically</div>`;
+                } else if (o.status === 'READY' && o.type === 'delivery') {
+                    actions = `
+                        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                            <select class="act-select" id="dp_${o.orderId}">
+                                ${deliveryPartners.map(p => `<option value="${p}">${p}</option>`).join('')}
+                            </select>
+                            <button class="act-btn act-gold" onclick="assignDelivery('${o.orderId}')">🛵 Assign & Dispatch</button>
+                        </div>`;
+                } else if (o.status === 'READY' && o.type === 'dine-in') {
+                    actions = `<button class="act-btn act-confirm" onclick="updateStatus('${o.orderId}','COMPLETED')">✅ Mark as Served</button>`;
+                } else if (o.status === 'OUT_FOR_DELIVERY') {
+                    actions = `
+                        <div style="font-size:.8rem;color:var(--muted);margin-bottom:6px;">🛵 Assigned to: ${o.deliveryPerson || 'N/A'}</div>
+                        <button class="act-btn act-confirm" onclick="updateStatus('${o.orderId}','COMPLETED')">✅ Mark Delivered</button>`;
+                }
+
+                return `
+                    <div class="card">
+                        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
+                            <div>
+                                <div style="font-weight:600;color:var(--text);font-size:.9rem;">#${o.orderId}</div>
+                                <div style="font-size:.75rem;color:var(--muted);">${formatTime(o.timestamp)}</div>
+                            </div>
+                            <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+                                ${typeBadge} ${statusBadge}
+                            </div>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                            <span style="font-size:.85rem;">👤 ${o.customerName}</span>
+                            <a href="tel:${o.customerPhone}" style="color:#f5c842;text-decoration:none;font-size:.8rem;">📞 ${o.customerPhone}</a>
+                        </div>
+                        <div style="font-size:.8rem;color:var(--muted);margin-bottom:8px;">
+                            ${o.items.map(i => `${i.name} ×${i.quantity}`).join(', ')}
+                        </div>
+                        ${o.type === 'delivery' && o.deliveryAddress ? `<div style="font-size:.75rem;color:var(--muted);margin-bottom:8px;">📍 ${o.deliveryAddress}</div>` : ''}
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                            <span style="font-weight:700;color:var(--bright-gold);">${formatPrice(o.total)}</span>
+                            <span style="font-size:.75rem;color:var(--green);">${o.paymentStatus === 'PAID' ? '✅ Paid' : '⏳ Pending'}</span>
+                        </div>
+                        ${actions}
+                    </div>`;
+            }).join('');
+        }
+
+        function getStatusBadge(status) {
+            const map = {
+                NEW: { bg: '#f5c84220', color: '#f5c842', text: '🆕 NEW' },
+                CONFIRMED: { bg: '#3b82f620', color: '#3b82f6', text: '✅ CONFIRMED' },
+                IN_KITCHEN: { bg: '#f9731620', color: '#f97316', text: '🔥 IN KITCHEN' },
+                READY: { bg: '#22c55e20', color: '#22c55e', text: '✅ READY' },
+                OUT_FOR_DELIVERY: { bg: '#8b5cf620', color: '#8b5cf6', text: '🛵 OUT FOR DELIVERY' },
+                COMPLETED: { bg: '#22c55e20', color: '#22c55e', text: '✅ COMPLETED' },
+                CANCELLED: { bg: '#ef444420', color: '#ef4444', text: '❌ CANCELLED' },
+                SERVED: { bg: '#22c55e20', color: '#22c55e', text: '✅ SERVED' },
+            };
+            const s = map[status] || map.NEW;
+            return `<span class="badge" style="background:${s.bg};color:${s.color};">${s.text}</span>`;
+        }
+
+        function updateStatus(id, newStatus) {
+            const o = orders.find(x => x.orderId === id);
+            if (!o) return;
+            const oldStatus = o.status;
+            o.status = newStatus;
+            // Save to localStorage
+            safeSetJSON('bvr_all_orders', orders);
+            // Sync bvr_current_order if matching
+            const currentOrder = safeGetJSON('bvr_current_order', null);
+            if (currentOrder && currentOrder.orderId === id) {
+                currentOrder.status = newStatus;
+                safeSetJSON('bvr_current_order', currentOrder);
+            }
+            renderOrders();
+            updateStats();
+            showToast(`Order #${id} → ${newStatus}`);
+            console.log('[BVR] Order', id, 'status:', oldStatus, '→', newStatus);
+        }
+
+        function assignDelivery(id) {
+            const o = orders.find(x => x.orderId === id);
+            const sel = document.getElementById('dp_' + id);
+            if (o && sel) {
+                o.status = 'OUT_FOR_DELIVERY';
+                o.deliveryPerson = sel.value;
+                safeSetJSON('bvr_all_orders', orders);
+                // Sync current order
+                const currentOrder = safeGetJSON('bvr_current_order', null);
+                if (currentOrder && currentOrder.orderId === id) {
+                    currentOrder.status = 'OUT_FOR_DELIVERY';
+                    currentOrder.deliveryPerson = sel.value;
+                    safeSetJSON('bvr_current_order', currentOrder);
+                }
+                renderOrders();
+                updateStats();
+                showToast(`🛵 ${sel.value} assigned to #${id}`);
+                console.log('[BVR] Delivery assigned:', sel.value, 'to order', id);
+            }
+        }
+
+        function updateStats() {
+            const pending = orders.filter(o => o.status === 'NEW').length;
+            const kitchen = orders.filter(o => o.status === 'IN_KITCHEN').length;
+            const completed = orders.filter(o => o.status === 'COMPLETED').length;
+            document.getElementById('statTotal').textContent = orders.length;
+            document.getElementById('statPending').textContent = pending;
+            document.getElementById('statKitchen').textContent = kitchen;
+            document.getElementById('statCompleted').textContent = completed;
+        }
+
+        // ========== FILTER TABS ==========
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentFilter = btn.dataset.filter;
+                renderOrders();
+            });
+        });
+
+        // ========== LOGOUT ==========
+        // Override the logout link
+        const logoutLink = document.querySelector('a[href="index.html"]');
+        if (logoutLink) {
+            logoutLink.addEventListener('click', (e) => {
+                e.preventDefault();
+                doLogout();
+            });
+        }
+
+        // ========== AUTO REFRESH ==========
+        setInterval(() => {
+            if (isLoggedIn) {
+                orders = safeGetJSON('bvr_all_orders', orders);
+                renderOrders();
+                updateStats();
+            }
+        }, 10000);
+
+        // Desktop label
+        if (window.innerWidth >= 768) document.getElementById('ownerLabel').style.display = 'inline';
+
+        // ========== INIT ==========
+        checkAuth();
+        console.log('[BVR] Owner dashboard loaded');
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Your Cart — BVR Restaurant</title>
+    <meta name="description" content="Review your order and checkout at BVR Bangaru Vakili Restaurant." />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;800&family=Poppins:wght@300;400;500;600;700&display=swap');
+
+        :root {
+            --bg: #0a0500;
+            --card-bg: #1a0e00;
+            --border: #d4a01740;
+            --gold: #d4a017;
+            --bright-gold: #f5c842;
+            --text: #f5e6c8;
+            --muted: #a07840;
+            --green: #22c55e;
+            --red: #ef4444
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            overflow-x: hidden
+        }
+
+        h1,
+        h2,
+        h3 {
+            font-family: 'Playfair Display', serif
+        }
+
+        .gold-glow {
+            box-shadow: 0 0 20px #d4a01760
+        }
+
+        .btn-gold {
+            background: linear-gradient(135deg, #d4a017, #f5c842);
+            color: #1a0e00;
+            font-weight: 700;
+            border-radius: 9999px;
+            min-height: 48px;
+            padding: 12px 24px;
+            border: none;
+            cursor: pointer;
+            transition: all .2s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-size: 1rem;
+            font-family: 'Poppins', sans-serif;
+            text-decoration: none;
+            width: 100%
+        }
+
+        .btn-gold:hover {
+            box-shadow: 0 0 25px #d4a01780;
+            transform: translateY(-2px)
+        }
+
+        .btn-gold:disabled {
+            opacity: .5;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none
+        }
+
+        .navbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            background: #0a050095;
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-bottom: 1px solid var(--border);
+            padding: 12px 20px
+        }
+
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 1rem;
+            padding: 16px
+        }
+
+        .input-field {
+            width: 100%;
+            padding: 12px 16px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            background: #0f0700;
+            color: var(--text);
+            font-size: .95rem;
+            font-family: 'Poppins', sans-serif;
+            min-height: 48px;
+            outline: none;
+            transition: border-color .2s
+        }
+
+        .input-field:focus {
+            border-color: var(--gold)
+        }
+
+        .input-field::placeholder {
+            color: #a0784080
+        }
+
+        textarea.input-field {
+            min-height: 80px;
+            resize: vertical
+        }
+
+        .toggle-wrap {
+            display: flex;
+            border-radius: 9999px;
+            border: 1px solid var(--border);
+            overflow: hidden;
+            background: var(--card-bg)
+        }
+
+        .toggle-btn {
+            flex: 1;
+            padding: 12px 16px;
+            font-size: .9rem;
+            font-weight: 600;
+            text-align: center;
+            cursor: pointer;
+            transition: all .2s;
+            border: none;
+            font-family: 'Poppins', sans-serif;
+            min-height: 48px;
+            background: transparent;
+            color: var(--muted)
+        }
+
+        .toggle-btn.active {
+            background: linear-gradient(135deg, #d4a017, #f5c842);
+            color: #1a0e00
+        }
+
+        .qty-wrap {
+            display: flex;
+            align-items: center;
+            gap: 0;
+            border-radius: 9999px;
+            overflow: hidden;
+            border: 1px solid var(--gold)
+        }
+
+        .qty-btn {
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #d4a017, #f5c842);
+            color: #1a0e00;
+            font-weight: 700;
+            font-size: 1rem;
+            border: none;
+            cursor: pointer;
+            transition: all .2s
+        }
+
+        .qty-num {
+            width: 28px;
+            text-align: center;
+            font-weight: 600;
+            color: var(--bright-gold);
+            font-size: .85rem;
+            background: transparent
+        }
+
+        .remove-btn {
+            background: none;
+            border: none;
+            color: var(--red);
+            cursor: pointer;
+            font-size: 1.1rem;
+            padding: 4px;
+            transition: opacity .2s
+        }
+
+        .remove-btn:hover {
+            opacity: .7
+        }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, .7);
+            z-index: 200;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px
+        }
+
+        .modal-overlay.open {
+            display: flex
+        }
+
+        .modal-box {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 1.5rem;
+            padding: 32px;
+            text-align: center;
+            max-width: 340px;
+            width: 100%
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg)
+            }
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--border);
+            border-top-color: var(--gold);
+            border-radius: 50%;
+            animation: spin .8s linear infinite;
+            margin: 0 auto 16px
+        }
+
+        .label {
+            font-size: .85rem;
+            color: var(--muted);
+            margin-bottom: 6px;
+            display: block
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- NAVBAR -->
+    <nav class="navbar">
+        <div style="max-width:1200px;margin:auto;display:flex;align-items:center;justify-content:space-between;">
+            <a href="menu.html"
+                style="color:#d4a017;text-decoration:none;font-size:1.4rem;display:flex;align-items:center;gap:8px;">
+                ← <span style="font-size:0.9rem;color:#f5e6c8;">Menu</span>
+            </a>
+            <h1 style="font-size:1.15rem;color:#d4a017;">Your Cart</h1>
+            <div style="width:56px;"></div>
+        </div>
+    </nav>
+
+    <main style="padding:80px 16px 32px;max-width:600px;margin:auto;">
+
+        <!-- EMPTY STATE -->
+        <div id="emptyState" style="display:none;text-align:center;padding:60px 20px;">
+            <div style="font-size:4rem;margin-bottom:16px;">🛒</div>
+            <h2 style="color:#d4a017;font-size:1.4rem;margin-bottom:8px;">Your cart is empty</h2>
+            <p style="color:#a07840;margin-bottom:24px;font-size:.9rem;">Add items from our menu to get started</p>
+            <a href="menu.html" class="btn-gold" style="width:auto;display:inline-flex;">🍽️ Browse Menu</a>
+        </div>
+
+        <!-- CART CONTENT -->
+        <div id="cartContent" style="display:none;">
+
+            <!-- ORDER ITEMS -->
+            <div class="card" style="margin-bottom:16px;">
+                <h2 style="font-size:1rem;color:#d4a017;margin-bottom:12px;">Order Items</h2>
+                <div id="cartItems"></div>
+                <div
+                    style="border-top:1px solid var(--border);margin-top:12px;padding-top:12px;display:flex;justify-content:space-between;">
+                    <span style="color:var(--muted);font-size:.9rem;">Subtotal</span>
+                    <span style="color:var(--bright-gold);font-weight:700;" id="subtotalDisplay">₹0</span>
+                </div>
+            </div>
+
+            <!-- ORDER TYPE TOGGLE -->
+            <div class="card" style="margin-bottom:16px;">
+                <h2 style="font-size:1rem;color:#d4a017;margin-bottom:12px;">Order Type</h2>
+                <div class="toggle-wrap">
+                    <button class="toggle-btn active" id="toggleDineIn" onclick="setOrderType('dinein')">🪑
+                        Dine-In</button>
+                    <button class="toggle-btn" id="toggleDelivery" onclick="setOrderType('delivery')">🛵
+                        Delivery</button>
+                </div>
+            </div>
+
+            <!-- DETAILS FORM -->
+            <div class="card" style="margin-bottom:16px;">
+                <h2 style="font-size:1rem;color:#d4a017;margin-bottom:12px;">Your Details</h2>
+                <form id="orderForm" style="display:flex;flex-direction:column;gap:12px;">
+
+                    <!-- Dine-In fields -->
+                    <div id="dineinFields">
+                        <label class="label">Table Number</label>
+                        <select class="input-field" id="tableNum">
+                            <option value="">Select table...</option>
+                            ${Array.from({length:20},(_,i)=>`<option value="${i+1}">Table ${i+1}</option>`).join('')}
+                        </select>
+                    </div>
+
+                    <!-- Delivery fields -->
+                    <div id="deliveryFields" style="display:none;">
+                        <div style="display:flex;flex-direction:column;gap:12px;">
+                            <div>
+                                <label class="label">Delivery Address</label>
+                                <textarea class="input-field" id="address"
+                                    placeholder="Enter your full address"></textarea>
+                            </div>
+                            <div>
+                                <label class="label">Landmark (optional)</label>
+                                <input type="text" class="input-field" id="landmark" placeholder="Near..." />
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Common fields -->
+                    <div>
+                        <label class="label">Your Name</label>
+                        <input type="text" class="input-field" id="customerName" placeholder="Enter your name"
+                            required />
+                    </div>
+                    <div>
+                        <label class="label">Phone Number</label>
+                        <input type="tel" class="input-field" id="customerPhone" placeholder="10-digit phone number"
+                            required maxlength="10" />
+                    </div>
+                </form>
+            </div>
+
+            <!-- PRICE SUMMARY -->
+            <div class="card" style="margin-bottom:20px;">
+                <h2 style="font-size:1rem;color:#d4a017;margin-bottom:12px;">Price Summary</h2>
+                <div style="display:flex;flex-direction:column;gap:8px;">
+                    <div style="display:flex;justify-content:space-between;">
+                        <span style="color:var(--muted);font-size:.9rem;">Subtotal</span>
+                        <span style="color:var(--text);" id="summarySubtotal">₹0</span>
+                    </div>
+                    <div id="deliveryCharge" style="display:none;justify-content:space-between;">
+                        <span style="color:var(--muted);font-size:.9rem;">Delivery Charge</span>
+                        <span style="color:var(--text);">₹30</span>
+                    </div>
+                    <div
+                        style="border-top:1px solid var(--border);padding-top:8px;display:flex;justify-content:space-between;margin-top:4px;">
+                        <span style="color:var(--bright-gold);font-weight:700;font-size:1.1rem;">Total</span>
+                        <span style="color:var(--bright-gold);font-weight:700;font-size:1.2rem;"
+                            id="totalDisplay">₹0</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PAY BUTTON -->
+            <button class="btn-gold gold-glow" id="payBtn" onclick="handlePay()" style="font-size:1.05rem;">
+                Pay <span id="payAmount">₹0</span> via UPI →
+            </button>
+            <p id="formError" style="color:var(--red);font-size:.8rem;text-align:center;margin-top:8px;display:none;">
+            </p>
+        </div>
+    </main>
+
+    <!-- PAYMENT MODAL -->
+    <div class="modal-overlay" id="payModal">
+        <div class="modal-box">
+            <div class="spinner"></div>
+            <h3 style="color:#d4a017;font-size:1.2rem;margin-bottom:8px;">Redirecting to Payment...</h3>
+            <p style="color:#a07840;font-size:.85rem;">Please wait while we connect to UPI</p>
+        </div>
+    </div>
+
+    <script>
+        // ========== SHARED UTILITIES ==========
+        function formatPrice(amount) { return '₹' + amount; }
+        function formatTime(isoString) {
+            try { return new Date(isoString).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }); }
+            catch (e) { return isoString || '—'; }
+        }
+        function generateOrderId() { return 'BVR' + Math.floor(100000 + Math.random() * 900000); }
+        function showToast(message, type = 'success') {
+            const existing = document.getElementById('bvr-toast');
+            if (existing) existing.remove();
+            const colors = { success: '#d4a017', error: '#ef4444', info: '#3b82f6' };
+            const toast = document.createElement('div');
+            toast.id = 'bvr-toast';
+            toast.textContent = message;
+            Object.assign(toast.style, {
+                position: 'fixed', bottom: '80px', left: '50%', transform: 'translateX(-50%)',
+                background: colors[type] || colors.success, color: type === 'success' ? '#1a0e00' : '#fff',
+                padding: '10px 24px', borderRadius: '9999px', fontFamily: "'Poppins',sans-serif",
+                fontSize: '.85rem', fontWeight: '600', zIndex: '999', whiteSpace: 'nowrap',
+                boxShadow: '0 4px 20px rgba(0,0,0,0.4)', transition: 'opacity 0.3s ease', opacity: '1'
+            });
+            document.body.appendChild(toast);
+            setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 3000);
+        }
+        function safeGetJSON(key, fallback) {
+            try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; }
+            catch (e) { console.warn('Failed to parse', key, e); return fallback; }
+        }
+        function safeSetJSON(key, value) {
+            try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) { console.error('Failed to save', key, e); }
+        }
+
+        // ========== CART STATE ==========
+        let cart = safeGetJSON('bvr_cart', []);
+        let orderType = 'dine-in';
+
+        function init() {
+            if (cart.length === 0) {
+                document.getElementById('emptyState').style.display = 'block';
+                document.getElementById('cartContent').style.display = 'none';
+            } else {
+                document.getElementById('emptyState').style.display = 'none';
+                document.getElementById('cartContent').style.display = 'block';
+                renderCartItems();
+                updateTotals();
+            }
+            // Populate table dropdown
+            const sel = document.getElementById('tableNum');
+            sel.innerHTML = '<option value="">Select table...</option>';
+            for (let i = 1; i <= 20; i++) {
+                sel.innerHTML += `<option value="${i}">Table ${i}</option>`;
+            }
+        }
+
+        function renderCartItems() {
+            const wrap = document.getElementById('cartItems');
+            wrap.innerHTML = cart.map(item => `
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid #d4a01715;">
+                  <div style="flex:1;min-width:0;">
+                    <div style="font-size:.9rem;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${item.name}</div>
+                    <div style="font-size:.75rem;color:var(--muted);">${formatPrice(item.price)} each</div>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:10px;">
+                    <div class="qty-wrap">
+                      <button class="qty-btn" onclick="changeQty('${item.id}',-1)">−</button>
+                      <span class="qty-num">${item.quantity}</span>
+                      <button class="qty-btn" onclick="changeQty('${item.id}',1)">+</button>
+                    </div>
+                    <span style="min-width:55px;text-align:right;font-weight:600;color:var(--bright-gold);font-size:.9rem;">${formatPrice(item.price * item.quantity)}</span>
+                    <button class="remove-btn" onclick="removeItem('${item.id}')" aria-label="Remove item">✕</button>
+                  </div>
+                </div>
+            `).join('');
+        }
+
+        function changeQty(id, delta) {
+            const item = cart.find(c => c.id === id);
+            if (item) {
+                item.quantity += delta;
+                if (item.quantity <= 0) cart = cart.filter(c => c.id !== id);
+                safeSetJSON('bvr_cart', cart);
+                console.log('[BVR] Cart updated:', id, 'qty delta:', delta);
+                init();
+            }
+        }
+
+        function removeItem(id) {
+            const removed = cart.find(c => c.id === id);
+            cart = cart.filter(c => c.id !== id);
+            safeSetJSON('bvr_cart', cart);
+            if (removed) showToast(`${removed.name} removed`, 'info');
+            console.log('[BVR] Item removed:', id);
+            init();
+        }
+
+        function updateTotals() {
+            const subtotal = cart.reduce((s, c) => s + c.quantity * c.price, 0);
+            const delivery = orderType === 'delivery' ? 30 : 0;
+            const total = subtotal + delivery;
+
+            document.getElementById('subtotalDisplay').textContent = formatPrice(subtotal);
+            document.getElementById('summarySubtotal').textContent = formatPrice(subtotal);
+            document.getElementById('totalDisplay').textContent = formatPrice(total);
+            document.getElementById('payAmount').textContent = formatPrice(total);
+            document.getElementById('deliveryCharge').style.display = orderType === 'delivery' ? 'flex' : 'none';
+        }
+
+        function setOrderType(type) {
+            orderType = type === 'dinein' ? 'dine-in' : 'delivery';
+            document.getElementById('toggleDineIn').classList.toggle('active', type === 'dinein');
+            document.getElementById('toggleDelivery').classList.toggle('active', type === 'delivery');
+            document.getElementById('dineinFields').style.display = type === 'dinein' ? 'block' : 'none';
+            document.getElementById('deliveryFields').style.display = type === 'delivery' ? 'block' : 'none';
+            // Clear validation errors on toggle
+            clearFieldErrors();
+            updateTotals();
+        }
+
+        function clearFieldErrors() {
+            document.querySelectorAll('.input-field').forEach(f => { f.style.borderColor = ''; });
+            document.getElementById('formError').style.display = 'none';
+        }
+
+        function highlightField(id) {
+            const el = document.getElementById(id);
+            if (el) {
+                el.style.borderColor = 'var(--red)';
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                el.focus();
+            }
+        }
+
+        function handlePay() {
+            clearFieldErrors();
+            const name = document.getElementById('customerName').value.trim();
+            const phone = document.getElementById('customerPhone').value.trim();
+
+            // Validation
+            if (orderType === 'dine-in') {
+                const table = document.getElementById('tableNum').value;
+                if (!table) { showError('Please select a table number'); highlightField('tableNum'); return; }
+            } else {
+                const address = document.getElementById('address').value.trim();
+                if (!address || address.length < 10) { showError('Please enter a valid delivery address (min 10 chars)'); highlightField('address'); return; }
+            }
+            if (!name) { showError('Please enter your name'); highlightField('customerName'); return; }
+            if (!phone || !/^\d{10}$/.test(phone)) { showError('Please enter a valid 10-digit phone number'); highlightField('customerPhone'); return; }
+
+            // Build order object
+            const subtotal = cart.reduce((s, c) => s + c.quantity * c.price, 0);
+            const deliveryCharge = orderType === 'delivery' ? 30 : 0;
+            const total = subtotal + deliveryCharge;
+            const timestamp = new Date().toISOString();
+
+            const orderObj = {
+                orderId: generateOrderId(),
+                type: orderType,
+                tableNumber: orderType === 'dine-in' ? document.getElementById('tableNum').value : '',
+                customerName: name,
+                customerPhone: phone,
+                deliveryAddress: orderType === 'delivery' ? document.getElementById('address').value.trim() : '',
+                landmark: orderType === 'delivery' ? document.getElementById('landmark').value.trim() : '',
+                items: cart.map(c => ({ ...c })),
+                subtotal: subtotal,
+                deliveryCharge: deliveryCharge,
+                total: total,
+                status: 'NEW',
+                paymentStatus: 'PAID',
+                timestamp: timestamp,
+                deliveryPerson: null,
+                cookStart: null
+            };
+
+            console.log('[BVR] Order created:', orderObj.orderId, 'Total:', total);
+
+            // Save to localStorage
+            safeSetJSON('bvr_current_order', orderObj);
+
+            // Push to all orders array
+            const allOrders = safeGetJSON('bvr_all_orders', []);
+            allOrders.unshift(orderObj);
+            safeSetJSON('bvr_all_orders', allOrders);
+
+            // Clear cart
+            localStorage.removeItem('bvr_cart');
+
+            // UI feedback
+            const btn = document.getElementById('payBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<div class="spinner" style="width:20px;height:20px;margin:0;border-width:2px;"></div> Processing...';
+
+            // Show modal
+            const modal = document.getElementById('payModal');
+            modal.querySelector('h3').textContent = '✅ Payment Successful!';
+            modal.querySelector('p').textContent = 'Redirecting to order status...';
+            modal.classList.add('open');
+
+            showToast('Order placed successfully!');
+
+            setTimeout(() => {
+                window.location.href = 'status.html';
+            }, 1500);
+        }
+
+        function showError(msg) {
+            const errEl = document.getElementById('formError');
+            errEl.textContent = msg;
+            errEl.style.display = 'block';
+        }
+
+        init();
+        console.log('[BVR] Cart page loaded. Items:', cart.length);
+    </script>
+</body>
+
+</html>
