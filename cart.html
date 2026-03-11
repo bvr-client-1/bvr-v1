@@ -419,7 +419,9 @@
         let cart = safeGetJSON('bvr_cart', []);
         let orderType = 'dine-in';
 
-        function init() {
+        function initCart() {
+            // Re-read cart from localStorage (important for back-button/bfcache)
+            cart = safeGetJSON('bvr_cart', []);
             if (cart.length === 0) {
                 document.getElementById('emptyState').style.display = 'block';
                 document.getElementById('cartContent').style.display = 'none';
@@ -465,7 +467,7 @@
                 if (item.quantity <= 0) cart = cart.filter(c => c.id !== id);
                 safeSetJSON('bvr_cart', cart);
                 console.log('[BVR] Cart updated:', id, 'qty delta:', delta);
-                init();
+                initCart();
             }
         }
 
@@ -475,7 +477,7 @@
             safeSetJSON('bvr_cart', cart);
             if (removed) showToast(`${removed.name} removed`, 'info');
             console.log('[BVR] Item removed:', id);
-            init();
+            initCart();
         }
 
         function updateTotals() {
@@ -593,7 +595,11 @@
             errEl.style.display = 'block';
         }
 
-        init();
+        initCart();
+        // Also restore cart when navigating back (bfcache/pageshow)
+        window.addEventListener('pageshow', function (event) {
+            initCart();
+        });
         console.log('[BVR] Cart page loaded. Items:', cart.length);
     </script>
 </body>

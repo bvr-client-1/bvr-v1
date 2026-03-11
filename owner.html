@@ -223,6 +223,25 @@
             text-decoration: none;
             font-size: .9rem
         }
+
+        /* Pulse gold animation for new order alert */
+        @keyframes pulseGold {
+            0% {
+                box-shadow: 0 0 0 0 rgba(212, 160, 23, 0.7);
+            }
+
+            70% {
+                box-shadow: 0 0 0 15px rgba(212, 160, 23, 0);
+            }
+
+            100% {
+                box-shadow: 0 0 0 0 rgba(212, 160, 23, 0);
+            }
+        }
+
+        .pulse-gold {
+            animation: pulseGold 1s ease-out;
+        }
     </style>
 </head>
 
@@ -397,60 +416,71 @@
         }
 
         // ========== DEMO ORDERS ==========
-        const DEMO_ORDERS = [
-            {
-                orderId: 'BVR2026005', type: 'dine-in', tableNumber: '7',
-                customerName: 'Anita Reddy', customerPhone: '9876543215',
-                deliveryAddress: '', items: [{ id: 'item_001', name: 'Chicken Biryani', price: 180, quantity: 2, category: 'biryani' }, { id: 'item_020', name: 'Cold Drink', price: 40, quantity: 2, category: 'drinks' }],
-                subtotal: 440, deliveryCharge: 0, total: 440, status: 'NEW', paymentStatus: 'PAID',
-                timestamp: new Date(Date.now() - 300000).toISOString(), deliveryPerson: null, cookStart: null
-            },
-            {
-                orderId: 'BVR2026004', type: 'delivery', tableNumber: '',
-                customerName: 'Rahul Sharma', customerPhone: '9876543210',
-                deliveryAddress: 'Plot 12, Beside SBI Bank, Nalgonda',
-                items: [{ id: 'item_002', name: 'Mutton Biryani', price: 220, quantity: 1, category: 'biryani' }, { id: 'item_019', name: 'Lassi', price: 60, quantity: 2, category: 'drinks' }],
-                subtotal: 340, deliveryCharge: 30, total: 370, status: 'CONFIRMED', paymentStatus: 'PAID',
-                timestamp: new Date(Date.now() - 900000).toISOString(), deliveryPerson: null, cookStart: null
-            },
-            {
-                orderId: 'BVR2026003', type: 'dine-in', tableNumber: '4',
-                customerName: 'Priya Devi', customerPhone: '9876543211',
-                deliveryAddress: '',
-                items: [{ id: 'item_004', name: 'Chicken 65', price: 160, quantity: 1, category: 'starters' }, { id: 'item_007', name: 'Chicken Curry', price: 160, quantity: 1, category: 'curries' }, { id: 'item_010', name: 'Roti', price: 15, quantity: 4, category: 'breads' }],
-                subtotal: 380, deliveryCharge: 0, total: 380, status: 'IN_KITCHEN', paymentStatus: 'PAID',
-                timestamp: new Date(Date.now() - 1500000).toISOString(), deliveryPerson: null, cookStart: Date.now() - 600000
-            },
-            {
-                orderId: 'BVR2026002', type: 'delivery', tableNumber: '',
-                customerName: 'Suresh Kumar', customerPhone: '9876543212',
-                deliveryAddress: 'Near Bus Stand, Main Road, Nalgonda',
-                items: [{ id: 'item_003', name: 'Veg Biryani', price: 120, quantity: 2, category: 'biryani' }, { id: 'item_005', name: 'Paneer Tikka', price: 140, quantity: 1, category: 'starters' }],
-                subtotal: 380, deliveryCharge: 30, total: 410, status: 'READY', paymentStatus: 'PAID',
-                timestamp: new Date(Date.now() - 2400000).toISOString(), deliveryPerson: null, cookStart: null
-            },
-            {
-                orderId: 'BVR2026001', type: 'dine-in', tableNumber: '2',
-                customerName: 'Lakshmi Devi', customerPhone: '9876543213',
-                deliveryAddress: '',
-                items: [{ id: 'item_008', name: 'Mutton Curry', price: 200, quantity: 1, category: 'curries' }, { id: 'item_012', name: 'Naan', price: 25, quantity: 3, category: 'breads' }, { id: 'item_019', name: 'Lassi', price: 60, quantity: 1, category: 'drinks' }],
-                subtotal: 335, deliveryCharge: 0, total: 335, status: 'COMPLETED', paymentStatus: 'PAID',
-                timestamp: new Date(Date.now() - 3600000).toISOString(), deliveryPerson: null, cookStart: null
-            },
-        ];
+        function getDemoOrders() {
+            return [
+                {
+                    orderId: 'BVR2026005', type: 'dine-in', tableNumber: '7',
+                    customerName: 'Anita Reddy', customerPhone: '9876543215',
+                    deliveryAddress: '', items: [{ id: 'item_001', name: 'Chicken Biryani', price: 180, quantity: 2, category: 'biryani' }, { id: 'item_020', name: 'Cold Drink', price: 40, quantity: 2, category: 'drinks' }],
+                    subtotal: 440, deliveryCharge: 0, total: 440, status: 'NEW', paymentStatus: 'PAID',
+                    timestamp: new Date(Date.now() - 300000).toISOString(), deliveryPerson: null, cookStart: null, isDemo: true
+                },
+                {
+                    orderId: 'BVR2026004', type: 'delivery', tableNumber: '',
+                    customerName: 'Rahul Sharma', customerPhone: '9876543210',
+                    deliveryAddress: 'Plot 12, Beside SBI Bank, Nalgonda',
+                    items: [{ id: 'item_002', name: 'Mutton Biryani', price: 220, quantity: 1, category: 'biryani' }, { id: 'item_019', name: 'Lassi', price: 60, quantity: 2, category: 'drinks' }],
+                    subtotal: 340, deliveryCharge: 30, total: 370, status: 'CONFIRMED', paymentStatus: 'PAID',
+                    timestamp: new Date(Date.now() - 900000).toISOString(), deliveryPerson: null, cookStart: null, isDemo: true
+                },
+                {
+                    orderId: 'BVR2026003', type: 'dine-in', tableNumber: '4',
+                    customerName: 'Priya Devi', customerPhone: '9876543211',
+                    deliveryAddress: '',
+                    items: [{ id: 'item_004', name: 'Chicken 65', price: 160, quantity: 1, category: 'starters' }, { id: 'item_007', name: 'Chicken Curry', price: 160, quantity: 1, category: 'curries' }, { id: 'item_010', name: 'Roti', price: 15, quantity: 4, category: 'breads' }],
+                    subtotal: 380, deliveryCharge: 0, total: 380, status: 'IN_KITCHEN', paymentStatus: 'PAID',
+                    timestamp: new Date(Date.now() - 1500000).toISOString(), deliveryPerson: null, cookStart: Date.now() - 600000, isDemo: true
+                },
+                {
+                    orderId: 'BVR2026002', type: 'delivery', tableNumber: '',
+                    customerName: 'Suresh Kumar', customerPhone: '9876543212',
+                    deliveryAddress: 'Near Bus Stand, Main Road, Nalgonda',
+                    items: [{ id: 'item_003', name: 'Veg Biryani', price: 120, quantity: 2, category: 'biryani' }, { id: 'item_005', name: 'Paneer Tikka', price: 140, quantity: 1, category: 'starters' }],
+                    subtotal: 380, deliveryCharge: 30, total: 410, status: 'READY', paymentStatus: 'PAID',
+                    timestamp: new Date(Date.now() - 2400000).toISOString(), deliveryPerson: null, cookStart: null, isDemo: true
+                },
+                {
+                    orderId: 'BVR2026001', type: 'dine-in', tableNumber: '2',
+                    customerName: 'Lakshmi Devi', customerPhone: '9876543213',
+                    deliveryAddress: '',
+                    items: [{ id: 'item_008', name: 'Mutton Curry', price: 200, quantity: 1, category: 'curries' }, { id: 'item_012', name: 'Naan', price: 25, quantity: 3, category: 'breads' }, { id: 'item_019', name: 'Lassi', price: 60, quantity: 1, category: 'drinks' }],
+                    subtotal: 335, deliveryCharge: 0, total: 335, status: 'COMPLETED', paymentStatus: 'PAID',
+                    timestamp: new Date(Date.now() - 3600000).toISOString(), deliveryPerson: null, cookStart: null, isDemo: true
+                },
+            ];
+        }
 
         const deliveryPartners = ['Raju Kumar', 'Suresh Babu', 'Mahesh Yadav'];
         let currentFilter = 'all';
         let orders = [];
+        let previousNewCount = 0;
 
         // ========== LOAD & RENDER ==========
         function loadDashboard() {
             orders = safeGetJSON('bvr_all_orders', []);
-            if (orders.length === 0) {
-                orders = DEMO_ORDERS.map(o => ({ ...o }));
+            // FIX 7: Remove demo orders when real orders exist
+            const realOrders = orders.filter(o => !o.isDemo);
+            if (realOrders.length > 0) {
+                // Real orders exist — remove demo orders silently
+                orders = realOrders;
+                safeSetJSON('bvr_all_orders', orders);
+            } else if (orders.length === 0) {
+                // No orders at all — inject demo orders
+                orders = getDemoOrders();
                 safeSetJSON('bvr_all_orders', orders);
                 console.log('[BVR] Loaded demo orders');
             }
+            previousNewCount = orders.filter(o => o.status === 'NEW').length;
             renderOrders();
             updateStats();
         }
@@ -505,8 +535,9 @@
                 } else if (o.status === 'READY' && o.type === 'dine-in') {
                     actions = `<button class="act-btn act-confirm" onclick="updateStatus('${o.orderId}','COMPLETED')">✅ Mark as Served</button>`;
                 } else if (o.status === 'OUT_FOR_DELIVERY') {
+                    const dpName = typeof o.deliveryPerson === 'object' ? o.deliveryPerson.name : (o.deliveryPerson || 'N/A');
                     actions = `
-                        <div style="font-size:.8rem;color:var(--muted);margin-bottom:6px;">🛵 Assigned to: ${o.deliveryPerson || 'N/A'}</div>
+                        <div style="font-size:.8rem;color:var(--muted);margin-bottom:6px;">🛵 Assigned to: ${dpName}</div>
                         <button class="act-btn act-confirm" onclick="updateStatus('${o.orderId}','COMPLETED')">✅ Mark Delivered</button>`;
                 }
 
@@ -572,18 +603,25 @@
             console.log('[BVR] Order', id, 'status:', oldStatus, '→', newStatus);
         }
 
+        // Delivery partner phone map
+        const deliveryPartnerPhones = {
+            'Raju Kumar': '9876543210',
+            'Suresh Babu': '9876543211',
+            'Mahesh Yadav': '9876543212'
+        };
+
         function assignDelivery(id) {
             const o = orders.find(x => x.orderId === id);
             const sel = document.getElementById('dp_' + id);
             if (o && sel) {
                 o.status = 'OUT_FOR_DELIVERY';
-                o.deliveryPerson = sel.value;
+                o.deliveryPerson = { name: sel.value, phone: deliveryPartnerPhones[sel.value] || '9876543210' };
                 safeSetJSON('bvr_all_orders', orders);
                 // Sync current order
                 const currentOrder = safeGetJSON('bvr_current_order', null);
                 if (currentOrder && currentOrder.orderId === id) {
                     currentOrder.status = 'OUT_FOR_DELIVERY';
-                    currentOrder.deliveryPerson = sel.value;
+                    currentOrder.deliveryPerson = o.deliveryPerson;
                     safeSetJSON('bvr_current_order', currentOrder);
                 }
                 renderOrders();
@@ -627,6 +665,28 @@
         setInterval(() => {
             if (isLoggedIn) {
                 orders = safeGetJSON('bvr_all_orders', orders);
+                // FIX 7: Clean demo orders on refresh too
+                const realOrders = orders.filter(o => !o.isDemo);
+                if (realOrders.length > 0) {
+                    orders = realOrders;
+                    safeSetJSON('bvr_all_orders', orders);
+                }
+                // FIX 6: New order alert
+                const newCount = orders.filter(o => o.status === 'NEW').length;
+                if (newCount > previousNewCount) {
+                    showToast('🔔 New order received!', 'info');
+                    document.title = '(' + newCount + ') BVR Owner Dashboard';
+                    const pendingEl = document.getElementById('statPending');
+                    if (pendingEl) {
+                        pendingEl.classList.remove('pulse-gold');
+                        void pendingEl.offsetWidth; // reflow
+                        pendingEl.classList.add('pulse-gold');
+                        setTimeout(() => pendingEl.classList.remove('pulse-gold'), 1000);
+                    }
+                } else if (newCount === 0) {
+                    document.title = 'BVR Owner Dashboard';
+                }
+                previousNewCount = newCount;
                 renderOrders();
                 updateStats();
             }

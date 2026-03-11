@@ -289,8 +289,9 @@
                     style="width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,#d4a017,#f5c842);display:flex;align-items:center;justify-content:center;font-size:1.3rem;">
                     👤</div>
                 <div style="flex:1;">
-                    <div style="font-weight:600;font-size:.95rem;">Raju Kumar</div>
-                    <a href="tel:9876543210" style="color:#f5c842;text-decoration:none;font-size:.85rem;">📞
+                    <div style="font-weight:600;font-size:.95rem;" id="deliveryName">Raju Kumar</div>
+                    <a id="deliveryPhone" href="tel:9876543210"
+                        style="color:#f5c842;font-size:1.2rem;font-weight:700;text-decoration:none;display:inline-block;min-height:44px;line-height:44px;">📞
                         9876543210</a>
                 </div>
             </div>
@@ -446,7 +447,11 @@
             const deliveryCard = document.getElementById('deliveryCard');
             if (order.status === 'OUT_FOR_DELIVERY' && order.deliveryPerson) {
                 deliveryCard.style.display = 'block';
-                deliveryCard.querySelector('div[style*="font-weight:600"]').textContent = order.deliveryPerson;
+                const dp = typeof order.deliveryPerson === 'object' ? order.deliveryPerson : { name: order.deliveryPerson, phone: '9876543210' };
+                document.getElementById('deliveryName').textContent = dp.name;
+                const phoneEl = document.getElementById('deliveryPhone');
+                phoneEl.textContent = '📞 ' + dp.phone;
+                phoneEl.href = 'tel:' + dp.phone;
             } else {
                 deliveryCard.style.display = 'none';
             }
@@ -494,7 +499,7 @@
                 order.status = steps[currentIdx + 1];
                 // Add delivery person when going to OUT_FOR_DELIVERY
                 if (order.status === 'OUT_FOR_DELIVERY') {
-                    order.deliveryPerson = 'Raju Kumar';
+                    order.deliveryPerson = { name: 'Raju Kumar', phone: '9876543210' };
                 }
                 safeSetJSON('bvr_current_order', order);
                 // Also update in bvr_all_orders

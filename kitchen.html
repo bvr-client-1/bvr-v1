@@ -426,6 +426,7 @@
 
         // ========== KITCHEN ORDERS ==========
         let allOrders = [];
+        let renderedOrderSnapshot = ''; // tracks IDs+statuses to detect changes
 
         function loadKitchen() {
             allOrders = safeGetJSON('bvr_all_orders', []);
@@ -508,6 +509,8 @@
 
             updateStats();
             updateTimers();
+            // Update snapshot after render
+            renderedOrderSnapshot = getKitchenOrders().map(o => o.orderId + ':' + o.status).join(',');
         }
 
         function startCooking(id) {
@@ -582,7 +585,14 @@
                     }
                 });
                 allOrders = fresh;
-                renderKitchen();
+                // Smart diff: only re-render if order IDs or statuses changed
+                const currentSnapshot = getKitchenOrders().map(o => o.orderId + ':' + o.status).join(',');
+                if (currentSnapshot !== renderedOrderSnapshot) {
+                    renderKitchen(); // renderKitchen updates the snapshot
+                } else {
+                    updateTimers(); // just tick timers, no DOM rebuild
+                    updateStats();
+                }
             }
         }, 10000);
 
