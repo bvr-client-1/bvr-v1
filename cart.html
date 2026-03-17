@@ -8,6 +8,8 @@
     <meta name="description" content="Review your order and checkout at BVR Bangaru Vakili Restaurant." />
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;800&family=Poppins:wght@300;400;500;600;700&display=swap');
 
@@ -449,7 +451,7 @@
             // Populate table dropdown
             const sel = document.getElementById('tableNum');
             sel.innerHTML = '<option value="">Select table...</option>';
-            for (let i = 1; i <= 20; i++) {
+            for (let i = 1; i <= 16; i++) {
                 sel.innerHTML += `<option value="${i}">Table ${i}</option>`;
             }
         }
@@ -549,93 +551,70 @@
 
         // ========== PLACE ORDER (Supabase) ==========
         async function handlePay() {
-            clearFieldErrors();
-            const name = document.getElementById('customerName').value.trim();
-            const phone = document.getElementById('customerPhone').value.trim();
+    clearFieldErrors();
+    const name = document.getElementById('customerName').value.trim();
+    const phone = document.getElementById('customerPhone').value.trim();
 
-            // Validation
-            if (orderType === 'dine-in') {
-                const table = document.getElementById('tableNum').value;
-                if (!table) { showError('Please select a table number'); highlightField('tableNum'); return; }
-            } else {
-                const address = document.getElementById('address').value.trim();
-                if (!address || address.length < 10) { showError('Please enter a valid delivery address (min 10 chars)'); highlightField('address'); return; }
-            }
-            if (!name) { showError('Please enter your name'); highlightField('customerName'); return; }
-            if (!phone || !/^\d{10}$/.test(phone)) { showError('Please enter a valid 10-digit phone number'); highlightField('customerPhone'); return; }
+    if (orderType === 'dine-in') {
+        const table = document.getElementById('tableNum').value;
+        if (!table) { showError('Please select a table number'); highlightField('tableNum'); return; }
+    } else {
+        const address = document.getElementById('address').value.trim();
+        if (!address || address.length < 10) { showError('Please enter a valid delivery address'); highlightField('address'); return; }
+    }
+    if (!name) { showError('Please enter your name'); highlightField('customerName'); return; }
+    if (!phone || !/^\d{10}$/.test(phone)) { showError('Enter valid 10-digit phone'); highlightField('customerPhone'); return; }
 
-            if (cart.length === 0) {
-                showToast('Your cart is empty', 'error');
-                return;
-            }
+    if (cart.length === 0) { showToast('Cart empty', 'error'); return; }
+    setPayButtonLoading(true);
 
-            setPayButtonLoading(true);
+    const subtotal = cart.reduce((s, c) => s + c.quantity * c.price, 0);
+    const deliveryCharge = orderType === 'delivery' ? 30 : 0;
+    const total = subtotal + deliveryCharge;
+    const amountInPaise = total * 100;
 
-            const subtotal = cart.reduce((s, c) => s + c.quantity * c.price, 0);
-            const deliveryCharge = orderType === 'delivery' ? 30 : 0;
-            const total = subtotal + deliveryCharge;
+    const options = {
+        "key": "rzp_test_SSGuhzE8P324OF", 
+        "amount": amountInPaise,
+        "currency": "INR",
+        "name": "BVR Restaurant",
+        "description": `Order #BVR${Date.now().toString().slice(-6)}`,
+        "handler": async function(response) {
+            const modal = document.getElementById('payModal');
+            modal.querySelector('h3').textContent = '✅ Payment Success!';
+            modal.querySelector('p').textContent = 'Saving order...';
+            modal.classList.add('open');
+            
+            // Save to Supabase
             const orderCode = 'BVR' + Date.now().toString().slice(-6);
+            const { data: order } = await db.from('orders').insert({
+                order_code: orderCode, type: orderType,
+                table_number: orderType === 'dine-in' ? document.getElementById('tableNum').value : null,
+                customer_name: name, customer_phone: phone,
+                delivery_address: orderType === 'delivery' ? document.getElementById('address').value : null,
+                subtotal: subtotal, delivery_charge: deliveryCharge, total: total,
+                payment_id: response.razorpay_payment_id, status: 'NEW', payment_status: 'PAID'
+            }).select().single();
+            
+            await db.from('order_items').insert(cart.map(item => ({
+                order_id: order.id, item_name: item.name, 
+                quantity: item.quantity, price: item.price
+            })));
+            
+            localStorage.setItem('bvr_order_id', order.id);
+            localStorage.setItem('bvr_order_code', orderCode);
+            localStorage.removeItem('bvr_cart');
+            
+            setTimeout(() => window.location.href = 'status.html', 1500);
+        },
+        "prefill": { "name": name, "contact": phone },
+        "theme": { "color": "#d4a017" },
+        "modal": { "ondismiss": () => { setPayButtonLoading(false); showToast('Payment cancelled'); } }
+    };
 
-            try {
-                // 1. Insert order into Supabase
-                const { data: order, error: orderErr } = await db
-                    .from('orders')
-                    .insert({
-                        order_code: orderCode,
-                        type: orderType,
-                        table_number: orderType === 'dine-in' ? document.getElementById('tableNum').value : null,
-                        customer_name: name,
-                        customer_phone: phone,
-                        delivery_address: orderType === 'delivery' ? document.getElementById('address').value.trim() : null,
-                        subtotal: subtotal,
-                        delivery_charge: deliveryCharge,
-                        total: total,
-                        status: 'NEW',
-                        payment_status: 'PAID'
-                    })
-                    .select()
-                    .single();
-
-                if (orderErr) throw orderErr;
-
-                // 2. Insert order items
-                const orderItems = cart.map(item => ({
-                    order_id: order.id,
-                    item_name: item.name,
-                    quantity: item.quantity,
-                    price: item.price
-                }));
-
-                const { error: itemsErr } = await db
-                    .from('order_items')
-                    .insert(orderItems);
-
-                if (itemsErr) throw itemsErr;
-
-                // 3. Save order references to localStorage for status page
-                localStorage.setItem('bvr_order_id', order.id);
-                localStorage.setItem('bvr_order_code', orderCode);
-                localStorage.removeItem('bvr_cart');
-
-                // 4. Show success + redirect
-                const modal = document.getElementById('payModal');
-                modal.querySelector('h3').textContent = '✅ Payment Successful!';
-                modal.querySelector('p').textContent = 'Redirecting to order status...';
-                modal.classList.add('open');
-
-                showToast('Order placed successfully!');
-                console.log('[BVR] Order created in Supabase:', order.id, orderCode);
-
-                setTimeout(() => {
-                    window.location.href = 'status.html';
-                }, 1500);
-
-            } catch (err) {
-                console.error('[BVR] Order failed:', err);
-                showToast('Order failed. Check connection.', 'error');
-                setPayButtonLoading(false);
-            }
-        }
+    const rzp = new Razorpay(options);
+    rzp.open();
+}
 
         // ========== TIMING RESTRICTION (11AM - 11PM IST) ==========
         function isRestaurantOpen() {
@@ -687,6 +666,8 @@
         });
         console.log('[BVR] Cart page loaded. Items:', cart.length);
     </script>
+    
+
 </body>
 
 </html>
