@@ -1,0 +1,213 @@
+import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { FloatingCart } from '../components/FloatingCart.jsx';
+import { useAppContext } from '../context/AppContext.jsx';
+import { useToast } from '../context/ToastContext.jsx';
+import { fetchPublicMenu } from '../services/menuService.js';
+import { formatPrice, getCatEmoji } from '../utils/format.js';
+import { getOpenMessage, isRestaurantOpen } from '../utils/restaurant.js';
+
+export default function MenuPage() {
+  const { cart, setCart } = useAppContext();
+  const { showToast } = useToast();
+  const [categories, setCategories] = useState([]);
+  const [menuItems, setMenuItems] = useState([]);
+  const [currentCat, setCurrentCat] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [open, setOpen] = useState(isRestaurantOpen());
+
+  useEffect(() => {
+    const loadMenu = async () => {
+      try {
+        setLoading(true);
+        const data = await fetchPublicMenu();
+        setCategories(data.categories);
+        setMenuItems(data.items);
+        setError('');
+      } catch {
+        setError('Menu unavailable. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadMenu();
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setOpen(isRestaurantOpen()), 60000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const filteredItems = useMemo(() => {
+    let items = currentCat === 'all' ? menuItems : menuItems.filter((item) => item.category === currentCat);
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      items = items.filter((item) => item.name.toLowerCase().includes(query));
+    }
+    return items;
+  }, [currentCat, menuItems, searchQuery]);
+
+  const getQty = (id) => cart.find((item) => item.id === id)?.quantity || 0;
+
+  const updateCartItem = (menuItem, delta) => {
+    setCart((previous) => {
+      const existing = previous.find((item) => item.id === menuItem.id);
+      if (!existing && delta < 0) {
+        return previous;
+      }
+
+      if (existing) {
+        return previous
+          .map((item) => (item.id === menuItem.id ? { ...item, quantity: item.quantity + delta } : item))
+          .filter((item) => item.quantity > 0);
+      }
+
+      return [...previous, { ...menuItem, quantity: 1 }];
+    });
+
+    if (delta > 0 && getQty(menuItem.id) === 0) {
+      showToast(`${menuItem.name} added ✓`);
+    }
+  };
+
+  const renderCard = (item) => {
+    const qty = getQty(item.id);
+    return (
+      <div className="menu-card" key={item.id}>
+        <div className="card-img-wrap">
+          {item.imageUrl ? (
+            <img alt={item.name} className="card-img" loading="lazy" src={item.imageUrl} />
+          ) : (
+            <div className="card-img-placeholder">{getCatEmoji(item.category)}</div>
+          )}
+          <span className="card-cat-badge">{item.category}</span>
+        </div>
+        <div className="card-body">
+          <div className="card-name">{item.name}</div>
+          <div className="card-price">{formatPrice(item.price)}</div>
+          {qty === 0 ? (
+            <button className="add-btn" disabled={!open} onClick={() => updateCartItem(item, 1)} type="button">
+              {open ? '+ Add' : 'Closed'}
+            </button>
+          ) : (
+            <div className="qty-row">
+              <button className="qty-btn" disabled={!open} onClick={() => updateCartItem(item, -1)} type="button">
+                −
+              </button>
+              <span className="qty-num">{qty}</span>
+              <button className="qty-btn" disabled={!open} onClick={() => updateCartItem(item, 1)} type="button">
+                +
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div>
+      <nav className="navbar">
+        <div className="nav-inner">
+          <Link className="back-link" to="/">
+            ← <span>Back</span>
+          </Link>
+          <h1 className="page-title">BVR Menu</h1>
+          <div className="cart-icon-wrap">
+            <Link aria-label="Go to cart" className="cart-link" to="/cart">
+              🛒
+            </Link>
+            {!!cart.length && <span className="cart-badge">{cart.reduce((sum, item) => sum + item.quantity, 0)}</span>}
+          </div>
+        </div>
+      </nav>
+
+      {!open && (
+        <div className="closed-banner" style={{ marginTop: 64 }}>
+          🔴 We're currently closed · Orders accepted 11 AM - 11 PM IST · {getOpenMessage()}
+        </div>
+      )}
+
+      <div className="tabs-wrap" style={{ marginTop: open ? 64 : 0 }}>
+        <button className={`tab-btn ${currentCat === 'all' ? 'active' : ''}`} onClick={() => setCurrentCat('all')} type="button">
+          All ({menuItems.length})
+        </button>
+        {categories.map((category) => {
+          const count = menuItems.filter((item) => item.category === category.name).length;
+          if (!count) return null;
+          return (
+            <button
+              className={`tab-btn ${currentCat === category.name ? 'active' : ''}`}
+              key={category.id || category.name}
+              onClick={() => setCurrentCat(category.name)}
+              type="button"
+            >
+              {getCatEmoji(category.name)} {category.name} ({count})
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="search-wrap">
+        <div className="search-inner">
+          <span className="search-icon">🔍</span>
+          <input className="search-input" onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search dishes..." type="text" value={searchQuery} />
+          {!!searchQuery && (
+            <button className="search-clear" onClick={() => setSearchQuery('')} type="button">
+              ×
+            </button>
+          )}
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="menu-grid menu-grid-top">
+          {Array.from({ length: 6 }).map((_, index) => (
+            <div className="skeleton-card" key={index}>
+              <div className="skeleton-img" />
+              <div className="skeleton-line wide" />
+              <div className="skeleton-line mid" />
+              <div className="skeleton-line buttonish" />
+            </div>
+          ))}
+        </div>
+      ) : error ? (
+        <div className="empty-state">
+          <div className="empty-icon">⚠️</div>
+          <h3>Menu unavailable. Please try again.</h3>
+        </div>
+      ) : filteredItems.length === 0 ? (
+        <div className="empty-state">
+          <div className="empty-icon">🔍</div>
+          <h3>No results found</h3>
+          <p>No dishes match "{searchQuery || currentCat}"</p>
+        </div>
+      ) : currentCat === 'all' && !searchQuery ? (
+        categories.map((category) => {
+          const items = menuItems.filter((item) => item.category === category.name);
+          if (!items.length) return null;
+          return (
+            <div key={category.id || category.name}>
+              <div className="section-header">
+                <div className="section-header-inner">
+                  <span className="section-header-title">
+                    {getCatEmoji(category.name)} {category.name}
+                  </span>
+                  <span className="section-header-count">{items.length} items</span>
+                </div>
+              </div>
+              <div className="menu-grid">{items.map(renderCard)}</div>
+            </div>
+          );
+        })
+      ) : (
+        <div className="menu-grid menu-grid-top">{filteredItems.map(renderCard)}</div>
+      )}
+
+      <FloatingCart cart={cart} />
+    </div>
+  );
+}
