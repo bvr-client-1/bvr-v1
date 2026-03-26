@@ -16,7 +16,12 @@ import {
 export const createOrder = async (req, res) => {
   const { amount, receipt } = req.body;
   const order = await createRazorpayOrder({ amount, receipt });
-  res.json({ orderId: order.id, amount: order.amount, currency: order.currency });
+  res.json({
+    orderId: order.id,
+    amount: order.amount,
+    currency: order.currency,
+    keyId: env.razorpayKeyId,
+  });
 };
 
 export const verifyPayment = async (req, res) => {

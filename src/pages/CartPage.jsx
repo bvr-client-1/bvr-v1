@@ -20,7 +20,10 @@ export default function CartPage() {
   const [paying, setPaying] = useState(false);
   const open = isRestaurantOpen();
 
-  const subtotal = useMemo(() => cart.reduce((sum, item) => sum + item.quantity * item.price, 0), [cart]);
+  const subtotal = useMemo(
+    () => cart.reduce((sum, item) => sum + item.quantity * item.price, 0),
+    [cart],
+  );
   const deliveryCharge = orderType === 'delivery' ? 30 : 0;
   const total = subtotal + deliveryCharge;
 
@@ -35,7 +38,9 @@ export default function CartPage() {
   const validateForm = () => {
     if (!cart.length) return 'Cart empty';
     if (orderType === 'dine-in' && !tableNumber) return 'Please select a table number';
-    if (orderType === 'delivery' && deliveryAddress.trim().length < 10) return 'Please enter a valid delivery address';
+    if (orderType === 'delivery' && deliveryAddress.trim().length < 10) {
+      return 'Please enter a valid delivery address';
+    }
     if (!customerName.trim()) return 'Please enter your name';
     if (!/^\d{10}$/.test(customerPhone.trim())) return 'Enter valid 10-digit phone';
     return '';
@@ -63,7 +68,7 @@ export default function CartPage() {
       });
 
       const options = {
-        key: import.meta.env.VITE_RAZORPAY_KEY_ID,
+        key: paymentOrder.keyId || import.meta.env.VITE_RAZORPAY_KEY_ID,
         amount: paymentOrder.amount,
         currency: paymentOrder.currency,
         name: 'BVR Restaurant',
@@ -92,6 +97,7 @@ export default function CartPage() {
           setOrderId(payload.orderId);
           setOrderCode(payload.orderCode);
           setCart([]);
+          setPaying(false);
           showToast('Payment successful! Saving order...');
           navigate('/status');
         },
@@ -109,6 +115,16 @@ export default function CartPage() {
       };
 
       const razorpay = new window.Razorpay(options);
+      razorpay.on('payment.failed', (response) => {
+        const reason =
+          response?.error?.description ||
+          response?.error?.reason ||
+          response?.error?.source ||
+          'Payment failed';
+        setError(reason);
+        setPaying(false);
+        showToast(reason, 'error');
+      });
       razorpay.open();
     } catch (paymentError) {
       setError(paymentError.message || 'Unable to start payment');
@@ -131,7 +147,7 @@ export default function CartPage() {
 
       {!open && (
         <div className="closed-banner" style={{ display: 'block', marginTop: 64 }}>
-          🔴 We're currently closed · Orders accepted 11 AM - 11 PM IST · {getOpenMessage()}
+          🔴 We&apos;re currently closed · Orders accepted 11 AM - 11 PM IST · {getOpenMessage()}
         </div>
       )}
 
@@ -146,8 +162,8 @@ export default function CartPage() {
             </Link>
           </div>
         ) : (
-          <div>
-            <div className="card">
+          <div className="cart-shell">
+            <div className="card cart-card cart-items-card">
               <h2 className="card-title">Order Items</h2>
               {cart.map((item) => (
                 <div className="cart-item-row" key={item.id}>
@@ -178,19 +194,29 @@ export default function CartPage() {
               </div>
             </div>
 
-            <div className="card">
+            <div className="card cart-card">
               <h2 className="card-title">Order Type</h2>
-              <div className="toggle-wrap">
-                <button className={`toggle-btn ${orderType === 'dine-in' ? 'active' : ''}`} onClick={() => setOrderType('dine-in')} type="button">
-                  🪑 Dine-In
+              <div className="order-type-toggle" role="tablist" aria-label="Order Type">
+                <button
+                  className={`toggle-btn ${orderType === 'dine-in' ? 'active' : ''}`}
+                  onClick={() => setOrderType('dine-in')}
+                  type="button"
+                >
+                  <span className="toggle-icon">🪑</span>
+                  <span>Dine-In</span>
                 </button>
-                <button className={`toggle-btn ${orderType === 'delivery' ? 'active' : ''}`} onClick={() => setOrderType('delivery')} type="button">
-                  🛵 Delivery
+                <button
+                  className={`toggle-btn ${orderType === 'delivery' ? 'active' : ''}`}
+                  onClick={() => setOrderType('delivery')}
+                  type="button"
+                >
+                  <span className="toggle-icon">🛵</span>
+                  <span>Delivery</span>
                 </button>
               </div>
             </div>
 
-            <div className="card">
+            <div className="card cart-card">
               <h2 className="card-title">Your Details</h2>
               {orderType === 'dine-in' ? (
                 <div>
@@ -208,18 +234,35 @@ export default function CartPage() {
                 <div className="stacked-fields">
                   <div>
                     <label className="label">Delivery Address</label>
-                    <textarea className="input-field" onChange={(event) => setDeliveryAddress(event.target.value)} placeholder="Enter your full address" value={deliveryAddress} />
+                    <textarea
+                      className="input-field"
+                      onChange={(event) => setDeliveryAddress(event.target.value)}
+                      placeholder="Enter your full address"
+                      value={deliveryAddress}
+                    />
                   </div>
                   <div>
                     <label className="label">Landmark (optional)</label>
-                    <input className="input-field" onChange={(event) => setLandmark(event.target.value)} placeholder="Near..." type="text" value={landmark} />
+                    <input
+                      className="input-field"
+                      onChange={(event) => setLandmark(event.target.value)}
+                      placeholder="Near..."
+                      type="text"
+                      value={landmark}
+                    />
                   </div>
                 </div>
               )}
 
               <div>
                 <label className="label">Your Name</label>
-                <input className="input-field" onChange={(event) => setCustomerName(event.target.value)} placeholder="Enter your name" type="text" value={customerName} />
+                <input
+                  className="input-field"
+                  onChange={(event) => setCustomerName(event.target.value)}
+                  placeholder="Enter your name"
+                  type="text"
+                  value={customerName}
+                />
               </div>
               <div>
                 <label className="label">Phone Number</label>
@@ -234,7 +277,7 @@ export default function CartPage() {
               </div>
             </div>
 
-            <div className="card">
+            <div className="card cart-card price-summary-card">
               <h2 className="card-title">Price Summary</h2>
               <div className="summary-row">
                 <span>Subtotal</span>
@@ -252,7 +295,7 @@ export default function CartPage() {
               </div>
             </div>
 
-            <button className="btn-gold full-width" disabled={paying || !open} onClick={handlePay} type="button">
+            <button className="btn-gold full-width pay-button" disabled={paying || !open} onClick={handlePay} type="button">
               {paying ? 'Processing...' : `Pay ${formatPrice(total)} via UPI →`}
             </button>
             {!!error && <p className="form-error">{error}</p>}
