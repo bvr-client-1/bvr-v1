@@ -26,6 +26,8 @@ h1, h2, h3, h4 { font-family: 'Playfair Display', serif; margin: 0; }
 .brand-badge { width: 40px; height: 40px; }
 .hero-badge { width: 120px; height: 120px; font-size: 2rem; box-shadow: 0 0 40px #d4a01760; }
 .brand-text, .page-title { color: var(--gold); font-weight: 700; }
+.brand-logo-img { width: 44px; height: 44px; object-fit: contain; border-radius: 8px; filter: drop-shadow(0 2px 8px rgba(212,160,23,.35)); }
+.brand-logo-img-small { width: 48px; height: 48px; object-fit: contain; border-radius: 10px; filter: drop-shadow(0 2px 6px rgba(212,160,23,.25)); }
 .desktop-nav { display: flex; gap: 28px; align-items: center; }
 .desktop-nav a, .logout-link { text-decoration: none; color: var(--text); font-size: .95rem; }
 .nav-active { color: var(--bright-gold) !important; }
@@ -39,10 +41,15 @@ h1, h2, h3, h4 { font-family: 'Playfair Display', serif; margin: 0; }
 .mobile-menu-links { display: flex; flex-direction: column; gap: 28px; }
 .mobile-menu-links a { text-decoration: none; }
 .hero-bg { position: relative; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 100px 20px 60px; }
+.hero-logo-wrap { margin-bottom: 20px; animation: logoFloat 4s ease-in-out infinite; }
+.hero-logo-img { width: 160px; height: 160px; object-fit: contain; filter: drop-shadow(0 0 40px rgba(212,160,23,.45)) drop-shadow(0 8px 24px rgba(0,0,0,.5)); }
+@keyframes logoFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
 .hero-title { font-size: clamp(2.2rem,7vw,3.5rem); color: var(--gold); }
-.hero-subtitle { margin-top: 8px; font-size: 1.1rem; }
+.hero-subtitle { margin-top: 8px; font-size: 1.1rem; letter-spacing: .04em; }
+.hero-tagline { color: var(--bright-gold); font-size: 1.15rem; margin-top: 12px; font-family: 'Playfair Display', serif; letter-spacing: .03em; }
+.hero-est { display: inline-block; margin-top: 10px; padding: 4px 18px; border-radius: 999px; background: rgba(212,160,23,.12); border: 1px solid rgba(212,160,23,.25); color: var(--bright-gold); font-size: .85rem; font-weight: 600; letter-spacing: .1em; }
 .hero-copy, .hero-note { color: var(--muted); }
-.hero-copy { max-width: 340px; margin-bottom: 36px; }
+.hero-copy { max-width: 420px; margin-top: 18px; margin-bottom: 36px; font-size: 1.02rem; line-height: 1.7; }
 .btn-gold, .back-btn, .inline-button { background: linear-gradient(135deg, #d4a017, #f5c842); color: #1a0e00; font-weight: 700; border-radius: 9999px; min-height: 48px; padding: 12px 24px; border: none; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; }
 .section { padding: 40px 20px; max-width: 1200px; margin: auto; }
 .section-title { text-align: center; font-size: 1.6rem; color: var(--gold); margin-bottom: 24px; }
@@ -58,6 +65,12 @@ h1, h2, h3, h4 { font-family: 'Playfair Display', serif; margin: 0; }
 .about-kicker { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 999px; background: rgba(212,160,23,.1); color: var(--bright-gold); font-size: .78rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
 .about-title, .reviews-title, .map-card-title { margin-top: 16px; color: #f8ddb0; font-size: clamp(1.4rem, 3vw, 2.2rem); line-height: 1.15; }
 .about-description { margin: 14px 0 0; color: #d9ba84; font-size: 1rem; line-height: 1.8; }
+.about-card-centered { max-width: 800px; margin: 0 auto 12px; text-align: center; padding: 32px 28px; background: linear-gradient(180deg, rgba(28,15,0,.96), rgba(19,10,0,.96)); border: 1px solid rgba(212,160,23,.22); border-radius: 24px; box-shadow: 0 22px 55px rgba(0,0,0,.28); }
+.about-description-large { color: #d9ba84; font-size: 1.08rem; line-height: 2; margin: 0; }
+.info-item { display: inline-flex; align-items: center; gap: 8px; font-size: .95rem; }
+.info-item a { color: var(--bright-gold); text-decoration: none; }
+.info-item a:hover { text-decoration: underline; }
+.info-icon { font-size: 1.1rem; }
 .about-highlights { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 22px; }
 .about-highlights div { padding: 14px 16px; border-radius: 18px; background: rgba(255,255,255,.03); border: 1px solid rgba(212,160,23,.15); }
 .about-highlights strong { display: block; color: var(--bright-gold); font-size: 1.2rem; }

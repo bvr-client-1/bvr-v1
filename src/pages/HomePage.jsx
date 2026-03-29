@@ -47,8 +47,7 @@ export default function HomePage() {
       <nav className="navbar">
         <div className="nav-inner">
           <Link className="brand-link" to="/">
-            <div className="brand-badge">BVR</div>
-            <span className="brand-text">BVR</span>
+            <img alt="BVR Logo" className="brand-logo-img" src="/bvr-logo.png" />
           </Link>
           {desktop ? (
             <div className="desktop-nav">
@@ -57,6 +56,7 @@ export default function HomePage() {
               </Link>
               <Link to="/menu">Menu</Link>
               <a href="#about">About</a>
+              <a href="#services">Services</a>
               <a href="#contact">Contact</a>
             </div>
           ) : (
@@ -76,44 +76,75 @@ export default function HomePage() {
 
       <MobileMenu onClose={() => setOpen(false)} open={open} />
 
+      {/* ─── HERO SECTION ─── */}
       <section className="hero-bg">
-        <div className="hero-badge fade-up">BVR</div>
+        <div className="hero-logo-wrap fade-up">
+          <img alt="BVR Bangaru Vakili Family Restaurant" className="hero-logo-img" src="/bvr-logo.png" />
+        </div>
         <h1 className="fade-up fade-delay-1 hero-title">Bangaru Vakili</h1>
-        <p className="fade-up fade-delay-1 hero-subtitle">Family Restaurant - Nalgonda</p>
-        <p className="fade-up fade-delay-2 hero-copy">Authentic Telugu flavors, now at your fingertips.</p>
+        <p className="fade-up fade-delay-1 hero-subtitle">Family Restaurant — Nalgonda</p>
+        <p className="fade-up fade-delay-2 hero-tagline">
+          <em>"Authentic Taste. Royal Experience."</em>
+        </p>
+        <p className="fade-up fade-delay-2 hero-est">Est. 2025</p>
+        <p className="fade-up fade-delay-2 hero-copy">
+          Welcome to Our Family — Experience the authentic flavors of South India.
+        </p>
         <Link className="btn-gold fade-up fade-delay-3" to="/menu">
           Start Ordering
         </Link>
-        <p className="fade-up fade-delay-4 hero-note">Scan QR at your table to order.</p>
+        <p className="fade-up fade-delay-4 hero-note">Scan QR at your table to order • Also available on Pickzy</p>
       </section>
 
+      {/* ─── ABOUT SECTION ─── */}
       <section className="section" id="about">
-        <h2 className="section-title">Our Services</h2>
+        <h2 className="section-title">About Us</h2>
+        <div className="about-card-centered">
+          <p className="about-description-large">
+            At Bangaru Vakili Family Restaurant, we bring you a perfect blend of tradition and taste.
+            Experience premium dining with authentic recipes, quality ingredients, and warm hospitality.
+            We are committed to serving delicious food with excellence.
+          </p>
+        </div>
+
+        {/* ─── SERVICES ─── */}
+        <h2 className="section-title" id="services" style={{ marginTop: '48px' }}>Our Services</h2>
         <div className="services-scroll">
           <div className="service-card">
-            <div className="service-icon">D</div>
-            <h3>Dine In</h3>
+            <div className="service-icon">🍽️</div>
+            <h3>Dine-In</h3>
             <p>Scan table QR and order instantly from your seat.</p>
           </div>
           <div className="service-card">
-            <div className="service-icon">H</div>
+            <div className="service-icon">🥡</div>
+            <h3>Takeaway</h3>
+            <p>Pack your favorites and enjoy them wherever you go.</p>
+          </div>
+          <div className="service-card">
+            <div className="service-icon">🛵</div>
             <h3>Home Delivery</h3>
             <p>Order from anywhere, and we deliver to your door.</p>
           </div>
           <div className="service-card">
-            <div className="service-icon">C</div>
+            <div className="service-icon">🏠</div>
+            <h3>Indoor Catering</h3>
+            <p>Premium catering for private events and celebrations.</p>
+          </div>
+          <div className="service-card">
+            <div className="service-icon">🎪</div>
             <h3>Outdoor Catering</h3>
-            <p>Events, functions, and party catering service.</p>
+            <p>Events, functions, and large party catering service.</p>
           </div>
         </div>
 
+        {/* ─── ABOUT SHOWCASE (About + Map) ─── */}
         <div className="about-showcase">
           <div className="about-copy-card">
-            <span className="about-kicker">About Us</span>
+            <span className="about-kicker">Why Choose Us</span>
             <h3 className="about-title">Loved in Nalgonda for biryani, hospitality, and family dining.</h3>
             <p className="about-description">
-              Bangaru Vakili Family Restaurant brings together Telugu favorites, rich biryani plates,
-              warm service, and a comfortable dine-in space right near Shivaji Nagar Circle.
+              Bangaru Vakili Family Restaurant brings together South Indian favorites, rich biryani plates,
+              warm service, and a comfortable dine-in space right near Shivaji Nagar Circle, Nalgonda.
             </p>
             <div className="about-highlights">
               <div>
@@ -135,7 +166,7 @@ export default function HomePage() {
             <div className="map-card-header">
               <div>
                 <span className="about-kicker">Visit Us</span>
-                <h3 className="map-card-title">Near Shivaji Nagar Circle, Nalgonda</h3>
+                <h3 className="map-card-title">Shivaji Nagar Circle, Nalgonda – 508801</h3>
               </div>
               <a
                 className="review-link"
@@ -158,6 +189,7 @@ export default function HomePage() {
           </div>
         </div>
 
+        {/* ─── REVIEWS ─── */}
         <div className="reviews-showcase">
           <div className="reviews-header">
             <div>
@@ -176,7 +208,7 @@ export default function HomePage() {
 
           <div className="review-summary-bar">
             <div className="review-brand">
-              <div className="brand-badge">BVR</div>
+              <img alt="BVR" className="brand-logo-img-small" src="/bvr-logo.png" />
               <div>
                 <h4>Bangaru Vakili Family Restaurant</h4>
                 <p>Shivaji Nagar Circle, Nalgonda</p>
@@ -184,7 +216,7 @@ export default function HomePage() {
             </div>
             <div className="review-score">
               <strong>4.9</strong>
-              <span>*****</span>
+              <span>★★★★★</span>
               <p>Based on public review listings</p>
             </div>
           </div>
@@ -192,7 +224,7 @@ export default function HomePage() {
           <div className="reviews-scroll">
             {reviewCards.map((review) => (
               <article className="review-card" key={review.author}>
-                <div className="review-stars">*****</div>
+                <div className="review-stars">★★★★★</div>
                 <p className="review-text">{review.text}</p>
                 <div className="review-footer">
                   <div className="review-avatar">{review.author.charAt(0)}</div>
@@ -207,18 +239,36 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* ─── CONTACT STRIP ─── */}
       <section className="info-strip" id="contact">
         <div className="info-row">
-          <div>Location: Shivaji Nagar Circle, Nalgonda - 508001</div>
-          <div>
-            Call: <a href="tel:7337334474">7337334474</a> / <a href="tel:9701054013">9701054013</a>
+          <div className="info-item">
+            <span className="info-icon">📍</span>
+            <span>Shivaji Nagar Circle, Nalgonda – 508801</span>
           </div>
-          <div>Open: 11:45 AM - 11:00 PM</div>
+          <div className="info-item">
+            <span className="info-icon">📞</span>
+            <span>
+              <a href="tel:7337334474">7337334474</a> • <a href="tel:9701054013">9701054013</a> • <a href="tel:9505523839">9505523839</a>
+            </span>
+          </div>
+          <div className="info-item">
+            <span className="info-icon">✉️</span>
+            <a href="mailto:bangaruvakili2025@gmail.com">bangaruvakili2025@gmail.com</a>
+          </div>
+          <div className="info-item">
+            <span className="info-icon">🕐</span>
+            <span>Open: 11:45 AM – 11:00 PM</span>
+          </div>
+          <div className="info-item">
+            <span className="info-icon">👤</span>
+            <span>Prop: Punnam Nagaraju</span>
+          </div>
         </div>
       </section>
 
       <footer className="footer">
-        <p>Copyright 2026 BVR Bangaru Vakili Family Restaurant</p>
+        <p>Copyright © 2025 BVR Bangaru Vakili Family Restaurant. All rights reserved.</p>
         <p>Powered by BVR Digital</p>
       </footer>
     </div>
