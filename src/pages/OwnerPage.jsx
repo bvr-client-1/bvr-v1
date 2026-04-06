@@ -6,19 +6,20 @@ import { ownerLogin } from '../services/authService.js';
 import { fetchAdminMenuItems, updateMenuAvailability } from '../services/menuService.js';
 import { assignDeliveryPartner, fetchAdminOrders, updateAdminOrderStatus } from '../services/orderService.js';
 import { formatPrice, timeAgo } from '../utils/format.js';
+import { getDirectionsUrl, parseDeliveryAddress } from '../utils/orderLocation.js';
 
 const statusBadgeMap = {
-  NEW: { bg: '#3b82f620', color: '#3b82f6', text: '🆕 NEW' },
-  CONFIRMED: { bg: '#d4a01720', color: '#d4a017', text: '✅ CONFIRMED' },
-  IN_KITCHEN: { bg: '#f9731620', color: '#f97316', text: '🔥 IN KITCHEN' },
-  READY: { bg: '#22c55e20', color: '#22c55e', text: '✅ READY' },
-  OUT_FOR_DELIVERY: { bg: '#8b5cf620', color: '#8b5cf6', text: '🛵 OUT FOR DELIVERY' },
-  COMPLETED: { bg: '#22c55e20', color: '#22c55e', text: '✅ COMPLETED' },
-  CANCELLED: { bg: '#ef444420', color: '#ef4444', text: '❌ CANCELLED' },
+  NEW: { bg: '#3b82f620', color: '#3b82f6', text: 'NEW' },
+  CONFIRMED: { bg: '#d4a01720', color: '#d4a017', text: 'CONFIRMED' },
+  IN_KITCHEN: { bg: '#f9731620', color: '#f97316', text: 'IN KITCHEN' },
+  READY: { bg: '#22c55e20', color: '#22c55e', text: 'READY' },
+  OUT_FOR_DELIVERY: { bg: '#8b5cf620', color: '#8b5cf6', text: 'OUT FOR DELIVERY' },
+  COMPLETED: { bg: '#22c55e20', color: '#22c55e', text: 'COMPLETED' },
+  CANCELLED: { bg: '#ef444420', color: '#ef4444', text: 'CANCELLED' },
 };
 
 export default function OwnerPage() {
-  const { ownerToken, setOwnerToken } = useAppContext();
+  const { ownerToken, setOwnerToken, restaurantStatus, setKitchenPaused } = useAppContext();
   const { showToast } = useToast();
   const [orders, setOrders] = useState([]);
   const [deliveryPeople, setDeliveryPeople] = useState([]);
@@ -32,17 +33,39 @@ export default function OwnerPage() {
   const [rejectingOrderId, setRejectingOrderId] = useState('');
   const [selectedReason, setSelectedReason] = useState('');
 
+  const handleAuthFailure = (error) => {
+    if (error?.response?.status === 401) {
+      setOwnerToken('');
+      showToast('Session expired. Please login again.', 'error');
+      return true;
+    }
+
+    return false;
+  };
+
   const loadOrders = async () => {
     if (!ownerToken) return;
-    const data = await fetchAdminOrders(ownerToken);
-    setOrders(data.orders);
-    setDeliveryPeople(data.deliveryPeople);
+    try {
+      const data = await fetchAdminOrders(ownerToken);
+      setOrders(data.orders);
+      setDeliveryPeople(data.deliveryPeople);
+    } catch (error) {
+      if (!handleAuthFailure(error)) {
+        showToast('Failed to load orders', 'error');
+      }
+    }
   };
 
   const loadMenu = async () => {
     if (!ownerToken) return;
-    const items = await fetchAdminMenuItems(ownerToken);
-    setManagedItems(items);
+    try {
+      const items = await fetchAdminMenuItems(ownerToken);
+      setManagedItems(items);
+    } catch (error) {
+      if (!handleAuthFailure(error)) {
+        showToast('Failed to load menu', 'error');
+      }
+    }
   };
 
   useEffect(() => {
@@ -90,7 +113,7 @@ export default function OwnerPage() {
       const data = await ownerLogin(email, password);
       setOwnerToken(data.token);
       setLoginError('');
-      showToast('Welcome, Owner!');
+      showToast('Welcome, owner!');
     } catch (error) {
       setLoginError(error.response?.data?.message || 'Invalid email or password');
     }
@@ -99,12 +122,14 @@ export default function OwnerPage() {
   const handleStatusUpdate = async (orderId, status, rejectionReason = null) => {
     try {
       await updateAdminOrderStatus(ownerToken, orderId, status, rejectionReason);
-      showToast(status === 'CONFIRMED' ? 'Order accepted! Sent to kitchen. ✅' : 'Order updated ✅');
+      showToast(status === 'CONFIRMED' ? 'Order accepted and sent to kitchen.' : 'Order updated.');
       setRejectingOrderId('');
       setSelectedReason('');
       await loadOrders();
-    } catch {
-      showToast('Update failed', 'error');
+    } catch (error) {
+      if (!handleAuthFailure(error)) {
+        showToast('Update failed', 'error');
+      }
     }
   };
 
@@ -116,10 +141,12 @@ export default function OwnerPage() {
 
     try {
       await assignDeliveryPartner(ownerToken, orderId, deliveryPersonId);
-      showToast('🛵 Delivery partner assigned!');
+      showToast('Delivery partner assigned.');
       await loadOrders();
-    } catch {
-      showToast('Assignment failed', 'error');
+    } catch (error) {
+      if (!handleAuthFailure(error)) {
+        showToast('Assignment failed', 'error');
+      }
     }
   };
 
@@ -127,9 +154,22 @@ export default function OwnerPage() {
     try {
       await updateMenuAvailability(ownerToken, itemId, isAvailable);
       setManagedItems((previous) => previous.map((item) => (item.id === itemId ? { ...item, is_available: isAvailable } : item)));
-      showToast(isAvailable ? 'Marked Available ✅' : 'Marked Unavailable ❌', isAvailable ? 'success' : 'info');
-    } catch {
-      showToast('Update failed', 'error');
+      showToast(isAvailable ? 'Marked available.' : 'Marked unavailable.', isAvailable ? 'success' : 'info');
+    } catch (error) {
+      if (!handleAuthFailure(error)) {
+        showToast('Update failed', 'error');
+      }
+    }
+  };
+
+  const handleKitchenToggle = async () => {
+    try {
+      await setKitchenPaused(!restaurantStatus.kitchenPaused);
+      showToast(restaurantStatus.kitchenPaused ? 'Kitchen is back on and orders are open.' : 'Kitchen paused. New orders are blocked.');
+    } catch (error) {
+      if (!handleAuthFailure(error)) {
+        showToast('Could not update kitchen status', 'error');
+      }
     }
   };
 
@@ -138,12 +178,12 @@ export default function OwnerPage() {
       {!ownerToken && (
         <div className="login-overlay">
           <div className="login-box">
-            <h2>🔐 Owner Login</h2>
+            <h2>Owner Login</h2>
             <div className="stacked-fields">
               <input className="input-field" onChange={(event) => setEmail(event.target.value)} placeholder="Email" type="email" value={email} />
               <input className="input-field" onChange={(event) => setPassword(event.target.value)} placeholder="Password" type="password" value={password} />
               <button className="btn-gold" onClick={handleLogin} type="button">
-                🔓 Login
+                Login
               </button>
               {!!loginError && <p className="form-error">{loginError}</p>}
             </div>
@@ -153,9 +193,9 @@ export default function OwnerPage() {
 
       <nav className="navbar">
         <div className="nav-inner">
-          <h1 className="page-title">🧑 Owner Dashboard</h1>
+          <h1 className="page-title">Owner Dashboard</h1>
           <button className="logout-link button-reset" onClick={() => setOwnerToken('')} type="button">
-            Logout ↗
+            Logout
           </button>
         </div>
       </nav>
@@ -163,10 +203,27 @@ export default function OwnerPage() {
       <main className="dashboard-main">
         <div className="owner-tabs">
           <button className={`owner-tab ${currentTab === 'orders' ? 'active' : ''}`} onClick={() => setCurrentTab('orders')} type="button">
-            📋 Orders
+            Orders
           </button>
           <button className={`owner-tab ${currentTab === 'menu' ? 'active' : ''}`} onClick={() => setCurrentTab('menu')} type="button">
-            🍽️ Menu
+            Menu
+          </button>
+        </div>
+
+        <div className="status-control-card">
+          <div>
+            <div className="status-control-label">Kitchen Control</div>
+            <div className={`status-chip ${restaurantStatus.kitchenPaused ? 'paused' : 'live'}`}>
+              {restaurantStatus.kitchenPaused ? 'Paused manually' : 'Accepting orders'}
+            </div>
+            <p className="muted-small">
+              {restaurantStatus.kitchenPaused
+                ? 'Checkout is blocked until the kitchen is turned back on.'
+                : 'Ordering is live and synchronized with the kitchen dashboard.'}
+            </p>
+          </div>
+          <button className={`status-toggle-btn ${restaurantStatus.kitchenPaused ? 'resume' : 'pause'}`} onClick={handleKitchenToggle} type="button">
+            {restaurantStatus.kitchenPaused ? 'Turn Kitchen On' : 'Pause Kitchen'}
           </button>
         </div>
 
@@ -188,7 +245,7 @@ export default function OwnerPage() {
             </div>
 
             <div className="card revenue-card">
-              <div className="stat-label">Today's Revenue</div>
+              <div className="stat-label">Today&apos;s Revenue</div>
               <div className="revenue-total">{formatPrice(stats.revenue)}</div>
             </div>
 
@@ -201,94 +258,98 @@ export default function OwnerPage() {
             </div>
 
             <div>
-              {filteredOrders.map((order) => (
-                <div className="card" key={order.id}>
-                  <div className="order-card-head">
-                    <div>
-                      <h3 className="order-card-title">#{order.order_code}</h3>
-                      <div className="muted-small">{timeAgo(order.created_at)}</div>
-                      <span className="tiny-badge">{order.type === 'delivery' ? '🛵 DELIVERY' : `🪑 Table ${order.table_number || '?'}`}</span>
+              {filteredOrders.map((order) => {
+                const deliveryMeta = parseDeliveryAddress(order.delivery_address || '');
+                const directionsUrl = getDirectionsUrl(deliveryMeta);
+
+                return (
+                  <div className="card" key={order.id}>
+                    <div className="order-card-head">
+                      <div>
+                        <h3 className="order-card-title">#{order.order_code}</h3>
+                        <div className="muted-small">{timeAgo(order.created_at)}</div>
+                        <span className="tiny-badge">{order.type === 'delivery' ? 'DELIVERY' : `Table ${order.table_number || '?'}`}</span>
+                      </div>
+                      <div className="order-card-price">
+                        <span className="badge" style={{ background: statusBadgeMap[order.status]?.bg, color: statusBadgeMap[order.status]?.color }}>
+                          {statusBadgeMap[order.status]?.text || order.status}
+                        </span>
+                        <div className="gold-text strong">{formatPrice(order.total)}</div>
+                      </div>
                     </div>
-                    <div className="order-card-price">
-                      <span className="badge" style={{ background: statusBadgeMap[order.status]?.bg, color: statusBadgeMap[order.status]?.color }}>
-                        {statusBadgeMap[order.status]?.text || order.status}
-                      </span>
-                      <div className="gold-text strong">{formatPrice(order.total)}</div>
-                    </div>
+
+                    <div className="muted-small">Customer: {order.customer_name} · {order.customer_phone}</div>
+                    <div className="order-items-copy">{(order.order_items || []).map((item) => `${item.item_name} ×${item.quantity}`).join(', ')}</div>
+                    {!!deliveryMeta.address && (
+                      <div className="delivery-info-block">
+                        <div className="muted-small">Address: {deliveryMeta.address}</div>
+                        {!!directionsUrl && (
+                          <a className="order-map-link" href={directionsUrl} rel="noreferrer" target="_blank">
+                            Open in Maps
+                          </a>
+                        )}
+                      </div>
+                    )}
+                    {!!order.rejection_reason && <div className="reason-note">Reason: {order.rejection_reason}</div>}
+
+                    {order.status === 'NEW' && (
+                      <div className="action-row">
+                        <button className="act-btn act-confirm" onClick={() => handleStatusUpdate(order.id, 'CONFIRMED')} type="button">
+                          Confirm
+                        </button>
+                        <button className="act-btn act-danger" onClick={() => setRejectingOrderId(order.id)} type="button">
+                          Reject
+                        </button>
+                      </div>
+                    )}
+                    {order.status === 'CONFIRMED' && (
+                      <button className="act-btn act-cook" onClick={() => handleStatusUpdate(order.id, 'IN_KITCHEN')} type="button">
+                        Send to Kitchen
+                      </button>
+                    )}
+                    {order.status === 'IN_KITCHEN' && (
+                      <button className="act-btn act-confirm" onClick={() => handleStatusUpdate(order.id, 'READY')} type="button">
+                        Mark Ready
+                      </button>
+                    )}
+                    {order.status === 'READY' && order.type === 'dine-in' && (
+                      <button className="act-btn act-confirm" onClick={() => handleStatusUpdate(order.id, 'COMPLETED')} type="button">
+                        Mark as Served
+                      </button>
+                    )}
+                    {order.status === 'READY' && order.type === 'delivery' && (
+                      <div className="action-row">
+                        <select className="input-field" defaultValue="" id={`delivery-person-${order.id}`}>
+                          <option value="">Select Rider</option>
+                          {deliveryPeople.map((person) => (
+                            <option key={person.id} value={person.id}>
+                              {person.name}
+                            </option>
+                          ))}
+                        </select>
+                        <button className="act-btn act-confirm" onClick={() => handleAssignDelivery(order.id, document.getElementById(`delivery-person-${order.id}`)?.value)} type="button">
+                          Assign
+                        </button>
+                      </div>
+                    )}
+                    {order.status === 'OUT_FOR_DELIVERY' && (
+                      <button className="act-btn act-confirm" onClick={() => handleStatusUpdate(order.id, 'COMPLETED')} type="button">
+                        Mark Delivered
+                      </button>
+                    )}
                   </div>
-
-                  <div className="muted-small">👤 {order.customer_name} · 📞 {order.customer_phone}</div>
-                  <div className="order-items-copy">{(order.order_items || []).map((item) => `${item.item_name} ×${item.quantity}`).join(', ')}</div>
-                  {!!order.delivery_address && <div className="muted-small">📍 {order.delivery_address}</div>}
-                  {!!order.rejection_reason && <div className="reason-note">Reason: {order.rejection_reason}</div>}
-
-                  {order.status === 'NEW' && order.type === 'delivery' && (
-                    <div className="action-row">
-                      <button className="act-btn act-confirm" onClick={() => handleStatusUpdate(order.id, 'CONFIRMED')} type="button">
-                        ✅ Accept & Confirm
-                      </button>
-                      <button className="act-btn act-danger" onClick={() => setRejectingOrderId(order.id)} type="button">
-                        ❌ Reject Order
-                      </button>
-                    </div>
-                  )}
-                  {order.status === 'NEW' && order.type !== 'delivery' && (
-                    <div className="action-row">
-                      <button className="act-btn act-confirm" onClick={() => handleStatusUpdate(order.id, 'CONFIRMED')} type="button">
-                        ✅ Confirm
-                      </button>
-                      <button className="act-btn act-danger" onClick={() => handleStatusUpdate(order.id, 'CANCELLED')} type="button">
-                        ❌ Reject
-                      </button>
-                    </div>
-                  )}
-                  {order.status === 'CONFIRMED' && (
-                    <button className="act-btn act-cook" onClick={() => handleStatusUpdate(order.id, 'IN_KITCHEN')} type="button">
-                      🔥 Send to Kitchen
-                    </button>
-                  )}
-                  {order.status === 'IN_KITCHEN' && (
-                    <button className="act-btn act-confirm" onClick={() => handleStatusUpdate(order.id, 'READY')} type="button">
-                      ✅ Mark Ready
-                    </button>
-                  )}
-                  {order.status === 'READY' && order.type === 'dine-in' && (
-                    <button className="act-btn act-confirm" onClick={() => handleStatusUpdate(order.id, 'COMPLETED')} type="button">
-                      ✅ Mark as Served
-                    </button>
-                  )}
-                  {order.status === 'READY' && order.type === 'delivery' && (
-                    <div className="action-row">
-                      <select className="input-field" defaultValue="" id={`delivery-person-${order.id}`}>
-                        <option value="">Select Rider</option>
-                        {deliveryPeople.map((person) => (
-                          <option key={person.id} value={person.id}>
-                            {person.name}
-                          </option>
-                        ))}
-                      </select>
-                      <button className="act-btn act-confirm" onClick={() => handleAssignDelivery(order.id, document.getElementById(`delivery-person-${order.id}`)?.value)} type="button">
-                        🛵 Assign
-                      </button>
-                    </div>
-                  )}
-                  {order.status === 'OUT_FOR_DELIVERY' && (
-                    <button className="act-btn act-confirm" onClick={() => handleStatusUpdate(order.id, 'COMPLETED')} type="button">
-                      ✅ Mark Delivered
-                    </button>
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </div>
           </>
         ) : (
           <>
             <div className="availability-bar">
               <span>
-                ✅ Available: <strong>{managedItems.filter((item) => item.is_available).length}</strong>
+                Available: <strong>{managedItems.filter((item) => item.is_available).length}</strong>
               </span>
               <span>
-                ❌ Unavailable: <strong>{managedItems.filter((item) => !item.is_available).length}</strong>
+                Unavailable: <strong>{managedItems.filter((item) => !item.is_available).length}</strong>
               </span>
             </div>
 
@@ -329,7 +390,7 @@ export default function OwnerPage() {
       {!!rejectingOrderId && (
         <div className="reject-overlay open">
           <div className="reject-box">
-            <h3>❌ Reject this order?</h3>
+            <h3>Reject this order?</h3>
             {['Outside delivery area', 'Address not clear', 'Delivery not available now'].map((reason) => (
               <button className={`reason-option ${selectedReason === reason ? 'selected' : ''}`} key={reason} onClick={() => setSelectedReason(reason)} type="button">
                 {reason}

@@ -1,4 +1,7 @@
 import { env } from '../config/env.js';
+import { getRuntimeState } from '../services/restaurantService.js';
+import { assertWithinDeliveryZone } from '../utils/deliveryZone.js';
+import { assertRestaurantAcceptingOrders } from '../utils/restaurantStatus.js';
 import {
   assignDeliveryPartner,
   createRazorpayOrder,
@@ -14,6 +17,7 @@ import {
 } from '../services/orderService.js';
 
 export const createOrder = async (req, res) => {
+  assertRestaurantAcceptingOrders(await getRuntimeState());
   const { amount, receipt } = req.body;
   const order = await createRazorpayOrder({ amount, receipt });
   res.json({
@@ -25,6 +29,7 @@ export const createOrder = async (req, res) => {
 };
 
 export const verifyPayment = async (req, res) => {
+  assertRestaurantAcceptingOrders(await getRuntimeState());
   const valid = verifyPaymentSignature({
     orderId: req.body.razorpayOrderId,
     paymentId: req.body.razorpayPaymentId,
@@ -36,6 +41,17 @@ export const verifyPayment = async (req, res) => {
     return res.status(400).json({ message: 'Payment verification failed' });
   }
 
+  if (req.body.orderType === 'delivery') {
+    assertWithinDeliveryZone({
+      customerLocation: {
+        latitude: req.body.deliveryLatitude,
+        longitude: req.body.deliveryLongitude,
+      },
+      restaurantLocation: env.restaurantLocation,
+      radiusKm: env.deliveryRadiusKm,
+    });
+  }
+
   const order = await persistPaidOrder({
     orderCode: req.body.orderCode,
     orderType: req.body.orderType,
@@ -43,10 +59,11 @@ export const verifyPayment = async (req, res) => {
     customerPhone: req.body.customerPhone,
     tableNumber: req.body.tableNumber,
     deliveryAddress: req.body.deliveryAddress,
+    deliveryLatitude: req.body.deliveryLatitude,
+    deliveryLongitude: req.body.deliveryLongitude,
     subtotal: req.body.subtotal,
     deliveryCharge: req.body.deliveryCharge,
     total: req.body.total,
-    paymentId: req.body.razorpayPaymentId,
     items: req.body.items,
   });
 

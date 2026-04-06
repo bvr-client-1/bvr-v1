@@ -7,16 +7,31 @@ import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import authRoutes from './routes/authRoutes.js';
 import menuRoutes from './routes/menuRoutes.js';
 import orderRoutes from './routes/orderRoutes.js';
+import restaurantRoutes from './routes/restaurantRoutes.js';
+import { isOriginAllowed } from './utils/cors.js';
 
 const app = express();
 
+app.disable('x-powered-by');
+app.set('trust proxy', 1);
+
 app.use(
   cors({
-    origin: env.frontendUrl,
+    origin(origin, callback) {
+      if (isOriginAllowed(origin, env.allowedOrigins)) {
+        return callback(null, true);
+      }
+
+      return callback(new Error('CORS origin not allowed'));
+    },
     credentials: false,
   }),
 );
-app.use(helmet());
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+  }),
+);
 app.use(
   rateLimit({
     windowMs: env.rateLimitWindowMs,
@@ -28,10 +43,11 @@ app.use(
 app.use(express.json({ limit: '1mb' }));
 
 app.get('/api/health', (_req, res) => {
-  res.json({ ok: true });
+  res.json({ ok: true, env: env.nodeEnv });
 });
 
 app.use('/api/auth', authRoutes);
+app.use('/api/restaurant', restaurantRoutes);
 app.use('/api/menu', menuRoutes);
 app.use('/api/orders', orderRoutes);
 

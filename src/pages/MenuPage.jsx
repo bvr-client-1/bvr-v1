@@ -8,7 +8,7 @@ import { formatPrice, getCatEmoji } from '../utils/format.js';
 import { getOpenMessage, isRestaurantOpen } from '../utils/restaurant.js';
 
 export default function MenuPage() {
-  const { cart, setCart } = useAppContext();
+  const { cart, setCart, restaurantStatus } = useAppContext();
   const { showToast } = useToast();
   const [categories, setCategories] = useState([]);
   const [menuItems, setMenuItems] = useState([]);
@@ -16,7 +16,7 @@ export default function MenuPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [open, setOpen] = useState(isRestaurantOpen());
+  const open = isRestaurantOpen(restaurantStatus);
 
   useEffect(() => {
     const loadMenu = async () => {
@@ -34,11 +34,6 @@ export default function MenuPage() {
     };
 
     loadMenu();
-  }, []);
-
-  useEffect(() => {
-    const timer = window.setInterval(() => setOpen(isRestaurantOpen()), 60000);
-    return () => window.clearInterval(timer);
   }, []);
 
   const filteredItems = useMemo(() => {
@@ -69,7 +64,7 @@ export default function MenuPage() {
     });
 
     if (delta > 0 && getQty(menuItem.id) === 0) {
-      showToast(`${menuItem.name} added ✓`);
+      showToast(`${menuItem.name} added`);
     }
   };
 
@@ -90,12 +85,12 @@ export default function MenuPage() {
           <div className="card-price">{formatPrice(item.price)}</div>
           {qty === 0 ? (
             <button className="add-btn" disabled={!open} onClick={() => updateCartItem(item, 1)} type="button">
-              {open ? '+ Add' : 'Closed'}
+              {open ? '+ Add' : 'Paused'}
             </button>
           ) : (
             <div className="qty-row">
               <button className="qty-btn" disabled={!open} onClick={() => updateCartItem(item, -1)} type="button">
-                −
+                -
               </button>
               <span className="qty-num">{qty}</span>
               <button className="qty-btn" disabled={!open} onClick={() => updateCartItem(item, 1)} type="button">
@@ -113,12 +108,13 @@ export default function MenuPage() {
       <nav className="navbar">
         <div className="nav-inner">
           <Link className="back-link" to="/">
-            ← <span>Back</span>
+            <span>←</span>
+            <span>Back</span>
           </Link>
           <h1 className="page-title">BVR Menu</h1>
           <div className="cart-icon-wrap">
             <Link aria-label="Go to cart" className="cart-link" to="/cart">
-              🛒
+              Cart
             </Link>
             {!!cart.length && <span className="cart-badge">{cart.reduce((sum, item) => sum + item.quantity, 0)}</span>}
           </div>
@@ -127,7 +123,7 @@ export default function MenuPage() {
 
       {!open && (
         <div className="closed-banner" style={{ marginTop: 64 }}>
-          🔴 We're currently closed · Orders accepted 11 AM - 11 PM IST · {getOpenMessage()}
+          Orders are currently unavailable · {getOpenMessage(restaurantStatus)}
         </div>
       )}
 
@@ -153,7 +149,7 @@ export default function MenuPage() {
 
       <div className="search-wrap">
         <div className="search-inner">
-          <span className="search-icon">🔍</span>
+          <span className="search-icon">Search</span>
           <input className="search-input" onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search dishes..." type="text" value={searchQuery} />
           {!!searchQuery && (
             <button className="search-clear" onClick={() => setSearchQuery('')} type="button">
@@ -176,14 +172,14 @@ export default function MenuPage() {
         </div>
       ) : error ? (
         <div className="empty-state">
-          <div className="empty-icon">⚠️</div>
+          <div className="empty-icon">!</div>
           <h3>Menu unavailable. Please try again.</h3>
         </div>
       ) : filteredItems.length === 0 ? (
         <div className="empty-state">
-          <div className="empty-icon">🔍</div>
+          <div className="empty-icon">?</div>
           <h3>No results found</h3>
-          <p>No dishes match "{searchQuery || currentCat}"</p>
+          <p>No dishes match &quot;{searchQuery || currentCat}&quot;</p>
         </div>
       ) : currentCat === 'all' && !searchQuery ? (
         categories.map((category) => {

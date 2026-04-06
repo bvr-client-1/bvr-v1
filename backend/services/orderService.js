@@ -1,6 +1,8 @@
 import crypto from 'crypto';
 import { supabase } from '../config/supabase.js';
 import { razorpay } from '../config/razorpay.js';
+import { serializeDeliveryAddress } from '../utils/deliveryAddress.js';
+import { assertValidStatusTransition } from '../utils/orderStatus.js';
 
 const raise = (error, fallback = 500) => {
   if (error) {
@@ -34,10 +36,11 @@ export const persistPaidOrder = async ({
   customerPhone,
   tableNumber,
   deliveryAddress,
+  deliveryLatitude,
+  deliveryLongitude,
   subtotal,
   deliveryCharge,
   total,
-  paymentId,
   items,
 }) => {
   const { data: order, error: orderError } = await supabase
@@ -48,12 +51,18 @@ export const persistPaidOrder = async ({
       table_number: orderType === 'dine-in' ? tableNumber : null,
       customer_name: customerName,
       customer_phone: customerPhone,
-      delivery_address: orderType === 'delivery' ? deliveryAddress : null,
+      delivery_address:
+        orderType === 'delivery'
+          ? serializeDeliveryAddress({
+              address: deliveryAddress,
+              latitude: deliveryLatitude,
+              longitude: deliveryLongitude,
+            })
+          : null,
       subtotal,
       delivery_charge: deliveryCharge,
       total,
-      payment_id: paymentId,
-      status: 'NEW',
+      status: 'CONFIRMED',
       payment_status: 'PAID',
     })
     .select()
@@ -108,6 +117,12 @@ export const getAllOrders = async () => {
   return data || [];
 };
 
+export const getOrderSummary = async (orderId) => {
+  const { data, error } = await supabase.from('orders').select('id, status, type').eq('id', orderId).single();
+  raise(error, 404);
+  return data;
+};
+
 export const getDeliveryPeople = async () => {
   const { data, error } = await supabase
     .from('delivery_people')
@@ -119,6 +134,13 @@ export const getDeliveryPeople = async () => {
 };
 
 export const updateOrderStatus = async (orderId, status, rejectionReason = null) => {
+  const currentOrder = await getOrderSummary(orderId);
+  assertValidStatusTransition({
+    currentStatus: currentOrder.status,
+    nextStatus: status,
+    orderType: currentOrder.type,
+  });
+
   const payload = { status };
   if (rejectionReason) {
     payload.rejection_reason = rejectionReason;
@@ -132,6 +154,19 @@ export const updateOrderStatus = async (orderId, status, rejectionReason = null)
 };
 
 export const assignDeliveryPartner = async (orderId, deliveryPersonId) => {
+  const currentOrder = await getOrderSummary(orderId);
+  assertValidStatusTransition({
+    currentStatus: currentOrder.status,
+    nextStatus: 'OUT_FOR_DELIVERY',
+    orderType: currentOrder.type,
+  });
+
+  if (currentOrder.type !== 'delivery') {
+    const error = new Error('Only delivery orders can be assigned to a delivery partner');
+    error.statusCode = 400;
+    throw error;
+  }
+
   const { error } = await supabase
     .from('orders')
     .update({ delivery_person_id: deliveryPersonId, status: 'OUT_FOR_DELIVERY' })

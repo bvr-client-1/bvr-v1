@@ -22,11 +22,12 @@ export const ownerLogin = async ({ email, password }) => {
   return jwt.sign({ role: 'owner' }, env.jwtSecret, { expiresIn: '12h' });
 };
 
-export const kitchenLogin = async ({ password }) => {
+export const kitchenLogin = async ({ loginId, password }) => {
+  const loginIdMatches = loginId === env.kitchenLoginId;
   const passwordMatches = await compareSecret(password, env.kitchenPasswordHash);
 
-  if (!passwordMatches) {
-    const error = new Error('Wrong password. Try again.');
+  if (!loginIdMatches || !passwordMatches) {
+    const error = new Error('Invalid kitchen ID or password');
     error.statusCode = 401;
     throw error;
   }

@@ -1,16 +1,11 @@
-export const isRestaurantOpen = () => {
-  const now = new Date();
-  const utc = now.getTime() + now.getTimezoneOffset() * 60000;
-  const ist = new Date(utc + 5.5 * 3600000);
-  const totalMinutes = ist.getHours() * 60 + ist.getMinutes();
-  return totalMinutes >= 660 && totalMinutes < 1380;
-};
+export const isRestaurantOpen = (restaurantStatus) => restaurantStatus?.isAcceptingOrders ?? true;
 
-export const getOpenMessage = () => {
-  const now = new Date();
-  const utc = now.getTime() + now.getTimezoneOffset() * 60000;
-  const ist = new Date(utc + 5.5 * 3600000);
-  return ist.getHours() < 11 ? 'Opens today at 11:00 AM' : 'Opens tomorrow at 11:00 AM';
+export const getOpenMessage = (restaurantStatus) => {
+  if (restaurantStatus?.kitchenPaused) {
+    return 'Kitchen is paused manually. Ordering will resume when staff turns it back on.';
+  }
+
+  return restaurantStatus?.nextMessage || 'Opens today at 11:00 AM';
 };
 
 export const loadRazorpayScript = () =>

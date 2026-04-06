@@ -20,6 +20,7 @@ router.post(
   '/kitchen/login',
   validate(
     Joi.object({
+      loginId: Joi.string().min(3).required(),
       password: Joi.string().min(3).required(),
     }),
   ),

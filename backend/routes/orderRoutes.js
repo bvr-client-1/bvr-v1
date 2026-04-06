@@ -46,6 +46,8 @@ router.post(
       customerPhone: Joi.string().pattern(/^\d{10}$/).required(),
       tableNumber: Joi.alternatives().try(Joi.string(), Joi.number()).allow('', null),
       deliveryAddress: Joi.string().allow('', null),
+      deliveryLatitude: Joi.number().allow(null),
+      deliveryLongitude: Joi.number().allow(null),
       subtotal: Joi.number().required(),
       deliveryCharge: Joi.number().required(),
       total: Joi.number().required(),

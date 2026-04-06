@@ -3,12 +3,19 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext.jsx';
 import { useToast } from '../context/ToastContext.jsx';
 import { createPaymentOrder, verifyPayment } from '../services/paymentService.js';
+import {
+  calculateDistanceKm,
+  DELIVERY_RADIUS_KM,
+  getCurrentPosition,
+  hasDeliveryZoneConfig,
+  RESTAURANT_LOCATION,
+} from '../utils/delivery.js';
 import { formatPrice } from '../utils/format.js';
 import { getOpenMessage, isRestaurantOpen, loadRazorpayScript } from '../utils/restaurant.js';
 
 export default function CartPage() {
   const navigate = useNavigate();
-  const { cart, setCart, setOrderCode, setOrderId } = useAppContext();
+  const { cart, setCart, setOrderCode, setOrderId, restaurantStatus } = useAppContext();
   const { showToast } = useToast();
   const [orderType, setOrderType] = useState('dine-in');
   const [tableNumber, setTableNumber] = useState('');
@@ -16,14 +23,12 @@ export default function CartPage() {
   const [landmark, setLandmark] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
+  const [deliveryLocation, setDeliveryLocation] = useState(null);
   const [error, setError] = useState('');
   const [paying, setPaying] = useState(false);
-  const open = isRestaurantOpen();
+  const open = isRestaurantOpen(restaurantStatus);
 
-  const subtotal = useMemo(
-    () => cart.reduce((sum, item) => sum + item.quantity * item.price, 0),
-    [cart],
-  );
+  const subtotal = useMemo(() => cart.reduce((sum, item) => sum + item.quantity * item.price, 0), [cart]);
   const deliveryCharge = orderType === 'delivery' ? 30 : 0;
   const total = subtotal + deliveryCharge;
 
@@ -38,9 +43,7 @@ export default function CartPage() {
   const validateForm = () => {
     if (!cart.length) return 'Cart empty';
     if (orderType === 'dine-in' && !tableNumber) return 'Please select a table number';
-    if (orderType === 'delivery' && deliveryAddress.trim().length < 10) {
-      return 'Please enter a valid delivery address';
-    }
+    if (orderType === 'delivery' && deliveryAddress.trim().length < 10) return 'Please enter a valid delivery address';
     if (!customerName.trim()) return 'Please enter your name';
     if (!/^\d{10}$/.test(customerPhone.trim())) return 'Enter valid 10-digit phone';
     return '';
@@ -56,6 +59,20 @@ export default function CartPage() {
     setPaying(true);
 
     try {
+      let currentDeliveryLocation = deliveryLocation;
+      if (orderType === 'delivery') {
+        if (!hasDeliveryZoneConfig()) {
+          throw new Error('Delivery zone is not configured right now');
+        }
+
+        currentDeliveryLocation = await getCurrentPosition();
+        const distanceKm = calculateDistanceKm(currentDeliveryLocation, RESTAURANT_LOCATION);
+        if (distanceKm > DELIVERY_RADIUS_KM) {
+          throw new Error(`Delivery is available only within ${DELIVERY_RADIUS_KM} km of the restaurant`);
+        }
+        setDeliveryLocation(currentDeliveryLocation);
+      }
+
       const razorpayLoaded = await loadRazorpayScript();
       if (!razorpayLoaded) {
         throw new Error('Unable to load payment gateway');
@@ -88,6 +105,8 @@ export default function CartPage() {
               orderType === 'delivery'
                 ? `${deliveryAddress.trim()}${landmark.trim() ? `, ${landmark.trim()}` : ''}`
                 : '',
+            deliveryLatitude: orderType === 'delivery' ? currentDeliveryLocation.latitude : null,
+            deliveryLongitude: orderType === 'delivery' ? currentDeliveryLocation.longitude : null,
             subtotal,
             deliveryCharge,
             total,
@@ -116,11 +135,7 @@ export default function CartPage() {
 
       const razorpay = new window.Razorpay(options);
       razorpay.on('payment.failed', (response) => {
-        const reason =
-          response?.error?.description ||
-          response?.error?.reason ||
-          response?.error?.source ||
-          'Payment failed';
+        const reason = response?.error?.description || response?.error?.reason || response?.error?.source || 'Payment failed';
         setError(reason);
         setPaying(false);
         showToast(reason, 'error');
@@ -138,7 +153,8 @@ export default function CartPage() {
       <nav className="navbar">
         <div className="nav-inner">
           <Link className="back-link" to="/menu">
-            ← <span>Menu</span>
+            <span>←</span>
+            <span>Menu</span>
           </Link>
           <h1 className="page-title">Your Cart</h1>
           <div style={{ width: 56 }} />
@@ -147,18 +163,18 @@ export default function CartPage() {
 
       {!open && (
         <div className="closed-banner" style={{ display: 'block', marginTop: 64 }}>
-          🔴 We&apos;re currently closed · Orders accepted 11 AM - 11 PM IST · {getOpenMessage()}
+          Orders are currently unavailable · {getOpenMessage(restaurantStatus)}
         </div>
       )}
 
       <main className="cart-main">
         {!cart.length ? (
           <div className="empty-cart">
-            <div className="empty-cart-icon">🛒</div>
+            <div className="empty-cart-icon">Cart</div>
             <h2>Your cart is empty</h2>
             <p>Add items from our menu to get started</p>
             <Link className="btn-gold inline-button" to="/menu">
-              🍽️ Browse Menu
+              Browse Menu
             </Link>
           </div>
         ) : (
@@ -174,7 +190,7 @@ export default function CartPage() {
                   <div className="cart-item-actions">
                     <div className="qty-wrap">
                       <button className="qty-btn small" onClick={() => updateQuantity(item.id, -1)} type="button">
-                        −
+                        -
                       </button>
                       <span className="qty-num">{item.quantity}</span>
                       <button className="qty-btn small" onClick={() => updateQuantity(item.id, 1)} type="button">
@@ -183,7 +199,7 @@ export default function CartPage() {
                     </div>
                     <span className="cart-item-total">{formatPrice(item.price * item.quantity)}</span>
                     <button className="remove-btn" onClick={() => updateQuantity(item.id, -item.quantity)} type="button">
-                      ✕
+                      ×
                     </button>
                   </div>
                 </div>
@@ -196,21 +212,11 @@ export default function CartPage() {
 
             <div className="card cart-card">
               <h2 className="card-title">Order Type</h2>
-              <div className="order-type-toggle" role="tablist" aria-label="Order Type">
-                <button
-                  className={`toggle-btn ${orderType === 'dine-in' ? 'active' : ''}`}
-                  onClick={() => setOrderType('dine-in')}
-                  type="button"
-                >
-                  <span className="toggle-icon">🪑</span>
+              <div aria-label="Order Type" className="order-type-toggle" role="tablist">
+                <button className={`toggle-btn ${orderType === 'dine-in' ? 'active' : ''}`} onClick={() => setOrderType('dine-in')} type="button">
                   <span>Dine-In</span>
                 </button>
-                <button
-                  className={`toggle-btn ${orderType === 'delivery' ? 'active' : ''}`}
-                  onClick={() => setOrderType('delivery')}
-                  type="button"
-                >
-                  <span className="toggle-icon">🛵</span>
+                <button className={`toggle-btn ${orderType === 'delivery' ? 'active' : ''}`} onClick={() => setOrderType('delivery')} type="button">
                   <span>Delivery</span>
                 </button>
               </div>
@@ -232,48 +238,27 @@ export default function CartPage() {
                 </div>
               ) : (
                 <div className="stacked-fields">
+                  <div className="delivery-zone-note">
+                    Delivery is available only within {DELIVERY_RADIUS_KM} km of the restaurant. We use your current location at checkout to confirm eligibility.
+                  </div>
                   <div>
                     <label className="label">Delivery Address</label>
-                    <textarea
-                      className="input-field"
-                      onChange={(event) => setDeliveryAddress(event.target.value)}
-                      placeholder="Enter your full address"
-                      value={deliveryAddress}
-                    />
+                    <textarea className="input-field" onChange={(event) => setDeliveryAddress(event.target.value)} placeholder="Enter your full address" value={deliveryAddress} />
                   </div>
                   <div>
                     <label className="label">Landmark (optional)</label>
-                    <input
-                      className="input-field"
-                      onChange={(event) => setLandmark(event.target.value)}
-                      placeholder="Near..."
-                      type="text"
-                      value={landmark}
-                    />
+                    <input className="input-field" onChange={(event) => setLandmark(event.target.value)} placeholder="Near..." type="text" value={landmark} />
                   </div>
                 </div>
               )}
 
               <div>
                 <label className="label">Your Name</label>
-                <input
-                  className="input-field"
-                  onChange={(event) => setCustomerName(event.target.value)}
-                  placeholder="Enter your name"
-                  type="text"
-                  value={customerName}
-                />
+                <input className="input-field" onChange={(event) => setCustomerName(event.target.value)} placeholder="Enter your name" type="text" value={customerName} />
               </div>
               <div>
                 <label className="label">Phone Number</label>
-                <input
-                  className="input-field"
-                  maxLength={10}
-                  onChange={(event) => setCustomerPhone(event.target.value.replace(/\D/g, ''))}
-                  placeholder="10-digit phone number"
-                  type="tel"
-                  value={customerPhone}
-                />
+                <input className="input-field" maxLength={10} onChange={(event) => setCustomerPhone(event.target.value.replace(/\D/g, ''))} placeholder="10-digit phone number" type="tel" value={customerPhone} />
               </div>
             </div>
 
@@ -286,7 +271,7 @@ export default function CartPage() {
               {orderType === 'delivery' && (
                 <div className="summary-row">
                   <span>Delivery Charge</span>
-                  <span>₹30</span>
+                  <span>Rs.30</span>
                 </div>
               )}
               <div className="summary-row top-border total-row">
@@ -296,7 +281,7 @@ export default function CartPage() {
             </div>
 
             <button className="btn-gold full-width pay-button" disabled={paying || !open} onClick={handlePay} type="button">
-              {paying ? 'Processing...' : `Pay ${formatPrice(total)} via UPI →`}
+              {paying ? 'Processing...' : `Pay ${formatPrice(total)} via UPI`}
             </button>
             {!!error && <p className="form-error">{error}</p>}
           </div>

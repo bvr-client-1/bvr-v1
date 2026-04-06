@@ -5,3 +5,5 @@ dist/
 backend/.env
 backend/logs/
 npm-debug.log*
+ngrok-*.log
+ngrok-*.err

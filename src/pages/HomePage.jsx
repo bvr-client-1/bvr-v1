@@ -1,6 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { MobileMenu } from '../components/MobileMenu.jsx';
+import { useToast } from '../context/ToastContext.jsx';
+
+const GOOGLE_FEEDBACK_FORM_ACTION =
+  'https://docs.google.com/forms/d/e/1FAIpQLSf9Sp9N6glz105wqomwfLVogWTgeit4Hdp5pjNnjHFWsC8MwA/formResponse';
 
 const reviewCards = [
   {
@@ -25,9 +29,39 @@ const reviewCards = [
   },
 ];
 
+const faqItems = [
+  {
+    question: 'Do you offer dine-in, takeaway, and delivery?',
+    answer: 'Yes. Guests can dine in, pick up takeaway orders, or place delivery orders based on service availability.',
+  },
+  {
+    question: 'How do table orders work inside the restaurant?',
+    answer: 'Guests can scan the table QR, browse the menu, place the order, and track preparation from the same flow.',
+  },
+  {
+    question: 'What are your opening hours?',
+    answer: 'The restaurant serves daily from 11:45 AM to 11:00 PM.',
+  },
+  {
+    question: 'What is the delivery radius?',
+    answer: 'Delivery is available within 4 km of the restaurant. Orders outside that radius are automatically blocked during checkout.',
+  },
+  {
+    question: 'Can I contact the restaurant for catering or large family orders?',
+    answer: 'Yes. Use the contact numbers or the feedback form below to share your event size, date, and service needs.',
+  },
+];
+
 export default function HomePage() {
   const [open, setOpen] = useState(false);
   const [desktop, setDesktop] = useState(window.innerWidth >= 768);
+  const [openFaq, setOpenFaq] = useState(0);
+  const [feedback, setFeedback] = useState({
+    name: '',
+    phone: '',
+    message: '',
+  });
+  const { showToast } = useToast();
 
   useEffect(() => {
     const handleResize = () => setDesktop(window.innerWidth >= 768);
@@ -41,6 +75,39 @@ export default function HomePage() {
       document.body.style.overflow = '';
     };
   }, [open]);
+
+  const handleFeedbackChange = (event) => {
+    const { name, value } = event.target;
+    setFeedback((current) => ({ ...current, [name]: value }));
+  };
+
+  const handleFeedbackSubmit = (event) => {
+    event.preventDefault();
+
+    if (!feedback.name.trim() || !feedback.message.trim()) {
+      showToast('Please add your name and feedback message.', 'error');
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('entry.1274132306', feedback.name.trim());
+    formData.append('entry.176930603', feedback.phone.trim());
+    formData.append('entry.2138797335', feedback.message.trim());
+
+    fetch(GOOGLE_FEEDBACK_FORM_ACTION, {
+      method: 'POST',
+      mode: 'no-cors',
+      body: formData,
+    })
+      .then(() => {
+        showToast('Feedback submitted. Thank you!', 'success');
+        setFeedback({ name: '', phone: '', message: '' });
+      })
+      .catch(() => {
+        showToast('Could not submit feedback right now.', 'error');
+      });
+
+  };
 
   return (
     <div>
@@ -57,6 +124,8 @@ export default function HomePage() {
               <Link to="/menu">Menu</Link>
               <a href="#about">About</a>
               <a href="#services">Services</a>
+              <a href="#faq">FAQ</a>
+              <a href="#feedback">Feedback</a>
               <a href="#contact">Contact</a>
             </div>
           ) : (
@@ -76,19 +145,18 @@ export default function HomePage() {
 
       <MobileMenu onClose={() => setOpen(false)} open={open} />
 
-      {/* ─── HERO SECTION ─── */}
       <section className="hero-bg">
         <div className="hero-logo-wrap fade-up">
           <img alt="BVR Bangaru Vakili Family Restaurant" className="hero-logo-img" src="/bvr-logo.png" />
         </div>
         <h1 className="fade-up fade-delay-1 hero-title">Bangaru Vakili</h1>
-        <p className="fade-up fade-delay-1 hero-subtitle">Family Restaurant — Nalgonda</p>
+        <p className="fade-up fade-delay-1 hero-subtitle">Family Restaurant - Nalgonda</p>
         <p className="fade-up fade-delay-2 hero-tagline">
-          <em>"Authentic Taste. Royal Experience."</em>
+          <em>&quot;Authentic Taste. Royal Experience.&quot;</em>
         </p>
         <p className="fade-up fade-delay-2 hero-est">Est. 2025</p>
         <p className="fade-up fade-delay-2 hero-copy">
-          Welcome to Our Family — Experience the authentic flavors of South India.
+          Welcome to our family. Experience the authentic flavors of South India.
         </p>
         <Link className="btn-gold fade-up fade-delay-3" to="/menu">
           Start Ordering
@@ -96,7 +164,6 @@ export default function HomePage() {
         <p className="fade-up fade-delay-4 hero-note">Scan QR at your table to order • Also available on Pickzy</p>
       </section>
 
-      {/* ─── ABOUT SECTION ─── */}
       <section className="section" id="about">
         <h2 className="section-title">About Us</h2>
         <div className="about-card-centered">
@@ -107,8 +174,9 @@ export default function HomePage() {
           </p>
         </div>
 
-        {/* ─── SERVICES ─── */}
-        <h2 className="section-title" id="services" style={{ marginTop: '48px' }}>Our Services</h2>
+        <h2 className="section-title" id="services" style={{ marginTop: '48px' }}>
+          Our Services
+        </h2>
         <div className="services-scroll">
           <div className="service-card">
             <div className="service-icon">🍽️</div>
@@ -137,7 +205,6 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* ─── ABOUT SHOWCASE (About + Map) ─── */}
         <div className="about-showcase">
           <div className="about-copy-card">
             <span className="about-kicker">Why Choose Us</span>
@@ -166,7 +233,7 @@ export default function HomePage() {
             <div className="map-card-header">
               <div>
                 <span className="about-kicker">Visit Us</span>
-                <h3 className="map-card-title">Shivaji Nagar Circle, Nalgonda – 508801</h3>
+                <h3 className="map-card-title">Shivaji Nagar Circle, Nalgonda - 508801</h3>
               </div>
               <a
                 className="review-link"
@@ -189,7 +256,6 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* ─── REVIEWS ─── */}
         <div className="reviews-showcase">
           <div className="reviews-header">
             <div>
@@ -237,19 +303,100 @@ export default function HomePage() {
             ))}
           </div>
         </div>
+
+        <div className="faq-feedback-grid">
+          <section className="faq-panel" id="faq">
+            <div className="reviews-header">
+              <div>
+                <span className="about-kicker">FAQ</span>
+                <h3 className="reviews-title">Answers guests usually need before they visit</h3>
+              </div>
+            </div>
+
+            <div className="faq-list">
+              {faqItems.map((item, index) => {
+                const isOpen = openFaq === index;
+                return (
+                  <article className={`faq-item ${isOpen ? 'open' : ''}`} key={item.question}>
+                    <button className="faq-button" onClick={() => setOpenFaq(isOpen ? -1 : index)} type="button">
+                      <span>{item.question}</span>
+                      <span className="faq-symbol">{isOpen ? '−' : '+'}</span>
+                    </button>
+                    {isOpen && <p className="faq-answer">{item.answer}</p>}
+                  </article>
+                );
+              })}
+            </div>
+          </section>
+
+          <section className="feedback-panel" id="feedback">
+            <div className="reviews-header">
+              <div>
+                <span className="about-kicker">Feedback</span>
+                <h3 className="reviews-title">Share a suggestion, catering request, or dining experience</h3>
+              </div>
+              <a
+                className="review-link secondary"
+                href="https://maps.app.goo.gl/n9FMSQ9tQxgsFgCC8"
+                rel="noreferrer"
+                target="_blank"
+              >
+                Leave Public Review
+              </a>
+            </div>
+
+            <form className="feedback-form" onSubmit={handleFeedbackSubmit}>
+              <div className="feedback-fields">
+                <input
+                  className="input-field"
+                  name="name"
+                  onChange={handleFeedbackChange}
+                  placeholder="Your name"
+                  type="text"
+                  value={feedback.name}
+                />
+                <input
+                  className="input-field"
+                  maxLength={10}
+                  name="phone"
+                  onChange={handleFeedbackChange}
+                  placeholder="Phone number (optional)"
+                  type="tel"
+                  value={feedback.phone}
+                />
+              </div>
+              <textarea
+                className="feedback-textarea"
+                name="message"
+                onChange={handleFeedbackChange}
+                placeholder="Tell us about your experience, a menu request, or what we can improve."
+                rows="6"
+                value={feedback.message}
+              />
+              <div className="feedback-actions">
+                <button className="btn-gold" type="submit">
+                  Send Feedback
+                </button>
+                <a className="review-link secondary" href="tel:7337334474">
+                  Call Restaurant
+                </a>
+              </div>
+            </form>
+          </section>
+        </div>
       </section>
 
-      {/* ─── CONTACT STRIP ─── */}
       <section className="info-strip" id="contact">
         <div className="info-row">
           <div className="info-item">
             <span className="info-icon">📍</span>
-            <span>Shivaji Nagar Circle, Nalgonda – 508801</span>
+            <span>Shivaji Nagar Circle, Nalgonda - 508801</span>
           </div>
           <div className="info-item">
             <span className="info-icon">📞</span>
             <span>
-              <a href="tel:7337334474">7337334474</a> • <a href="tel:9701054013">9701054013</a> • <a href="tel:9505523839">9505523839</a>
+              <a href="tel:7337334474">7337334474</a> • <a href="tel:9701054013">9701054013</a> •{' '}
+              <a href="tel:9505523839">9505523839</a>
             </span>
           </div>
           <div className="info-item">
@@ -258,7 +405,7 @@ export default function HomePage() {
           </div>
           <div className="info-item">
             <span className="info-icon">🕐</span>
-            <span>Open: 11:45 AM – 11:00 PM</span>
+            <span>Open: 11:45 AM - 11:00 PM</span>
           </div>
           <div className="info-item">
             <span className="info-icon">👤</span>

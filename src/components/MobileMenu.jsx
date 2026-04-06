@@ -10,16 +10,22 @@ export function MobileMenu({ open, onClose }) {
         </button>
         <div className="mobile-menu-links">
           <Link onClick={onClose} to="/">
-            🏠 Home
+            Home
           </Link>
           <Link onClick={onClose} to="/menu">
-            🍽️ Menu
+            Menu
           </Link>
           <a href="#about" onClick={onClose}>
-            ℹ️ About
+            About
+          </a>
+          <a href="#faq" onClick={onClose}>
+            FAQ
+          </a>
+          <a href="#feedback" onClick={onClose}>
+            Feedback
           </a>
           <a href="#contact" onClick={onClose}>
-            📞 Contact
+            Contact
           </a>
         </div>
       </div>

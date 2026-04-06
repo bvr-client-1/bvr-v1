@@ -5,7 +5,7 @@ export const ownerLogin = async (email, password) => {
   return data;
 };
 
-export const kitchenLogin = async (password) => {
-  const { data } = await api.post('/auth/kitchen/login', { password });
+export const kitchenLogin = async (loginId, password) => {
+  const { data } = await api.post('/auth/kitchen/login', { loginId, password });
   return data;
 };
