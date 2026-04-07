@@ -51,7 +51,7 @@ const faqItems = [
   },
   {
     question: 'What is the delivery radius?',
-    answer: 'Delivery is available within 4 km of the restaurant. Orders outside that radius are automatically blocked during checkout.',
+    answer: 'Delivery is available within 6 km of the restaurant. Orders outside that radius are automatically blocked during checkout.',
   },
   {
     question: 'Can I contact the restaurant for catering or large family orders?',
@@ -164,6 +164,7 @@ export default function HomePage() {
               <a href="#faq">FAQ</a>
               <a href="#feedback">Feedback</a>
               <a href="#contact">Contact</a>
+              <Link href="/terms">Terms</Link>
             </div>
           ) : (
             <button aria-label="Open menu" className="hamburger" onClick={() => setOpen(true)} type="button">
@@ -421,6 +422,13 @@ export default function HomePage() {
 
       <footer className="footer">
         <p>Copyright (c) 2025 BVR Bangaru Vakili Family Restaurant. All rights reserved.</p>
+        <p className="footer-links">
+          <Link href="/terms">Terms &amp; Conditions</Link>
+          <span>·</span>
+          <a href="/BVR_Terms_and_Conditions.pdf" target="_blank" rel="noreferrer">
+            View PDF
+          </a>
+        </p>
         <p>Powered by BVR Digital</p>
       </footer>
     </div>

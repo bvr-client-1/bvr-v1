@@ -2,8 +2,8 @@
 
 import { api, authApi } from './api.js';
 
-export const fetchOrderById = async (orderId) => {
-  const { data } = await api.get(`/orders/${orderId}`);
+export const fetchOrderById = async (orderId, trackingToken) => {
+  const { data } = await api.get(`/orders/${orderId}`, { params: { trackingToken } });
   return data.order;
 };
 

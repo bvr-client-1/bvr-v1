@@ -14,6 +14,19 @@ import { startSupabaseKeepalive } from './services/keepaliveService.js';
 import { isOriginAllowed } from './utils/cors.js';
 
 const app = express();
+const authRateLimiter = rateLimit({
+  windowMs: env.authRateLimitWindowMs,
+  max: env.authRateLimitMax,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const apiRateLimiter = rateLimit({
+  windowMs: env.rateLimitWindowMs,
+  max: env.rateLimitMax,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 app.disable('x-powered-by');
 app.set('trust proxy', 1);
@@ -35,14 +48,6 @@ app.use(
     crossOriginResourcePolicy: { policy: 'cross-origin' },
   }),
 );
-app.use(
-  rateLimit({
-    windowMs: env.rateLimitWindowMs,
-    max: env.rateLimitMax,
-    standardHeaders: true,
-    legacyHeaders: false,
-  }),
-);
 app.use('/api/webhooks', express.raw({ type: 'application/json' }), webhookRoutes);
 app.use(express.json({ limit: '1mb' }));
 
@@ -50,7 +55,8 @@ app.get('/api/health', (_req, res) => {
   res.json({ ok: true, env: env.nodeEnv });
 });
 
-app.use('/api/auth', authRoutes);
+app.use('/api/auth', authRateLimiter, authRoutes);
+app.use('/api', apiRateLimiter);
 app.use('/api/restaurant', restaurantRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/menu', menuRoutes);

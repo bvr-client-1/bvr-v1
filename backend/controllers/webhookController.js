@@ -63,6 +63,13 @@ export const handleRazorpayWebhook = async (req, res) => {
   }
 
   const draft = draftRecord.draft;
+  if (Number(payment.amount) !== Math.round(Number(draft.total || 0) * 100)) {
+    return res.status(400).json({ message: 'Webhook payment amount mismatch' });
+  }
+
+  if (payment.status !== 'captured') {
+    return res.status(400).json({ message: 'Webhook payment is not captured' });
+  }
 
   await persistPaidOrder({
     orderCode: draft.orderCode,

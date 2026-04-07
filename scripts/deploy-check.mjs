@@ -29,6 +29,8 @@ const requiredBackend = [
   'RESTAURANT_LNG',
   'DELIVERY_RADIUS_KM',
   'RAZORPAY_WEBHOOK_SECRET',
+  'AUTH_RATE_LIMIT_WINDOW_MS',
+  'AUTH_RATE_LIMIT_MAX',
 ];
 
 const looksPlaceholder = (value = '') => /replace_me|your-|change_this|localhost|127\.0\.0\.1/i.test(value);

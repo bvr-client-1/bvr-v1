@@ -6,6 +6,10 @@ export const fetchRestaurantStatus = async (_req, res) => {
 };
 
 export const patchKitchenPausedState = async (req, res) => {
+  if (typeof req.body.maintenanceMode === 'boolean' && req.user?.role !== 'owner') {
+    return res.status(403).json({ message: 'Only the owner can change maintenance mode' });
+  }
+
   const status = await updateRestaurantRuntimeState({
     kitchenPaused: req.body.kitchenPaused,
     maintenanceMode: req.body.maintenanceMode,

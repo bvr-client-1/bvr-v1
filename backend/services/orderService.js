@@ -27,6 +27,8 @@ export const createRazorpayOrder = async ({ amount, receipt }) =>
     payment_capture: 1,
   });
 
+export const fetchRazorpayPayment = async (paymentId) => razorpay.payments.fetch(paymentId);
+
 export const verifyPaymentSignature = ({ orderId, paymentId, signature, secret }) => {
   const expected = crypto
     .createHmac('sha256', secret)

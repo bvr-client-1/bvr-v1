@@ -63,6 +63,16 @@ router.get(
   validate(Joi.object({ phone: Joi.string().pattern(/^\d{10}$/).required() }), 'query'),
   lookupOrderByPhone,
 );
+router.get(
+  '/:orderId',
+  validate(
+    Joi.object({
+      trackingToken: Joi.string().required(),
+    }),
+    'query',
+  ),
+  fetchOrderById,
+);
 router.get('/admin/all', requireAuth('owner'), fetchAdminOrders);
 router.post(
   '/admin/delivery-people',
@@ -110,6 +120,4 @@ router.patch(
   ),
   patchOrderStatus,
 );
-router.get('/:orderId', fetchOrderById);
-
 export default router;

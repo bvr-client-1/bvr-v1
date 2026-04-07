@@ -1,6 +1,8 @@
 'use client';
 
 let audioContext;
+let alertIntervalId = null;
+let activeNodes = [];
 
 const getAudioContext = () => {
   if (typeof window === 'undefined') return null;
@@ -32,22 +34,58 @@ export const playNewOrderAlert = async () => {
     }
 
     const now = context.currentTime;
-    [0, 0.18].forEach((offset, index) => {
+    [0, 0.16, 0.34].forEach((offset, index) => {
       const oscillator = context.createOscillator();
       const gain = context.createGain();
-      oscillator.type = 'sine';
-      oscillator.frequency.value = index === 0 ? 880 : 1175;
+      oscillator.type = index === 1 ? 'square' : 'sine';
+      oscillator.frequency.value = index === 0 ? 880 : index === 1 ? 1175 : 988;
       gain.gain.setValueAtTime(0.0001, now + offset);
-      gain.gain.exponentialRampToValueAtTime(0.12, now + offset + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + offset + 0.22);
+      gain.gain.exponentialRampToValueAtTime(0.22, now + offset + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + offset + 0.26);
       oscillator.connect(gain);
       gain.connect(context.destination);
+      activeNodes.push(oscillator, gain);
       oscillator.start(now + offset);
-      oscillator.stop(now + offset + 0.24);
+      oscillator.stop(now + offset + 0.28);
+      oscillator.onended = () => {
+        activeNodes = activeNodes.filter((node) => node !== oscillator && node !== gain);
+      };
     });
   } catch {
     // Ignore audio failures and still allow visual notifications.
   }
+};
+
+export const startNewOrderAlertLoop = async () => {
+  if (alertIntervalId) {
+    return;
+  }
+
+  await playNewOrderAlert();
+  alertIntervalId = window.setInterval(() => {
+    playNewOrderAlert();
+  }, 1400);
+};
+
+export const stopNewOrderAlertLoop = () => {
+  if (alertIntervalId) {
+    window.clearInterval(alertIntervalId);
+    alertIntervalId = null;
+  }
+
+  activeNodes.forEach((node) => {
+    try {
+      if (typeof node.stop === 'function') {
+        node.stop();
+      }
+      if (typeof node.disconnect === 'function') {
+        node.disconnect();
+      }
+    } catch {
+      // Ignore cleanup failures.
+    }
+  });
+  activeNodes = [];
 };
 
 export const requestStaffNotificationPermission = async () => {

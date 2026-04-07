@@ -9,7 +9,7 @@ import { fetchAdminMenuItems, updateMenuAvailability } from '../services/menuSer
 import { addDeliveryPerson, assignDeliveryPartner, fetchAdminOrders, removeDeliveryPerson, updateAdminOrderStatus } from '../services/orderService.js';
 import { formatPrice, timeAgo } from '../utils/format.js';
 import { getDirectionsUrl, parseDeliveryAddress } from '../utils/orderLocation.js';
-import { notifyNewOrder, playNewOrderAlert, primeAlertAudio, requestStaffNotificationPermission } from '../utils/staffAlerts.js';
+import { notifyNewOrder, primeAlertAudio, requestStaffNotificationPermission, startNewOrderAlertLoop, stopNewOrderAlertLoop } from '../utils/staffAlerts.js';
 
 const statusBadgeMap = {
   NEW: { bg: '#3b82f620', color: '#3b82f6', text: 'NEW' },
@@ -81,16 +81,14 @@ export default function OwnerPage() {
       if (knownOrderIdsRef.current.size && incomingOrders.length) {
         const latestOrder = incomingOrders[0];
         showToast(`New order received: #${latestOrder.order_code}`);
-        playNewOrderAlert();
+        startNewOrderAlertLoop();
         notifyNewOrder('New BVR order', `Order #${latestOrder.order_code} is waiting in the owner dashboard.`);
       }
       knownOrderIdsRef.current = nextOrderIds;
       setOrders(data.orders);
       setDeliveryPeople(data.deliveryPeople);
     } catch (error) {
-      if (!handleAuthFailure(error)) {
-        showToast('Failed to load orders', 'error');
-      }
+      handleAuthFailure(error);
     } finally {
       setLoadingOrders(false);
     }
@@ -115,6 +113,24 @@ export default function OwnerPage() {
     if (ownerToken) {
       loadOrders();
     }
+  }, [ownerToken]);
+
+  useEffect(() => {
+    if (!ownerToken) return;
+
+    const unlockAlerts = () => {
+      primeAlertAudio();
+      requestStaffNotificationPermission();
+    };
+
+    unlockAlerts();
+    window.addEventListener('pointerdown', unlockAlerts, { passive: true });
+    window.addEventListener('keydown', unlockAlerts);
+
+    return () => {
+      window.removeEventListener('pointerdown', unlockAlerts);
+      window.removeEventListener('keydown', unlockAlerts);
+    };
   }, [ownerToken]);
 
   useEffect(() => {
@@ -166,6 +182,7 @@ export default function OwnerPage() {
 
   const handleStatusUpdate = async (orderId, status, rejectionReason = null) => {
     try {
+      stopNewOrderAlertLoop();
       const result = await updateAdminOrderStatus(ownerToken, orderId, status, rejectionReason);
       if (status === 'CONFIRMED') {
         showToast('Order accepted and sent to kitchen.');
@@ -191,6 +208,7 @@ export default function OwnerPage() {
     }
 
     try {
+      stopNewOrderAlertLoop();
       await assignDeliveryPartner(ownerToken, orderId, deliveryPersonId);
       showToast('Delivery partner assigned.');
       await loadOrders();
@@ -224,6 +242,7 @@ export default function OwnerPage() {
     }
 
     try {
+      stopNewOrderAlertLoop();
       setAddingDeliveryStaff(true);
       const person = await addDeliveryPerson(ownerToken, { name, phone });
       setDeliveryPeople((current) => [person, ...current.filter((existing) => existing.id !== person.id)]);
@@ -243,6 +262,7 @@ export default function OwnerPage() {
     if (!confirmed) return;
 
     try {
+      stopNewOrderAlertLoop();
       setRemovingDeliveryStaffId(person.id);
       await removeDeliveryPerson(ownerToken, person.id);
       setDeliveryPeople((current) => current.filter((existing) => existing.id !== person.id));
@@ -258,6 +278,7 @@ export default function OwnerPage() {
 
   const handleToggleMenu = async (itemId, isAvailable) => {
     try {
+      stopNewOrderAlertLoop();
       await updateMenuAvailability(ownerToken, itemId, isAvailable);
       setManagedItems((previous) => previous.map((item) => (item.id === itemId ? { ...item, is_available: isAvailable } : item)));
       showToast(isAvailable ? 'Marked available.' : 'Marked unavailable.', isAvailable ? 'success' : 'info');
@@ -270,6 +291,7 @@ export default function OwnerPage() {
 
   const handleKitchenToggle = async () => {
     try {
+      stopNewOrderAlertLoop();
       await setKitchenPaused(!restaurantStatus.kitchenPaused);
       showToast(restaurantStatus.kitchenPaused ? 'Kitchen is back on and orders are open.' : 'Kitchen paused. New orders are blocked.');
     } catch (error) {
@@ -281,6 +303,7 @@ export default function OwnerPage() {
 
   const handleMaintenanceToggle = async () => {
     try {
+      stopNewOrderAlertLoop();
       await setMaintenanceMode(!restaurantStatus.maintenanceMode);
       showToast(restaurantStatus.maintenanceMode ? 'Website is back online.' : 'Maintenance mode is now live for customers.');
     } catch (error) {
@@ -318,7 +341,14 @@ export default function OwnerPage() {
       <nav className="navbar">
         <div className="nav-inner">
           <h1 className="page-title">Owner Dashboard</h1>
-          <button className="logout-link button-reset" onClick={() => setOwnerToken('')} type="button">
+          <button
+            className="logout-link button-reset"
+            onClick={() => {
+              stopNewOrderAlertLoop();
+              setOwnerToken('');
+            }}
+            type="button"
+          >
             Logout
           </button>
         </div>

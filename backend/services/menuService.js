@@ -50,3 +50,17 @@ export const updateMenuItemAvailability = async (itemId, isAvailable) => {
 
   throwSupabaseError(error);
 };
+
+export const getMenuItemsByIds = async (itemIds) => {
+  if (!itemIds?.length) {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from('menu_items')
+    .select('id, name, price, is_available')
+    .in('id', itemIds);
+
+  throwSupabaseError(error);
+  return data || [];
+};

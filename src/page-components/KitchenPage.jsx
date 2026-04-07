@@ -8,7 +8,7 @@ import { kitchenLogin } from '../services/authService.js';
 import { fetchKitchenQueue, updateKitchenOrderStatus } from '../services/orderService.js';
 import { timeAgo } from '../utils/format.js';
 import { getDirectionsUrl, parseDeliveryAddress } from '../utils/orderLocation.js';
-import { notifyNewOrder, playNewOrderAlert, primeAlertAudio, requestStaffNotificationPermission } from '../utils/staffAlerts.js';
+import { notifyNewOrder, primeAlertAudio, requestStaffNotificationPermission, startNewOrderAlertLoop, stopNewOrderAlertLoop } from '../utils/staffAlerts.js';
 
 export default function KitchenPage() {
   const { kitchenToken, setKitchenToken, restaurantStatus, setKitchenPaused } = useAppContext();
@@ -33,7 +33,7 @@ export default function KitchenPage() {
     return false;
   };
 
-  const loadQueue = async () => {
+  const loadQueue = async ({ silent = false } = {}) => {
     if (!kitchenToken) return;
     try {
       setLoadingQueue((current) => current || !orders.length);
@@ -43,16 +43,14 @@ export default function KitchenPage() {
       if (knownQueueIdsRef.current.size && incomingOrders.length) {
         const latestOrder = incomingOrders[0];
         showToast(`New kitchen order: #${latestOrder.order_code}`);
-        playNewOrderAlert();
+        startNewOrderAlertLoop();
         notifyNewOrder('New kitchen order', `Order #${latestOrder.order_code} is waiting in the kitchen queue.`);
       }
       knownQueueIdsRef.current = nextOrderIds;
       setOrders(data.orders);
       setReadyCount(data.readyCount);
     } catch (requestError) {
-      if (!handleAuthFailure(requestError)) {
-        showToast('Failed to load orders', 'error');
-      }
+      handleAuthFailure(requestError);
     } finally {
       setLoadingQueue(false);
     }
@@ -64,8 +62,26 @@ export default function KitchenPage() {
     }
   }, [kitchenToken]);
 
+  useEffect(() => {
+    if (!kitchenToken) return;
+
+    const unlockAlerts = () => {
+      primeAlertAudio();
+      requestStaffNotificationPermission();
+    };
+
+    unlockAlerts();
+    window.addEventListener('pointerdown', unlockAlerts, { passive: true });
+    window.addEventListener('keydown', unlockAlerts);
+
+    return () => {
+      window.removeEventListener('pointerdown', unlockAlerts);
+      window.removeEventListener('keydown', unlockAlerts);
+    };
+  }, [kitchenToken]);
+
   useInterval(() => {
-    if (kitchenToken) loadQueue();
+    if (kitchenToken) loadQueue({ silent: true });
   }, kitchenToken ? 10000 : null);
 
   useInterval(() => {
@@ -87,6 +103,7 @@ export default function KitchenPage() {
 
   const handleStatus = async (orderId, status) => {
     try {
+      stopNewOrderAlertLoop();
       await updateKitchenOrderStatus(kitchenToken, orderId, status);
       showToast(status === 'IN_KITCHEN' ? 'Cooking started.' : 'Marked as ready.');
       await loadQueue();
@@ -99,6 +116,7 @@ export default function KitchenPage() {
 
   const handleKitchenToggle = async () => {
     try {
+      stopNewOrderAlertLoop();
       await setKitchenPaused(!restaurantStatus.kitchenPaused);
       showToast(restaurantStatus.kitchenPaused ? 'Kitchen is back on and orders are open.' : 'Kitchen paused. New orders are blocked.');
     } catch (requestError) {
@@ -138,7 +156,14 @@ export default function KitchenPage() {
           <h1 className="page-title">Kitchen Dashboard</h1>
           <div className="kitchen-nav-right">
             <span className="muted-small">{restaurantStatus.kitchenPaused ? 'Orders paused' : 'Orders live'}</span>
-            <button className="logout-link button-reset" onClick={() => setKitchenToken('')} type="button">
+            <button
+              className="logout-link button-reset"
+              onClick={() => {
+                stopNewOrderAlertLoop();
+                setKitchenToken('');
+              }}
+              type="button"
+            >
               Lock
             </button>
           </div>
@@ -240,8 +265,6 @@ export default function KitchenPage() {
             <p>No active kitchen orders right now.</p>
           </div>
         )}
-
-        <p className="auto-note">Auto-refreshes every 10 seconds and kitchen timers update every second.</p>
       </main>
     </div>
   );

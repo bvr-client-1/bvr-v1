@@ -1,4 +1,6 @@
+import jwt from 'jsonwebtoken';
 import { env } from '../config/env.js';
+import { getMenuItemsByIds } from '../services/menuService.js';
 import { getRuntimeState } from '../services/restaurantService.js';
 import { findPendingOrderDraft, savePendingOrderDraft } from '../services/pendingOrderService.js';
 import { assertWithinDeliveryZone } from '../utils/deliveryZone.js';
@@ -9,6 +11,7 @@ import {
   createDeliveryPerson,
   deactivateDeliveryPerson,
   createRazorpayOrder,
+  fetchRazorpayPayment,
   findLatestOrderByPhone,
   getAllOrders,
   getDeliveryPeople,
@@ -20,13 +23,83 @@ import {
   verifyPaymentSignature,
 } from '../services/orderService.js';
 
-const normalizeOrderAmounts = (payload) => {
-  const subtotal = Number(payload.subtotal || 0);
-  const deliveryCharge = payload.orderType === 'delivery' && !env.freeDeliveryEnabled ? Number(payload.deliveryCharge || 0) : 0;
+const createOrderTrackingToken = (orderId) =>
+  jwt.sign(
+    {
+      scope: 'order-tracking',
+      orderId,
+    },
+    env.jwtSecret,
+    { expiresIn: '30d' },
+  );
+
+const assertValidOrderTrackingToken = (orderId, trackingToken) => {
+  try {
+    const payload = jwt.verify(trackingToken, env.jwtSecret);
+    if (payload.scope !== 'order-tracking' || payload.orderId !== orderId) {
+      throw new Error('Order tracking token mismatch');
+    }
+  } catch {
+    const error = new Error('Invalid order tracking token');
+    error.statusCode = 401;
+    throw error;
+  }
+};
+
+const buildCanonicalOrderDraft = async (payload) => {
+  const itemIds = [...new Set((payload.items || []).map((item) => item.id))];
+  const menuItems = await getMenuItemsByIds(itemIds);
+  const menuItemMap = new Map(menuItems.map((item) => [String(item.id), item]));
+
+  const items = (payload.items || []).map((item) => {
+    const menuItem = menuItemMap.get(String(item.id));
+    if (!menuItem) {
+      const error = new Error(`Menu item not found: ${item.id}`);
+      error.statusCode = 400;
+      throw error;
+    }
+
+    if (!menuItem.is_available) {
+      const error = new Error(`${menuItem.name} is currently unavailable`);
+      error.statusCode = 409;
+      throw error;
+    }
+
+    return {
+      id: String(menuItem.id),
+      name: menuItem.name,
+      price: Number(menuItem.price),
+      quantity: Number(item.quantity),
+    };
+  });
+
+  const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const deliveryCharge = payload.orderType === 'delivery' && !env.freeDeliveryEnabled ? 30 : 0;
   const total = subtotal + deliveryCharge;
 
+  if (payload.orderType === 'dine-in' && !payload.tableNumber) {
+    const error = new Error('Table number is required for dine-in orders');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (payload.orderType === 'delivery' && !String(payload.deliveryAddress || '').trim()) {
+    const error = new Error('Delivery address is required for delivery orders');
+    error.statusCode = 400;
+    throw error;
+  }
+
   return {
-    ...payload,
+    receipt: payload.receipt,
+    orderCode: payload.orderCode,
+    orderType: payload.orderType,
+    customerName: String(payload.customerName || '').trim(),
+    customerPhone: String(payload.customerPhone || '').trim(),
+    tableNumber: payload.orderType === 'dine-in' ? payload.tableNumber : null,
+    deliveryAddress: payload.orderType === 'delivery' ? String(payload.deliveryAddress || '').trim() : '',
+    deliveryLatitude: payload.orderType === 'delivery' ? payload.deliveryLatitude : null,
+    deliveryLongitude: payload.orderType === 'delivery' ? payload.deliveryLongitude : null,
+    items,
     subtotal,
     deliveryCharge,
     total,
@@ -48,19 +121,19 @@ const assertDeliveryEligibility = (payload) => {
 
 export const createOrder = async (req, res) => {
   assertRestaurantAcceptingOrders(await getRuntimeState());
-  const normalizedDraft = normalizeOrderAmounts(req.body);
-  assertDeliveryEligibility(normalizedDraft);
+  const canonicalDraft = await buildCanonicalOrderDraft(req.body);
+  assertDeliveryEligibility(canonicalDraft);
 
   const order = await createRazorpayOrder({
-    amount: normalizedDraft.total * 100,
-    receipt: normalizedDraft.receipt,
+    amount: canonicalDraft.total * 100,
+    receipt: canonicalDraft.receipt,
   });
 
   await savePendingOrderDraft({
     razorpayOrderId: order.id,
     amount: order.amount,
-    receipt: normalizedDraft.receipt,
-    draft: normalizedDraft,
+    receipt: canonicalDraft.receipt,
+    draft: canonicalDraft,
   });
 
   res.json({
@@ -85,33 +158,52 @@ export const verifyPayment = async (req, res) => {
   }
 
   const draftRecord = await findPendingOrderDraft(req.body.razorpayOrderId);
-  const normalizedOrder = normalizeOrderAmounts({
-    ...(draftRecord?.draft || {}),
-    ...req.body,
-  });
-  assertDeliveryEligibility(normalizedOrder);
+  if (!draftRecord?.draft) {
+    return res.status(409).json({ message: 'Pending order draft not found for this payment' });
+  }
+
+  const canonicalOrder = draftRecord.draft;
+  assertDeliveryEligibility(canonicalOrder);
+
+  const payment = await fetchRazorpayPayment(req.body.razorpayPaymentId);
+  if (payment.order_id !== req.body.razorpayOrderId) {
+    return res.status(400).json({ message: 'Payment order mismatch' });
+  }
+
+  if (payment.status !== 'captured' && payment.status !== 'authorized') {
+    return res.status(400).json({ message: 'Payment is not captured yet' });
+  }
+
+  if (Number(payment.amount) !== Math.round(Number(canonicalOrder.total) * 100)) {
+    return res.status(400).json({ message: 'Payment amount mismatch' });
+  }
 
   const order = await persistPaidOrder({
-    orderCode: normalizedOrder.orderCode,
-    orderType: normalizedOrder.orderType,
-    customerName: normalizedOrder.customerName,
-    customerPhone: normalizedOrder.customerPhone,
-    tableNumber: normalizedOrder.tableNumber,
-    deliveryAddress: normalizedOrder.deliveryAddress,
-    deliveryLatitude: normalizedOrder.deliveryLatitude,
-    deliveryLongitude: normalizedOrder.deliveryLongitude,
-    subtotal: normalizedOrder.subtotal,
-    deliveryCharge: normalizedOrder.deliveryCharge,
-    total: normalizedOrder.total,
-    items: normalizedOrder.items,
-    razorpayOrderId: normalizedOrder.razorpayOrderId,
-    razorpayPaymentId: normalizedOrder.razorpayPaymentId,
+    orderCode: canonicalOrder.orderCode,
+    orderType: canonicalOrder.orderType,
+    customerName: canonicalOrder.customerName,
+    customerPhone: canonicalOrder.customerPhone,
+    tableNumber: canonicalOrder.tableNumber,
+    deliveryAddress: canonicalOrder.deliveryAddress,
+    deliveryLatitude: canonicalOrder.deliveryLatitude,
+    deliveryLongitude: canonicalOrder.deliveryLongitude,
+    subtotal: canonicalOrder.subtotal,
+    deliveryCharge: canonicalOrder.deliveryCharge,
+    total: canonicalOrder.total,
+    items: canonicalOrder.items,
+    razorpayOrderId: req.body.razorpayOrderId,
+    razorpayPaymentId: req.body.razorpayPaymentId,
   });
 
-  return res.json({ orderId: order.id, orderCode: order.order_code });
+  return res.json({
+    orderId: order.id,
+    orderCode: order.order_code,
+    trackingToken: createOrderTrackingToken(order.id),
+  });
 };
 
 export const fetchOrderById = async (req, res) => {
+  assertValidOrderTrackingToken(req.params.orderId, req.query.trackingToken);
   const order = await getOrderById(req.params.orderId);
   res.json({ order });
 };
@@ -121,7 +213,10 @@ export const lookupOrderByPhone = async (req, res) => {
   if (!data) {
     return res.status(404).json({ message: 'No order found for this number' });
   }
-  return res.json(data);
+  return res.json({
+    ...data,
+    trackingToken: createOrderTrackingToken(data.id),
+  });
 };
 
 export const fetchAdminOrders = async (_req, res) => {

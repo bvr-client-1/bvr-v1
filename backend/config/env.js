@@ -49,6 +49,8 @@ const restaurantLongitude = Number(process.env.RESTAURANT_LNG);
 const deliveryRadiusKm = Number(process.env.DELIVERY_RADIUS_KM || 4);
 const keepaliveIntervalHours = Number(process.env.SUPABASE_KEEPALIVE_INTERVAL_HOURS || 48);
 const reviewSyncHours = Number(process.env.REVIEW_SYNC_INTERVAL_HOURS || 24);
+const authRateLimitWindowMs = Number(process.env.AUTH_RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000);
+const authRateLimitMax = Number(process.env.AUTH_RATE_LIMIT_MAX || 20);
 
 if (!Number.isFinite(restaurantLatitude) || !Number.isFinite(restaurantLongitude)) {
   throw new Error('RESTAURANT_LAT and RESTAURANT_LNG must be valid numbers');
@@ -64,6 +66,14 @@ if (!Number.isFinite(keepaliveIntervalHours) || keepaliveIntervalHours <= 0) {
 
 if (!Number.isFinite(reviewSyncHours) || reviewSyncHours <= 0) {
   throw new Error('REVIEW_SYNC_INTERVAL_HOURS must be a positive number');
+}
+
+if (!Number.isFinite(authRateLimitWindowMs) || authRateLimitWindowMs <= 0) {
+  throw new Error('AUTH_RATE_LIMIT_WINDOW_MS must be a positive number');
+}
+
+if (!Number.isFinite(authRateLimitMax) || authRateLimitMax <= 0) {
+  throw new Error('AUTH_RATE_LIMIT_MAX must be a positive number');
 }
 
 export const env = {
@@ -95,5 +105,7 @@ export const env = {
   googlePlaceId: process.env.GOOGLE_PLACE_ID || '',
   reviewSyncIntervalMs: reviewSyncHours * 60 * 60 * 1000,
   rateLimitWindowMs: Number(process.env.RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000),
-  rateLimitMax: Number(process.env.RATE_LIMIT_MAX || 100),
+  rateLimitMax: Number(process.env.RATE_LIMIT_MAX || 500),
+  authRateLimitWindowMs,
+  authRateLimitMax,
 };

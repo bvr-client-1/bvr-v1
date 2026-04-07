@@ -92,8 +92,25 @@ RAZORPAY_WEBHOOK_SECRET=replace_me_with_razorpay_webhook_secret
 SUPABASE_KEEPALIVE_INTERVAL_HOURS=48
 REVIEW_SYNC_INTERVAL_HOURS=24
 RATE_LIMIT_WINDOW_MS=900000
-RATE_LIMIT_MAX=100
+RATE_LIMIT_MAX=500
+AUTH_RATE_LIMIT_WINDOW_MS=900000
+AUTH_RATE_LIMIT_MAX=20
 ```
+
+Before going live, run the Supabase migration:
+
+```text
+supabase/migrations/2026-04-07_payment_and_pending_storage.sql
+```
+
+This creates:
+
+```text
+payment_records
+pending_order_drafts
+```
+
+Those tables are now the intended production storage for refund/payment metadata and pending payment drafts.
 
 ## Razorpay
 

@@ -29,6 +29,9 @@ export function MobileMenu({ open, onClose }) {
           <a href="#contact" onClick={onClose}>
             Contact
           </a>
+          <Link onClick={onClose} href="/terms">
+            Terms
+          </Link>
         </div>
       </div>
     </>

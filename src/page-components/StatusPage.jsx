@@ -30,7 +30,7 @@ const getRefundMessage = (order) => {
 };
 
 export default function StatusPage() {
-  const { orderId, setOrderCode, setOrderId } = useAppContext();
+  const { orderId, orderTrackingToken, setOrderCode, setOrderId, setOrderTrackingToken } = useAppContext();
   const { showToast } = useToast();
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -39,10 +39,10 @@ export default function StatusPage() {
   const [expanded, setExpanded] = useState(false);
 
   const loadStatus = async () => {
-    if (!orderId) return;
+    if (!orderId || !orderTrackingToken) return;
     try {
       setLoading(true);
-      const nextOrder = await fetchOrderById(orderId);
+      const nextOrder = await fetchOrderById(orderId, orderTrackingToken);
       setOrder(nextOrder);
     } catch {
       setOrder(null);
@@ -53,10 +53,10 @@ export default function StatusPage() {
 
   useEffect(() => {
     loadStatus();
-  }, [orderId]);
+  }, [orderId, orderTrackingToken]);
 
   useInterval(() => {
-    if (orderId) loadStatus();
+    if (orderId && orderTrackingToken) loadStatus();
   }, 10000);
 
   const onLookup = async () => {
@@ -69,6 +69,7 @@ export default function StatusPage() {
       const data = await lookupOrderByPhone(lookupPhone);
       setOrderId(data.id);
       setOrderCode(data.order_code);
+      setOrderTrackingToken(data.trackingToken);
       setLookupError('');
       showToast('Order found! Loading status...');
     } catch {

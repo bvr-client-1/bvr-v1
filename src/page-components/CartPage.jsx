@@ -22,7 +22,7 @@ const STANDARD_DELIVERY_CHARGE = 30;
 
 export default function CartPage() {
   const router = useRouter();
-  const { cart, setCart, setOrderCode, setOrderId, restaurantStatus } = useAppContext();
+  const { cart, setCart, setOrderCode, setOrderId, setOrderTrackingToken, restaurantStatus } = useAppContext();
   const { showToast } = useToast();
   const [orderType, setOrderType] = useState('dine-in');
   const [tableNumber, setTableNumber] = useState('');
@@ -126,6 +126,7 @@ export default function CartPage() {
 
           setOrderId(payload.orderId);
           setOrderCode(payload.orderCode);
+          setOrderTrackingToken(payload.trackingToken);
           setCart([]);
           setPaying(false);
           showToast('Payment successful! Saving order...');

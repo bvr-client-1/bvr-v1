@@ -12,6 +12,7 @@ export function AppProvider({ children }) {
   const [kitchenToken, setKitchenToken] = useLocalStorage('bvr_kitchen_token', '');
   const [orderId, setOrderId] = useLocalStorage('bvr_order_id', '');
   const [orderCode, setOrderCode] = useLocalStorage('bvr_order_code', '');
+  const [orderTrackingToken, setOrderTrackingToken] = useLocalStorage('bvr_order_tracking_token', '');
   const [searchState, setSearchState] = useState('');
   const [restaurantStatus, setRestaurantStatus] = useState({
     kitchenPaused: false,
@@ -69,6 +70,8 @@ export function AppProvider({ children }) {
       setOrderId,
       orderCode,
       setOrderCode,
+      orderTrackingToken,
+      setOrderTrackingToken,
       searchState,
       setSearchState,
       restaurantStatus,
@@ -76,7 +79,7 @@ export function AppProvider({ children }) {
       setKitchenPaused,
       setMaintenanceMode,
     }),
-    [cart, kitchenToken, orderCode, orderId, ownerToken, restaurantStatus, searchState, setCart],
+    [cart, kitchenToken, orderCode, orderId, orderTrackingToken, ownerToken, restaurantStatus, searchState, setCart],
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
