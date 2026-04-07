@@ -10,7 +10,7 @@ import { formatPrice, getCatEmoji } from '../utils/format.js';
 import { getOpenMessage, isRestaurantOpen } from '../utils/restaurant.js';
 
 export default function MenuPage() {
-  const { cart, setCart, restaurantStatus } = useAppContext();
+  const { cart, setCart, orderHistory, restaurantStatus } = useAppContext();
   const { showToast } = useToast();
   const [categories, setCategories] = useState([]);
   const [menuItems, setMenuItems] = useState([]);
@@ -127,6 +127,11 @@ export default function MenuPage() {
           </Link>
           <h1 className="page-title">BVR Menu</h1>
           <div className="cart-icon-wrap">
+            {!!orderHistory.length && (
+              <Link aria-label="Track your order" className="cart-link" href="/status">
+                Track Order
+              </Link>
+            )}
             <Link aria-label="Go to cart" className="cart-link" href="/cart">
               Cart
             </Link>

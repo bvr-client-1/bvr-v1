@@ -1,8 +1,11 @@
 'use client';
 
 import Link from 'next/link';
+import { useAppContext } from '../context/AppContext.jsx';
 
 export function MobileMenu({ open, onClose }) {
+  const { orderHistory } = useAppContext();
+
   return (
     <>
       <div className={`mobile-overlay ${open ? 'open' : ''}`} onClick={onClose} />
@@ -29,6 +32,11 @@ export function MobileMenu({ open, onClose }) {
           <a href="#contact" onClick={onClose}>
             Contact
           </a>
+          {!!orderHistory.length && (
+            <Link onClick={onClose} href="/status">
+              Track Order
+            </Link>
+          )}
           <Link onClick={onClose} href="/terms">
             Terms
           </Link>

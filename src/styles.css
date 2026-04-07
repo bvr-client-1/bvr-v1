@@ -256,6 +256,17 @@ h1, h2, h3, h4 { font-family: 'Playfair Display', serif; margin: 0; }
 .delivery-card-row { display: flex; align-items: center; gap: 14px; }
 .delivery-avatar { width: 48px; height: 48px; border-radius: 50%; background: linear-gradient(135deg, #d4a017, #f5c842); display: grid; place-items: center; }
 .delivery-phone { color: var(--bright-gold); text-decoration: none; }
+.eta-card { text-align: center; }
+.eta-label { color: #e5c89a; font-size: .88rem; text-transform: uppercase; letter-spacing: .08em; font-weight: 700; }
+.eta-timer { margin-top: 10px; color: var(--bright-gold); font-size: clamp(1.8rem, 6vw, 2.8rem); font-weight: 700; font-family: 'Playfair Display', serif; }
+.recent-orders-block { margin-top: 20px; text-align: left; }
+.recent-orders-block.compact { margin-bottom: 18px; }
+.recent-orders-title { color: var(--bright-gold); font-size: 1.1rem; margin-bottom: 10px; }
+.recent-orders-list { display: grid; gap: 10px; }
+.recent-order-card { width: 100%; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 14px 16px; border-radius: 16px; border: 1px solid rgba(212,160,23,.2); background: rgba(255,255,255,.03); color: var(--text); cursor: pointer; }
+.recent-order-card.active { border-color: rgba(245,200,66,.38); background: rgba(212,160,23,.12); }
+.recent-order-code { font-weight: 700; color: #f8ddb0; }
+.recent-order-meta { color: var(--muted); font-size: .82rem; }
 .rejected-card, .lookup-card, .login-box, .password-box, .reject-box { background: var(--card-bg); border: 1px solid var(--border); border-radius: 24px; }
 .rejected-card { text-align: center; padding: 28px 20px; }
 .rejected-icon, .empty-icon, .empty-cart-icon, .kitchen-emoji { font-size: 2.5rem; margin-bottom: 12px; }

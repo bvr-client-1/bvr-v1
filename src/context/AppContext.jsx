@@ -13,6 +13,7 @@ export function AppProvider({ children }) {
   const [orderId, setOrderId] = useLocalStorage('bvr_order_id', '');
   const [orderCode, setOrderCode] = useLocalStorage('bvr_order_code', '');
   const [orderTrackingToken, setOrderTrackingToken] = useLocalStorage('bvr_order_tracking_token', '');
+  const [orderHistory, setOrderHistory] = useLocalStorage('bvr_order_history', []);
   const [searchState, setSearchState] = useState('');
   const [restaurantStatus, setRestaurantStatus] = useState({
     kitchenPaused: false,
@@ -49,6 +50,35 @@ export function AppProvider({ children }) {
   const setKitchenPaused = async (kitchenPaused) => updateRestaurantRuntime({ kitchenPaused });
   const setMaintenanceMode = async (maintenanceMode) => updateRestaurantRuntime({ maintenanceMode });
 
+  const rememberOrder = (orderRef) => {
+    if (!orderRef?.id || !orderRef?.trackingToken) {
+      return;
+    }
+
+    setOrderId(orderRef.id);
+    if (orderRef.orderCode) {
+      setOrderCode(orderRef.orderCode);
+    }
+    setOrderTrackingToken(orderRef.trackingToken);
+
+    setOrderHistory((current) => {
+      const nextEntry = {
+        id: orderRef.id,
+        orderCode: orderRef.orderCode || '',
+        trackingToken: orderRef.trackingToken,
+        customerPhone: orderRef.customerPhone || '',
+        type: orderRef.type || '',
+        status: orderRef.status || '',
+        total: orderRef.total ?? null,
+        createdAt: orderRef.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      const previous = Array.isArray(current) ? current : [];
+      return [nextEntry, ...previous.filter((entry) => entry.id !== nextEntry.id)].slice(0, 5);
+    });
+  };
+
   useEffect(() => {
     refreshRestaurantStatus();
     const timer = window.setInterval(() => {
@@ -72,6 +102,9 @@ export function AppProvider({ children }) {
       setOrderCode,
       orderTrackingToken,
       setOrderTrackingToken,
+      orderHistory,
+      setOrderHistory,
+      rememberOrder,
       searchState,
       setSearchState,
       restaurantStatus,
@@ -79,7 +112,7 @@ export function AppProvider({ children }) {
       setKitchenPaused,
       setMaintenanceMode,
     }),
-    [cart, kitchenToken, orderCode, orderId, orderTrackingToken, ownerToken, restaurantStatus, searchState, setCart],
+    [cart, kitchenToken, orderCode, orderHistory, orderId, orderTrackingToken, ownerToken, restaurantStatus, searchState, setCart],
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

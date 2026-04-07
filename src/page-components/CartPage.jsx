@@ -22,7 +22,7 @@ const STANDARD_DELIVERY_CHARGE = 30;
 
 export default function CartPage() {
   const router = useRouter();
-  const { cart, setCart, setOrderCode, setOrderId, setOrderTrackingToken, restaurantStatus } = useAppContext();
+  const { cart, setCart, rememberOrder, restaurantStatus } = useAppContext();
   const { showToast } = useToast();
   const [orderType, setOrderType] = useState('dine-in');
   const [tableNumber, setTableNumber] = useState('');
@@ -124,9 +124,16 @@ export default function CartPage() {
             razorpaySignature: response.razorpay_signature,
           });
 
-          setOrderId(payload.orderId);
-          setOrderCode(payload.orderCode);
-          setOrderTrackingToken(payload.trackingToken);
+          rememberOrder({
+            id: payload.orderId,
+            orderCode: payload.orderCode,
+            trackingToken: payload.trackingToken,
+            customerPhone: paymentDraft.customerPhone,
+            type: paymentDraft.orderType,
+            total: paymentDraft.total,
+            createdAt: new Date().toISOString(),
+            status: 'CONFIRMED',
+          });
           setCart([]);
           setPaying(false);
           showToast('Payment successful! Saving order...');
