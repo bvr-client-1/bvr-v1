@@ -1,4 +1,6 @@
-import { useEffect, useState } from 'react';
+'use client';
+
+import { useEffect, useRef, useState } from 'react';
 import { useAppContext } from '../context/AppContext.jsx';
 import { useToast } from '../context/ToastContext.jsx';
 import { useInterval } from '../hooks/useInterval.js';
@@ -6,6 +8,7 @@ import { kitchenLogin } from '../services/authService.js';
 import { fetchKitchenQueue, updateKitchenOrderStatus } from '../services/orderService.js';
 import { timeAgo } from '../utils/format.js';
 import { getDirectionsUrl, parseDeliveryAddress } from '../utils/orderLocation.js';
+import { notifyNewOrder, playNewOrderAlert, primeAlertAudio, requestStaffNotificationPermission } from '../utils/staffAlerts.js';
 
 export default function KitchenPage() {
   const { kitchenToken, setKitchenToken, restaurantStatus, setKitchenPaused } = useAppContext();
@@ -14,8 +17,11 @@ export default function KitchenPage() {
   const [readyCount, setReadyCount] = useState(0);
   const [loginId, setLoginId] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [now, setNow] = useState(Date.now());
+  const [loadingQueue, setLoadingQueue] = useState(false);
+  const knownQueueIdsRef = useRef(new Set());
 
   const handleAuthFailure = (requestError) => {
     if (requestError?.response?.status === 401) {
@@ -30,13 +36,25 @@ export default function KitchenPage() {
   const loadQueue = async () => {
     if (!kitchenToken) return;
     try {
+      setLoadingQueue((current) => current || !orders.length);
       const data = await fetchKitchenQueue(kitchenToken);
+      const nextOrderIds = new Set(data.orders.map((order) => order.id));
+      const incomingOrders = data.orders.filter((order) => !knownQueueIdsRef.current.has(order.id));
+      if (knownQueueIdsRef.current.size && incomingOrders.length) {
+        const latestOrder = incomingOrders[0];
+        showToast(`New kitchen order: #${latestOrder.order_code}`);
+        playNewOrderAlert();
+        notifyNewOrder('New kitchen order', `Order #${latestOrder.order_code} is waiting in the kitchen queue.`);
+      }
+      knownQueueIdsRef.current = nextOrderIds;
       setOrders(data.orders);
       setReadyCount(data.readyCount);
     } catch (requestError) {
       if (!handleAuthFailure(requestError)) {
         showToast('Failed to load orders', 'error');
       }
+    } finally {
+      setLoadingQueue(false);
     }
   };
 
@@ -56,6 +74,8 @@ export default function KitchenPage() {
 
   const handleLogin = async () => {
     try {
+      await primeAlertAudio();
+      requestStaffNotificationPermission();
       const data = await kitchenLogin(loginId, password);
       setKitchenToken(data.token);
       setError('');
@@ -88,22 +108,30 @@ export default function KitchenPage() {
     }
   };
 
+  if (!kitchenToken) {
+    return (
+      <div className="password-overlay auth-screen">
+        <div className="password-box">
+          <div className="kitchen-emoji">{'\u{1F468}\u200D\u{1F373}'}</div>
+          <h2>Kitchen Access</h2>
+          <input className="input-field" onChange={(event) => setLoginId(event.target.value)} placeholder="Enter kitchen ID" type="text" value={loginId} />
+          <div className="password-input-wrap">
+            <input className="input-field password-input" onChange={(event) => setPassword(event.target.value)} placeholder="Enter kitchen password" type={showPassword ? 'text' : 'password'} value={password} />
+            <button className="password-toggle-btn" onClick={() => setShowPassword((value) => !value)} type="button">
+              {showPassword ? 'Hide' : 'Show'}
+            </button>
+          </div>
+          <button className="btn-gold" onClick={handleLogin} type="button">
+            Enter Kitchen
+          </button>
+          {!!error && <p className="form-error">{error}</p>}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div>
-      {!kitchenToken && (
-        <div className="password-overlay">
-          <div className="password-box">
-            <div className="kitchen-emoji">Chef</div>
-            <h2>Kitchen Access</h2>
-            <input className="input-field" onChange={(event) => setLoginId(event.target.value)} placeholder="Enter kitchen ID" type="text" value={loginId} />
-            <input className="input-field" onChange={(event) => setPassword(event.target.value)} placeholder="Enter kitchen password" type="password" value={password} />
-            <button className="btn-gold" onClick={handleLogin} type="button">
-              Enter Kitchen
-            </button>
-            {!!error && <p className="form-error">{error}</p>}
-          </div>
-        </div>
-      )}
 
       <nav className="navbar">
         <div className="nav-inner">
@@ -150,7 +178,16 @@ export default function KitchenPage() {
           </div>
         </div>
 
-        {orders.length ? (
+        {loadingQueue && !orders.length ? (
+          Array.from({ length: 3 }).map((_, index) => (
+            <div className="card dashboard-order-card skeleton-panel" key={`kitchen-skeleton-${index}`}>
+              <div className="skeleton-line wide" />
+              <div className="skeleton-line mid" />
+              <div className="skeleton-line wide" />
+              <div className="skeleton-line buttonish" />
+            </div>
+          ))
+        ) : orders.length ? (
           orders.map((order) => {
             const elapsedSeconds = order.cook_started_at ? Math.floor((now - new Date(order.cook_started_at).getTime()) / 1000) : 0;
             const mins = String(Math.floor(elapsedSeconds / 60)).padStart(2, '0');

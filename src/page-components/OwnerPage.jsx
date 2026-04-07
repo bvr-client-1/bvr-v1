@@ -1,12 +1,15 @@
-import { useEffect, useMemo, useState } from 'react';
+'use client';
+
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAppContext } from '../context/AppContext.jsx';
 import { useToast } from '../context/ToastContext.jsx';
 import { useInterval } from '../hooks/useInterval.js';
 import { ownerLogin } from '../services/authService.js';
 import { fetchAdminMenuItems, updateMenuAvailability } from '../services/menuService.js';
-import { assignDeliveryPartner, fetchAdminOrders, updateAdminOrderStatus } from '../services/orderService.js';
+import { addDeliveryPerson, assignDeliveryPartner, fetchAdminOrders, removeDeliveryPerson, updateAdminOrderStatus } from '../services/orderService.js';
 import { formatPrice, timeAgo } from '../utils/format.js';
 import { getDirectionsUrl, parseDeliveryAddress } from '../utils/orderLocation.js';
+import { notifyNewOrder, playNewOrderAlert, primeAlertAudio, requestStaffNotificationPermission } from '../utils/staffAlerts.js';
 
 const statusBadgeMap = {
   NEW: { bg: '#3b82f620', color: '#3b82f6', text: 'NEW' },
@@ -18,8 +21,24 @@ const statusBadgeMap = {
   CANCELLED: { bg: '#ef444420', color: '#ef4444', text: 'CANCELLED' },
 };
 
+const getRefundNote = (order) => {
+  if (order.payment_status === 'REFUNDED' || order.refund_status === 'processed') {
+    return 'Refund completed to the original payment method.';
+  }
+
+  if (order.payment_status === 'REFUND_PENDING' || ['created', 'pending'].includes(order.refund_status || '')) {
+    return 'Refund initiated and waiting for banking settlement.';
+  }
+
+  if (order.payment_status === 'REFUND_FAILED' || order.refund_status === 'failed') {
+    return `Refund failed${order.refund_failure_reason ? `: ${order.refund_failure_reason}` : '.'}`;
+  }
+
+  return '';
+};
+
 export default function OwnerPage() {
-  const { ownerToken, setOwnerToken, restaurantStatus, setKitchenPaused } = useAppContext();
+  const { ownerToken, setOwnerToken, restaurantStatus, setKitchenPaused, setMaintenanceMode } = useAppContext();
   const { showToast } = useToast();
   const [orders, setOrders] = useState([]);
   const [deliveryPeople, setDeliveryPeople] = useState([]);
@@ -29,9 +48,16 @@ export default function OwnerPage() {
   const [menuFilter, setMenuFilter] = useState('all');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loginError, setLoginError] = useState('');
   const [rejectingOrderId, setRejectingOrderId] = useState('');
   const [selectedReason, setSelectedReason] = useState('');
+  const [deliveryStaffForm, setDeliveryStaffForm] = useState({ name: '', phone: '' });
+  const [addingDeliveryStaff, setAddingDeliveryStaff] = useState(false);
+  const [removingDeliveryStaffId, setRemovingDeliveryStaffId] = useState('');
+  const [loadingOrders, setLoadingOrders] = useState(false);
+  const [loadingMenu, setLoadingMenu] = useState(false);
+  const knownOrderIdsRef = useRef(new Set());
 
   const handleAuthFailure = (error) => {
     if (error?.response?.status === 401) {
@@ -43,28 +69,45 @@ export default function OwnerPage() {
     return false;
   };
 
-  const loadOrders = async () => {
+  const loadOrders = async ({ silent = false } = {}) => {
     if (!ownerToken) return;
     try {
+      if (!silent) {
+        setLoadingOrders(true);
+      }
       const data = await fetchAdminOrders(ownerToken);
+      const nextOrderIds = new Set(data.orders.map((order) => order.id));
+      const incomingOrders = data.orders.filter((order) => !knownOrderIdsRef.current.has(order.id));
+      if (knownOrderIdsRef.current.size && incomingOrders.length) {
+        const latestOrder = incomingOrders[0];
+        showToast(`New order received: #${latestOrder.order_code}`);
+        playNewOrderAlert();
+        notifyNewOrder('New BVR order', `Order #${latestOrder.order_code} is waiting in the owner dashboard.`);
+      }
+      knownOrderIdsRef.current = nextOrderIds;
       setOrders(data.orders);
       setDeliveryPeople(data.deliveryPeople);
     } catch (error) {
       if (!handleAuthFailure(error)) {
         showToast('Failed to load orders', 'error');
       }
+    } finally {
+      setLoadingOrders(false);
     }
   };
 
   const loadMenu = async () => {
     if (!ownerToken) return;
     try {
+      setLoadingMenu(true);
       const items = await fetchAdminMenuItems(ownerToken);
       setManagedItems(items);
     } catch (error) {
       if (!handleAuthFailure(error)) {
         showToast('Failed to load menu', 'error');
       }
+    } finally {
+      setLoadingMenu(false);
     }
   };
 
@@ -82,7 +125,7 @@ export default function OwnerPage() {
 
   useInterval(() => {
     if (ownerToken) {
-      loadOrders();
+      loadOrders({ silent: true });
     }
   }, ownerToken ? 10000 : null);
 
@@ -110,6 +153,8 @@ export default function OwnerPage() {
 
   const handleLogin = async () => {
     try {
+      await primeAlertAudio();
+      requestStaffNotificationPermission();
       const data = await ownerLogin(email, password);
       setOwnerToken(data.token);
       setLoginError('');
@@ -121,14 +166,20 @@ export default function OwnerPage() {
 
   const handleStatusUpdate = async (orderId, status, rejectionReason = null) => {
     try {
-      await updateAdminOrderStatus(ownerToken, orderId, status, rejectionReason);
-      showToast(status === 'CONFIRMED' ? 'Order accepted and sent to kitchen.' : 'Order updated.');
+      const result = await updateAdminOrderStatus(ownerToken, orderId, status, rejectionReason);
+      if (status === 'CONFIRMED') {
+        showToast('Order accepted and sent to kitchen.');
+      } else if (status === 'CANCELLED' && result?.refund?.status) {
+        showToast(`Order cancelled. Refund ${result.refund.status === 'processed' ? 'completed' : 'initiated'}.`);
+      } else {
+        showToast('Order updated.');
+      }
       setRejectingOrderId('');
       setSelectedReason('');
       await loadOrders();
     } catch (error) {
       if (!handleAuthFailure(error)) {
-        showToast('Update failed', 'error');
+        showToast(error.response?.data?.message || 'Update failed', 'error');
       }
     }
   };
@@ -147,6 +198,61 @@ export default function OwnerPage() {
       if (!handleAuthFailure(error)) {
         showToast('Assignment failed', 'error');
       }
+    }
+  };
+
+  const handleDeliveryStaffChange = (event) => {
+    const { name, value } = event.target;
+    setDeliveryStaffForm((current) => ({
+      ...current,
+      [name]: name === 'phone' ? value.replace(/\D/g, '').slice(0, 10) : value,
+    }));
+  };
+
+  const handleAddDeliveryStaff = async () => {
+    const name = deliveryStaffForm.name.trim();
+    const phone = deliveryStaffForm.phone.trim();
+
+    if (name.length < 2) {
+      showToast('Please enter the delivery person name.', 'error');
+      return;
+    }
+
+    if (!/^\d{10}$/.test(phone)) {
+      showToast('Please enter a valid 10-digit phone number.', 'error');
+      return;
+    }
+
+    try {
+      setAddingDeliveryStaff(true);
+      const person = await addDeliveryPerson(ownerToken, { name, phone });
+      setDeliveryPeople((current) => [person, ...current.filter((existing) => existing.id !== person.id)]);
+      setDeliveryStaffForm({ name: '', phone: '' });
+      showToast('Delivery person added.');
+    } catch (error) {
+      if (!handleAuthFailure(error)) {
+        showToast(error.response?.data?.message || 'Could not add delivery person', 'error');
+      }
+    } finally {
+      setAddingDeliveryStaff(false);
+    }
+  };
+
+  const handleRemoveDeliveryStaff = async (person) => {
+    const confirmed = window.confirm(`Remove ${person.name} from active delivery staff?`);
+    if (!confirmed) return;
+
+    try {
+      setRemovingDeliveryStaffId(person.id);
+      await removeDeliveryPerson(ownerToken, person.id);
+      setDeliveryPeople((current) => current.filter((existing) => existing.id !== person.id));
+      showToast('Delivery person removed from active staff.');
+    } catch (error) {
+      if (!handleAuthFailure(error)) {
+        showToast(error.response?.data?.message || 'Could not remove delivery person', 'error');
+      }
+    } finally {
+      setRemovingDeliveryStaffId('');
     }
   };
 
@@ -173,24 +279,42 @@ export default function OwnerPage() {
     }
   };
 
-  return (
-    <div>
-      {!ownerToken && (
-        <div className="login-overlay">
-          <div className="login-box">
-            <h2>Owner Login</h2>
-            <div className="stacked-fields">
-              <input className="input-field" onChange={(event) => setEmail(event.target.value)} placeholder="Email" type="email" value={email} />
-              <input className="input-field" onChange={(event) => setPassword(event.target.value)} placeholder="Password" type="password" value={password} />
-              <button className="btn-gold" onClick={handleLogin} type="button">
-                Login
+  const handleMaintenanceToggle = async () => {
+    try {
+      await setMaintenanceMode(!restaurantStatus.maintenanceMode);
+      showToast(restaurantStatus.maintenanceMode ? 'Website is back online.' : 'Maintenance mode is now live for customers.');
+    } catch (error) {
+      if (!handleAuthFailure(error)) {
+        showToast('Could not update maintenance mode', 'error');
+      }
+    }
+  };
+
+  if (!ownerToken) {
+    return (
+      <div className="login-overlay auth-screen">
+        <div className="login-box">
+          <h2>Owner Login</h2>
+          <div className="stacked-fields">
+            <input className="input-field" onChange={(event) => setEmail(event.target.value)} placeholder="Email" type="email" value={email} />
+            <div className="password-input-wrap">
+              <input className="input-field password-input" onChange={(event) => setPassword(event.target.value)} placeholder="Password" type={showPassword ? 'text' : 'password'} value={password} />
+              <button className="password-toggle-btn" onClick={() => setShowPassword((value) => !value)} type="button">
+                {showPassword ? 'Hide' : 'Show'}
               </button>
-              {!!loginError && <p className="form-error">{loginError}</p>}
             </div>
+            <button className="btn-gold" onClick={handleLogin} type="button">
+              Login
+            </button>
+            {!!loginError && <p className="form-error">{loginError}</p>}
           </div>
         </div>
-      )}
+      </div>
+    );
+  }
 
+  return (
+    <div>
       <nav className="navbar">
         <div className="nav-inner">
           <h1 className="page-title">Owner Dashboard</h1>
@@ -227,6 +351,72 @@ export default function OwnerPage() {
           </button>
         </div>
 
+        <div className="status-control-card">
+          <div>
+            <div className="status-control-label">Website Maintenance</div>
+            <div className={`status-chip ${restaurantStatus.maintenanceMode ? 'paused' : 'live'}`}>
+              {restaurantStatus.maintenanceMode ? 'Maintenance is live' : 'Website is public'}
+            </div>
+            <p className="muted-small">
+              {restaurantStatus.maintenanceMode
+                ? 'Customers see a maintenance screen until you turn the website back on.'
+                : 'Turn this on when you want to temporarily hide the public website and stop customer access.'}
+            </p>
+          </div>
+          <button className={`status-toggle-btn ${restaurantStatus.maintenanceMode ? 'resume' : 'pause'}`} onClick={handleMaintenanceToggle} type="button">
+            {restaurantStatus.maintenanceMode ? 'Turn Website On' : 'Enable Maintenance'}
+          </button>
+        </div>
+
+        <div className="status-control-card staff-control-card">
+          <div className="staff-control-copy">
+            <div className="status-control-label">Delivery Staff</div>
+            <p className="muted-small">Add a new delivery person here. Their name and phone will show to the customer after assignment.</p>
+            <div className="staff-list-row">
+              {deliveryPeople.length ? (
+                deliveryPeople.map((person) => (
+                  <span className="staff-person-chip" key={person.id}>
+                    <span>{person.name} · {person.phone}</span>
+                    <button
+                      className="staff-remove-btn"
+                      disabled={removingDeliveryStaffId === person.id}
+                      onClick={() => handleRemoveDeliveryStaff(person)}
+                      type="button"
+                    >
+                      {removingDeliveryStaffId === person.id ? 'Removing...' : 'Remove'}
+                    </button>
+                  </span>
+                ))
+              ) : (
+                <span className="muted-small">No active delivery staff added yet.</span>
+              )}
+            </div>
+          </div>
+          <div className="staff-form-card">
+            <input
+              className="input-field"
+              name="name"
+              onChange={handleDeliveryStaffChange}
+              placeholder="Delivery person name"
+              type="text"
+              value={deliveryStaffForm.name}
+            />
+            <input
+              className="input-field"
+              inputMode="numeric"
+              maxLength={10}
+              name="phone"
+              onChange={handleDeliveryStaffChange}
+              placeholder="10-digit phone number"
+              type="tel"
+              value={deliveryStaffForm.phone}
+            />
+            <button className="status-toggle-btn resume" disabled={addingDeliveryStaff} onClick={handleAddDeliveryStaff} type="button">
+              {addingDeliveryStaff ? 'Adding...' : 'Add Delivery Person'}
+            </button>
+          </div>
+        </div>
+
         {currentTab === 'orders' ? (
           <>
             <div className="stats-grid">
@@ -258,6 +448,16 @@ export default function OwnerPage() {
             </div>
 
             <div>
+              {loadingOrders && !orders.length
+                ? Array.from({ length: 3 }).map((_, index) => (
+                    <div className="card dashboard-order-card skeleton-panel" key={`owner-order-skeleton-${index}`}>
+                      <div className="skeleton-line wide" />
+                      <div className="skeleton-line mid" />
+                      <div className="skeleton-line wide" />
+                      <div className="skeleton-line buttonish" />
+                    </div>
+                  ))
+                : null}
               {filteredOrders.map((order) => {
                 const deliveryMeta = parseDeliveryAddress(order.delivery_address || '');
                 const directionsUrl = getDirectionsUrl(deliveryMeta);
@@ -290,6 +490,12 @@ export default function OwnerPage() {
                         )}
                       </div>
                     )}
+                    {order.status === 'OUT_FOR_DELIVERY' && order.delivery_people && (
+                      <div className="muted-small">
+                        Rider: {order.delivery_people.name} · {order.delivery_people.phone}
+                      </div>
+                    )}
+                    {!!getRefundNote(order) && <div className="reason-note">{getRefundNote(order)}</div>}
                     {!!order.rejection_reason && <div className="reason-note">Reason: {order.rejection_reason}</div>}
 
                     {order.status === 'NEW' && (
@@ -298,19 +504,29 @@ export default function OwnerPage() {
                           Confirm
                         </button>
                         <button className="act-btn act-danger" onClick={() => setRejectingOrderId(order.id)} type="button">
-                          Reject
+                          Cancel Order
                         </button>
                       </div>
                     )}
                     {order.status === 'CONFIRMED' && (
-                      <button className="act-btn act-cook" onClick={() => handleStatusUpdate(order.id, 'IN_KITCHEN')} type="button">
-                        Send to Kitchen
-                      </button>
+                      <div className="action-row">
+                        <button className="act-btn act-cook" onClick={() => handleStatusUpdate(order.id, 'IN_KITCHEN')} type="button">
+                          Send to Kitchen
+                        </button>
+                        <button className="act-btn act-danger" onClick={() => setRejectingOrderId(order.id)} type="button">
+                          Cancel Order
+                        </button>
+                      </div>
                     )}
                     {order.status === 'IN_KITCHEN' && (
-                      <button className="act-btn act-confirm" onClick={() => handleStatusUpdate(order.id, 'READY')} type="button">
-                        Mark Ready
-                      </button>
+                      <div className="action-row">
+                        <button className="act-btn act-confirm" onClick={() => handleStatusUpdate(order.id, 'READY')} type="button">
+                          Mark Ready
+                        </button>
+                        <button className="act-btn act-danger" onClick={() => setRejectingOrderId(order.id)} type="button">
+                          Cancel Order
+                        </button>
+                      </div>
                     )}
                     {order.status === 'READY' && order.type === 'dine-in' && (
                       <button className="act-btn act-confirm" onClick={() => handleStatusUpdate(order.id, 'COMPLETED')} type="button">
@@ -365,23 +581,33 @@ export default function OwnerPage() {
             </div>
 
             <div className="card">
-              {visibleMenuItems.map((item) => (
-                <div className="menu-item-row" key={item.id}>
-                  <div className="menu-item-thumb">{item.image_url ? <img alt={item.name} src={item.image_url} /> : '🍽️'}</div>
-                  <div className="menu-item-body">
-                    <div className="menu-item-name">{item.name}</div>
-                    <div className="muted-small">{item.menu_categories?.name || 'Other'}</div>
-                    <div className={item.is_available ? 'available-text' : 'unavailable-text'}>● {item.is_available ? 'Available' : 'Unavailable'}</div>
-                  </div>
-                  <div className="menu-item-side">
-                    <span className="gold-text strong">{formatPrice(item.price)}</span>
-                    <label className="toggle-switch">
-                      <input checked={item.is_available} onChange={(event) => handleToggleMenu(item.id, event.target.checked)} type="checkbox" />
-                      <span className="toggle-slider" />
-                    </label>
-                  </div>
-                </div>
-              ))}
+              {loadingMenu && !managedItems.length
+                ? Array.from({ length: 5 }).map((_, index) => (
+                    <div className="menu-item-row" key={`menu-skeleton-${index}`}>
+                      <div className="menu-item-thumb skeleton-img" />
+                      <div className="menu-item-body">
+                        <div className="skeleton-line wide" />
+                        <div className="skeleton-line mid" />
+                      </div>
+                    </div>
+                  ))
+                : visibleMenuItems.map((item) => (
+                    <div className="menu-item-row" key={item.id}>
+                      <div className="menu-item-thumb">{item.image_url ? <img alt={item.name} src={item.image_url} /> : '🍽️'}</div>
+                      <div className="menu-item-body">
+                        <div className="menu-item-name">{item.name}</div>
+                        <div className="muted-small">{item.menu_categories?.name || 'Other'}</div>
+                        <div className={item.is_available ? 'available-text' : 'unavailable-text'}>● {item.is_available ? 'Available' : 'Unavailable'}</div>
+                      </div>
+                      <div className="menu-item-side">
+                        <span className="gold-text strong">{formatPrice(item.price)}</span>
+                        <label className="toggle-switch">
+                          <input checked={item.is_available} onChange={(event) => handleToggleMenu(item.id, event.target.checked)} type="checkbox" />
+                          <span className="toggle-slider" />
+                        </label>
+                      </div>
+                    </div>
+                  ))}
             </div>
           </>
         )}
@@ -390,8 +616,9 @@ export default function OwnerPage() {
       {!!rejectingOrderId && (
         <div className="reject-overlay open">
           <div className="reject-box">
-            <h3>Reject this order?</h3>
-            {['Outside delivery area', 'Address not clear', 'Delivery not available now'].map((reason) => (
+            <h3>Cancel this order?</h3>
+            <p className="muted-small">If the customer has already paid online, a refund will be initiated automatically.</p>
+            {['Restaurant issue', 'Item unavailable', 'Delivery not available now', 'Kitchen overloaded'].map((reason) => (
               <button className={`reason-option ${selectedReason === reason ? 'selected' : ''}`} key={reason} onClick={() => setSelectedReason(reason)} type="button">
                 {reason}
               </button>
@@ -401,7 +628,7 @@ export default function OwnerPage() {
                 Cancel
               </button>
               <button className="reject-confirm-btn" disabled={!selectedReason} onClick={() => handleStatusUpdate(rejectingOrderId, 'CANCELLED', selectedReason)} type="button">
-                Confirm Reject
+                Confirm Cancellation
               </button>
             </div>
           </div>

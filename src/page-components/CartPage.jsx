@@ -1,5 +1,8 @@
+'use client';
+
 import { useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useAppContext } from '../context/AppContext.jsx';
 import { useToast } from '../context/ToastContext.jsx';
 import { createPaymentOrder, verifyPayment } from '../services/paymentService.js';
@@ -13,8 +16,12 @@ import {
 import { formatPrice } from '../utils/format.js';
 import { getOpenMessage, isRestaurantOpen, loadRazorpayScript } from '../utils/restaurant.js';
 
+const FREE_DELIVERY_ENABLED = (process.env.NEXT_PUBLIC_FREE_DELIVERY_ENABLED ?? 'true') === 'true';
+const FREE_DELIVERY_COUPON = process.env.NEXT_PUBLIC_FREE_DELIVERY_COUPON_CODE || 'FREEDEL';
+const STANDARD_DELIVERY_CHARGE = 30;
+
 export default function CartPage() {
-  const navigate = useNavigate();
+  const router = useRouter();
   const { cart, setCart, setOrderCode, setOrderId, restaurantStatus } = useAppContext();
   const { showToast } = useToast();
   const [orderType, setOrderType] = useState('dine-in');
@@ -29,7 +36,9 @@ export default function CartPage() {
   const open = isRestaurantOpen(restaurantStatus);
 
   const subtotal = useMemo(() => cart.reduce((sum, item) => sum + item.quantity * item.price, 0), [cart]);
-  const deliveryCharge = orderType === 'delivery' ? 30 : 0;
+  const baseDeliveryCharge = orderType === 'delivery' ? STANDARD_DELIVERY_CHARGE : 0;
+  const couponDiscount = orderType === 'delivery' && FREE_DELIVERY_ENABLED ? baseDeliveryCharge : 0;
+  const deliveryCharge = Math.max(baseDeliveryCharge - couponDiscount, 0);
   const total = subtotal + deliveryCharge;
 
   const updateQuantity = (id, delta) => {
@@ -79,13 +88,29 @@ export default function CartPage() {
       }
 
       const orderCode = `BVR${Date.now().toString().slice(-6)}`;
-      const paymentOrder = await createPaymentOrder({
-        amount: total * 100,
+      const paymentDraft = {
         receipt: orderCode,
-      });
+        orderCode,
+        orderType,
+        customerName: customerName.trim(),
+        customerPhone: customerPhone.trim(),
+        tableNumber,
+        deliveryAddress:
+          orderType === 'delivery'
+            ? `${deliveryAddress.trim()}${landmark.trim() ? `, ${landmark.trim()}` : ''}`
+            : '',
+        deliveryLatitude: orderType === 'delivery' ? currentDeliveryLocation.latitude : null,
+        deliveryLongitude: orderType === 'delivery' ? currentDeliveryLocation.longitude : null,
+        subtotal,
+        deliveryCharge,
+        total,
+        items: cart,
+      };
+
+      const paymentOrder = await createPaymentOrder(paymentDraft);
 
       const options = {
-        key: paymentOrder.keyId || import.meta.env.VITE_RAZORPAY_KEY_ID,
+        key: paymentOrder.keyId || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
         amount: paymentOrder.amount,
         currency: paymentOrder.currency,
         name: 'BVR Restaurant',
@@ -93,24 +118,10 @@ export default function CartPage() {
         order_id: paymentOrder.orderId,
         handler: async (response) => {
           const payload = await verifyPayment({
+            ...paymentDraft,
             razorpayOrderId: response.razorpay_order_id,
             razorpayPaymentId: response.razorpay_payment_id,
             razorpaySignature: response.razorpay_signature,
-            orderCode,
-            orderType,
-            customerName: customerName.trim(),
-            customerPhone: customerPhone.trim(),
-            tableNumber,
-            deliveryAddress:
-              orderType === 'delivery'
-                ? `${deliveryAddress.trim()}${landmark.trim() ? `, ${landmark.trim()}` : ''}`
-                : '',
-            deliveryLatitude: orderType === 'delivery' ? currentDeliveryLocation.latitude : null,
-            deliveryLongitude: orderType === 'delivery' ? currentDeliveryLocation.longitude : null,
-            subtotal,
-            deliveryCharge,
-            total,
-            items: cart,
           });
 
           setOrderId(payload.orderId);
@@ -118,7 +129,7 @@ export default function CartPage() {
           setCart([]);
           setPaying(false);
           showToast('Payment successful! Saving order...');
-          navigate('/status');
+          router.push('/status');
         },
         prefill: {
           name: customerName.trim(),
@@ -152,7 +163,7 @@ export default function CartPage() {
     <div>
       <nav className="navbar">
         <div className="nav-inner">
-          <Link className="back-link" to="/menu">
+          <Link className="back-link" href="/menu">
             <span>←</span>
             <span>Menu</span>
           </Link>
@@ -173,7 +184,7 @@ export default function CartPage() {
             <div className="empty-cart-icon">Cart</div>
             <h2>Your cart is empty</h2>
             <p>Add items from our menu to get started</p>
-            <Link className="btn-gold inline-button" to="/menu">
+            <Link className="btn-gold inline-button" href="/menu">
               Browse Menu
             </Link>
           </div>
@@ -269,10 +280,21 @@ export default function CartPage() {
                 <span>{formatPrice(subtotal)}</span>
               </div>
               {orderType === 'delivery' && (
-                <div className="summary-row">
-                  <span>Delivery Charge</span>
-                  <span>Rs.30</span>
-                </div>
+                <>
+                  <div className="summary-row">
+                    <span>Delivery Charge</span>
+                    <span>{formatPrice(baseDeliveryCharge)}</span>
+                  </div>
+                  {FREE_DELIVERY_ENABLED && (
+                    <>
+                      <div className="coupon-chip">Coupon Applied: {FREE_DELIVERY_COUPON} · Free Delivery</div>
+                      <div className="summary-row coupon-row">
+                        <span>Coupon Discount</span>
+                        <span>-{formatPrice(couponDiscount)}</span>
+                      </div>
+                    </>
+                  )}
+                </>
               )}
               <div className="summary-row top-border total-row">
                 <span>Total</span>

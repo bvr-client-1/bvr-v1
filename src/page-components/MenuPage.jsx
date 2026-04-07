@@ -1,5 +1,7 @@
+'use client';
+
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import Link from 'next/link';
 import { FloatingCart } from '../components/FloatingCart.jsx';
 import { useAppContext } from '../context/AppContext.jsx';
 import { useToast } from '../context/ToastContext.jsx';
@@ -12,7 +14,8 @@ export default function MenuPage() {
   const { showToast } = useToast();
   const [categories, setCategories] = useState([]);
   const [menuItems, setMenuItems] = useState([]);
-  const [currentCat, setCurrentCat] = useState('all');
+  const [selectedCategories, setSelectedCategories] = useState([]);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -37,14 +40,19 @@ export default function MenuPage() {
   }, []);
 
   const filteredItems = useMemo(() => {
-    let items = currentCat === 'all' ? menuItems : menuItems.filter((item) => item.category === currentCat);
+    let items = selectedCategories.length
+      ? menuItems.filter((item) => selectedCategories.includes(item.category))
+      : menuItems;
+
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       items = items.filter((item) => item.name.toLowerCase().includes(query));
     }
-    return items;
-  }, [currentCat, menuItems, searchQuery]);
 
+    return items;
+  }, [menuItems, searchQuery, selectedCategories]);
+
+  const showSectionedLayout = !selectedCategories.length && !searchQuery.trim();
   const getQty = (id) => cart.find((item) => item.id === id)?.quantity || 0;
 
   const updateCartItem = (menuItem, delta) => {
@@ -66,6 +74,12 @@ export default function MenuPage() {
     if (delta > 0 && getQty(menuItem.id) === 0) {
       showToast(`${menuItem.name} added`);
     }
+  };
+
+  const toggleCategory = (categoryName) => {
+    setSelectedCategories((current) =>
+      current.includes(categoryName) ? current.filter((name) => name !== categoryName) : [...current, categoryName],
+    );
   };
 
   const renderCard = (item) => {
@@ -107,13 +121,13 @@ export default function MenuPage() {
     <div>
       <nav className="navbar">
         <div className="nav-inner">
-          <Link className="back-link" to="/">
-            <span>←</span>
+          <Link className="back-link" href="/">
+            <span>&larr;</span>
             <span>Back</span>
           </Link>
           <h1 className="page-title">BVR Menu</h1>
           <div className="cart-icon-wrap">
-            <Link aria-label="Go to cart" className="cart-link" to="/cart">
+            <Link aria-label="Go to cart" className="cart-link" href="/cart">
               Cart
             </Link>
             {!!cart.length && <span className="cart-badge">{cart.reduce((sum, item) => sum + item.quantity, 0)}</span>}
@@ -123,36 +137,83 @@ export default function MenuPage() {
 
       {!open && (
         <div className="closed-banner" style={{ marginTop: 64 }}>
-          Orders are currently unavailable · {getOpenMessage(restaurantStatus)}
+          Orders unavailable. {getOpenMessage(restaurantStatus)}
         </div>
       )}
 
-      <div className="tabs-wrap" style={{ marginTop: open ? 64 : 0 }}>
-        <button className={`tab-btn ${currentCat === 'all' ? 'active' : ''}`} onClick={() => setCurrentCat('all')} type="button">
-          All ({menuItems.length})
+      <div className="tabs-wrap menu-toolbar" style={{ marginTop: open ? 64 : 0 }}>
+        <button className={`filter-trigger-btn ${filtersOpen ? 'active' : ''}`} onClick={() => setFiltersOpen((value) => !value)} type="button">
+          <span className="filter-trigger-icon">☰</span>
+          <span>Filter</span>
+          {!!selectedCategories.length && <span className="filter-count-badge">{selectedCategories.length}</span>}
         </button>
-        {categories.map((category) => {
-          const count = menuItems.filter((item) => item.category === category.name).length;
-          if (!count) return null;
-          return (
-            <button
-              className={`tab-btn ${currentCat === category.name ? 'active' : ''}`}
-              key={category.id || category.name}
-              onClick={() => setCurrentCat(category.name)}
-              type="button"
-            >
-              {getCatEmoji(category.name)} {category.name} ({count})
-            </button>
-          );
-        })}
+        <div className="category-chip-row">
+          <button className={`tab-btn ${selectedCategories.length === 0 ? 'active' : ''}`} onClick={() => setSelectedCategories([])} type="button">
+            All ({menuItems.length})
+          </button>
+          {categories.map((category) => {
+            const count = menuItems.filter((item) => item.category === category.name).length;
+            if (!count) return null;
+            const active = selectedCategories.includes(category.name);
+            return (
+              <button className={`tab-btn ${active ? 'active' : ''}`} key={category.id || category.name} onClick={() => toggleCategory(category.name)} type="button">
+                {getCatEmoji(category.name)} {category.name} ({count})
+              </button>
+            );
+          })}
+        </div>
       </div>
+
+      {filtersOpen && (
+        <div className="filter-dropdown-wrap">
+          <div className="filter-dropdown-card">
+            <div className="selected-filter-head">
+              <span>Select categories</span>
+              <button className="clear-filter-btn" onClick={() => setSelectedCategories([])} type="button">
+                Clear all
+              </button>
+            </div>
+            <div className="filter-dropdown-list">
+              {categories.map((category) => {
+                const count = menuItems.filter((item) => item.category === category.name).length;
+                if (!count) return null;
+                const active = selectedCategories.includes(category.name);
+                return (
+                  <button className={`filter-option-btn ${active ? 'active' : ''}`} key={category.id || category.name} onClick={() => toggleCategory(category.name)} type="button">
+                    <span>{getCatEmoji(category.name)} {category.name}</span>
+                    <span>{active ? 'Selected' : `${count} items`}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {!!selectedCategories.length && (
+        <div className="selected-filter-wrap">
+          <div className="selected-filter-head">
+            <span>Selected Filters</span>
+            <button className="clear-filter-btn" onClick={() => setSelectedCategories([])} type="button">
+              Clear all
+            </button>
+          </div>
+          <div className="selected-filter-list">
+            {selectedCategories.map((category) => (
+              <button className="selected-filter-chip" key={category} onClick={() => toggleCategory(category)} type="button">
+                {category} ×
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="search-wrap">
         <div className="search-inner">
-          <span className="search-icon">Search</span>
+          <span aria-hidden="true" className="search-icon">⌕</span>
           <input className="search-input" onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search dishes..." type="text" value={searchQuery} />
           {!!searchQuery && (
-            <button className="search-clear" onClick={() => setSearchQuery('')} type="button">
+            <button aria-label="Clear search" className="search-clear" onClick={() => setSearchQuery('')} type="button">
               ×
             </button>
           )}
@@ -179,9 +240,9 @@ export default function MenuPage() {
         <div className="empty-state">
           <div className="empty-icon">?</div>
           <h3>No results found</h3>
-          <p>No dishes match &quot;{searchQuery || currentCat}&quot;</p>
+          <p>No dishes match your current filters.</p>
         </div>
-      ) : currentCat === 'all' && !searchQuery ? (
+      ) : showSectionedLayout ? (
         categories.map((category) => {
           const items = menuItems.filter((item) => item.category === category.name);
           if (!items.length) return null;

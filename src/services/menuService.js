@@ -1,3 +1,5 @@
+'use client';
+
 import { api, authApi } from './api.js';
 
 export const fetchPublicMenu = async () => {

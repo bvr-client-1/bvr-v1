@@ -3,6 +3,11 @@ import { parseAllowedOrigins } from '../utils/cors.js';
 
 dotenv.config();
 
+const parseBoolean = (value, fallback = false) => {
+  if (value === undefined) return fallback;
+  return ['1', 'true', 'yes', 'on'].includes(String(value).trim().toLowerCase());
+};
+
 const required = [
   'PORT',
   'FRONTEND_URL',
@@ -42,6 +47,8 @@ if (!allowedOrigins.length) {
 const restaurantLatitude = Number(process.env.RESTAURANT_LAT);
 const restaurantLongitude = Number(process.env.RESTAURANT_LNG);
 const deliveryRadiusKm = Number(process.env.DELIVERY_RADIUS_KM || 4);
+const keepaliveIntervalHours = Number(process.env.SUPABASE_KEEPALIVE_INTERVAL_HOURS || 48);
+const reviewSyncHours = Number(process.env.REVIEW_SYNC_INTERVAL_HOURS || 24);
 
 if (!Number.isFinite(restaurantLatitude) || !Number.isFinite(restaurantLongitude)) {
   throw new Error('RESTAURANT_LAT and RESTAURANT_LNG must be valid numbers');
@@ -49,6 +56,14 @@ if (!Number.isFinite(restaurantLatitude) || !Number.isFinite(restaurantLongitude
 
 if (!Number.isFinite(deliveryRadiusKm) || deliveryRadiusKm <= 0) {
   throw new Error('DELIVERY_RADIUS_KM must be a positive number');
+}
+
+if (!Number.isFinite(keepaliveIntervalHours) || keepaliveIntervalHours <= 0) {
+  throw new Error('SUPABASE_KEEPALIVE_INTERVAL_HOURS must be a positive number');
+}
+
+if (!Number.isFinite(reviewSyncHours) || reviewSyncHours <= 0) {
+  throw new Error('REVIEW_SYNC_INTERVAL_HOURS must be a positive number');
 }
 
 export const env = {
@@ -72,6 +87,13 @@ export const env = {
     longitude: restaurantLongitude,
   },
   deliveryRadiusKm,
+  freeDeliveryEnabled: parseBoolean(process.env.FREE_DELIVERY_ENABLED, true),
+  freeDeliveryCouponCode: process.env.FREE_DELIVERY_COUPON_CODE || 'FREEDEL',
+  razorpayWebhookSecret: process.env.RAZORPAY_WEBHOOK_SECRET || '',
+  supabaseKeepaliveIntervalMs: keepaliveIntervalHours * 60 * 60 * 1000,
+  googlePlacesApiKey: process.env.GOOGLE_PLACES_API_KEY || '',
+  googlePlaceId: process.env.GOOGLE_PLACE_ID || '',
+  reviewSyncIntervalMs: reviewSyncHours * 60 * 60 * 1000,
   rateLimitWindowMs: Number(process.env.RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000),
   rateLimitMax: Number(process.env.RATE_LIMIT_MAX || 100),
 };

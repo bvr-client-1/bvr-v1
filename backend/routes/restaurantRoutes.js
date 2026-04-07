@@ -12,8 +12,9 @@ router.patch(
   requireAuth(),
   validate(
     Joi.object({
-      kitchenPaused: Joi.boolean().required(),
-    }),
+      kitchenPaused: Joi.boolean(),
+      maintenanceMode: Joi.boolean(),
+    }).or('kitchenPaused', 'maintenanceMode'),
   ),
   patchKitchenPausedState,
 );

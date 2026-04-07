@@ -1,3 +1,5 @@
+'use client';
+
 import { createContext, useContext, useMemo, useState } from 'react';
 import { ToastViewport } from '../components/ToastViewport.jsx';
 

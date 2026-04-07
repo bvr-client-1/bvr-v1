@@ -1,6 +1,13 @@
 import crypto from 'crypto';
 import { supabase } from '../config/supabase.js';
 import { razorpay } from '../config/razorpay.js';
+import {
+  attachPaymentMetadata,
+  attachPaymentMetadataToList,
+  findPaymentRecordByOrderId,
+  findPaymentRecordByPaymentId,
+  upsertPaymentRecord,
+} from './paymentRecordService.js';
 import { serializeDeliveryAddress } from '../utils/deliveryAddress.js';
 import { assertValidStatusTransition } from '../utils/orderStatus.js';
 
@@ -42,7 +49,24 @@ export const persistPaidOrder = async ({
   deliveryCharge,
   total,
   items,
+  razorpayOrderId,
+  razorpayPaymentId,
 }) => {
+  const existingOrder = await getOrderByCode(orderCode);
+  if (existingOrder) {
+    if (razorpayOrderId || razorpayPaymentId) {
+      await upsertPaymentRecord({
+        orderId: existingOrder.id,
+        orderCode: existingOrder.order_code,
+        razorpayOrderId,
+        razorpayPaymentId,
+        amount: Math.round(Number(existingOrder.total || total || 0) * 100),
+        paymentStatus: existingOrder.payment_status || 'PAID',
+      });
+    }
+    return attachPaymentMetadata(existingOrder);
+  }
+
   const { data: order, error: orderError } = await supabase
     .from('orders')
     .insert({
@@ -80,7 +104,28 @@ export const persistPaidOrder = async ({
   );
 
   raise(itemsError);
-  return order;
+
+  await upsertPaymentRecord({
+    orderId: order.id,
+    orderCode: order.order_code,
+    razorpayOrderId,
+    razorpayPaymentId,
+    amount: Math.round(Number(total || 0) * 100),
+    paymentStatus: 'PAID',
+  });
+
+  return attachPaymentMetadata(order);
+};
+
+export const getOrderByCode = async (orderCode) => {
+  const { data, error } = await supabase
+    .from('orders')
+    .select('*, order_items(*), delivery_people(name, phone)')
+    .eq('order_code', orderCode)
+    .maybeSingle();
+
+  raise(error);
+  return attachPaymentMetadata(data);
 };
 
 export const getOrderById = async (orderId) => {
@@ -91,7 +136,7 @@ export const getOrderById = async (orderId) => {
     .single();
 
   raise(error, 404);
-  return data;
+  return attachPaymentMetadata(data);
 };
 
 export const findLatestOrderByPhone = async (phone) => {
@@ -114,11 +159,15 @@ export const getAllOrders = async () => {
     .order('created_at', { ascending: false });
 
   raise(error);
-  return data || [];
+  return attachPaymentMetadataToList(data || []);
 };
 
 export const getOrderSummary = async (orderId) => {
-  const { data, error } = await supabase.from('orders').select('id, status, type').eq('id', orderId).single();
+  const { data, error } = await supabase
+    .from('orders')
+    .select('id, order_code, status, type, payment_status, total')
+    .eq('id', orderId)
+    .single();
   raise(error, 404);
   return data;
 };
@@ -131,6 +180,74 @@ export const getDeliveryPeople = async () => {
 
   raise(error);
   return data || [];
+};
+
+export const createDeliveryPerson = async ({ name, phone }) => {
+  const normalizedPhone = String(phone || '').replace(/\D/g, '');
+  const normalizedName = String(name || '').trim();
+
+  const { data: existingPerson, error: existingError } = await supabase
+    .from('delivery_people')
+    .select('*')
+    .eq('phone', normalizedPhone)
+    .maybeSingle();
+
+  raise(existingError);
+
+  if (existingPerson) {
+    if (existingPerson.is_active) {
+      const error = new Error('A delivery person with this phone number already exists.');
+      error.statusCode = 409;
+      throw error;
+    }
+
+    const { data, error } = await supabase
+      .from('delivery_people')
+      .update({ name: normalizedName, is_active: true })
+      .eq('id', existingPerson.id)
+      .select()
+      .single();
+
+    raise(error);
+    return data;
+  }
+
+  const { data, error } = await supabase
+    .from('delivery_people')
+    .insert({ name: normalizedName, phone: normalizedPhone, is_active: true })
+    .select()
+    .single();
+
+  raise(error);
+  return data;
+};
+
+export const deactivateDeliveryPerson = async (deliveryPersonId) => {
+  const { data: activeOrder, error: activeOrderError } = await supabase
+    .from('orders')
+    .select('id, order_code')
+    .eq('delivery_person_id', deliveryPersonId)
+    .eq('status', 'OUT_FOR_DELIVERY')
+    .limit(1)
+    .maybeSingle();
+
+  raise(activeOrderError);
+
+  if (activeOrder) {
+    const error = new Error(`Cannot remove this delivery person while order #${activeOrder.order_code} is out for delivery.`);
+    error.statusCode = 409;
+    throw error;
+  }
+
+  const { data, error } = await supabase
+    .from('delivery_people')
+    .update({ is_active: false })
+    .eq('id', deliveryPersonId)
+    .select()
+    .single();
+
+  raise(error, 404);
+  return data;
 };
 
 export const updateOrderStatus = async (orderId, status, rejectionReason = null) => {
@@ -151,6 +268,64 @@ export const updateOrderStatus = async (orderId, status, rejectionReason = null)
 
   const { error } = await supabase.from('orders').update(payload).eq('id', orderId);
   raise(error);
+};
+
+export const cancelOrderWithRefund = async (orderId, rejectionReason = null) => {
+  const currentOrder = await getOrderSummary(orderId);
+  assertValidStatusTransition({
+    currentStatus: currentOrder.status,
+    nextStatus: 'CANCELLED',
+    orderType: currentOrder.type,
+  });
+
+  const refundReason = rejectionReason || 'Cancelled by restaurant';
+  const payload = {
+    status: 'CANCELLED',
+    rejection_reason: refundReason,
+  };
+
+  if (currentOrder.payment_status === 'PAID') {
+    const paymentRecord = await findPaymentRecordByOrderId(orderId);
+    if (!paymentRecord?.razorpayPaymentId) {
+      const error = new Error('Refund-safe cancellation is blocked because payment metadata is missing for this order.');
+      error.statusCode = 409;
+      throw error;
+    }
+
+    if (paymentRecord.refundId && ['created', 'pending', 'processed'].includes(paymentRecord.refundStatus || '')) {
+      const error = new Error('Refund has already been initiated for this order.');
+      error.statusCode = 409;
+      throw error;
+    }
+
+    const refundAmount = Math.round(Number(currentOrder.total || 0) * 100);
+    const refund = await razorpay.payments.refund(paymentRecord.razorpayPaymentId, {
+      amount: refundAmount,
+      speed: 'normal',
+      notes: {
+        order_code: currentOrder.order_code,
+        reason: refundReason,
+      },
+    });
+
+    await upsertPaymentRecord({
+      ...paymentRecord,
+      orderId,
+      orderCode: currentOrder.order_code,
+      refundId: refund.id,
+      refundAmount: refund.amount,
+      refundStatus: refund.status,
+      refundFailureReason: refund.error_description || null,
+      refundInitiatedAt: new Date().toISOString(),
+      refundProcessedAt: refund.status === 'processed' ? new Date().toISOString() : null,
+      paymentStatus: currentOrder.payment_status,
+    });
+  }
+
+  const { error } = await supabase.from('orders').update(payload).eq('id', orderId);
+  raise(error);
+
+  return getOrderById(orderId);
 };
 
 export const assignDeliveryPartner = async (orderId, deliveryPersonId) => {
@@ -183,7 +358,7 @@ export const getKitchenOrders = async () => {
     .order('created_at', { ascending: true });
 
   raise(error);
-  return data || [];
+  return attachPaymentMetadataToList(data || []);
 };
 
 export const getReadyCount = async () => {
@@ -194,4 +369,24 @@ export const getReadyCount = async () => {
 
   raise(error);
   return count || 0;
+};
+
+export const syncRefundStatusFromWebhook = async ({ paymentId, refundId, refundAmount, refundStatus, refundFailureReason = null }) => {
+  const paymentRecord = await findPaymentRecordByPaymentId(paymentId);
+  if (!paymentRecord?.orderId) {
+    return null;
+  }
+
+  await upsertPaymentRecord({
+    ...paymentRecord,
+    refundId,
+    refundAmount,
+    refundStatus,
+    refundFailureReason,
+    refundInitiatedAt: paymentRecord.refundInitiatedAt || new Date().toISOString(),
+    refundProcessedAt: refundStatus === 'processed' ? new Date().toISOString() : paymentRecord.refundProcessedAt || null,
+    paymentStatus: paymentRecord.paymentStatus || 'PAID',
+  });
+
+  return paymentRecord.orderId;
 };

@@ -1,30 +1,37 @@
+'use client';
+
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import Link from 'next/link';
 import { MobileMenu } from '../components/MobileMenu.jsx';
 import { useToast } from '../context/ToastContext.jsx';
+import { fetchPublicReviews } from '../services/reviewService.js';
 
 const GOOGLE_FEEDBACK_FORM_ACTION =
   'https://docs.google.com/forms/d/e/1FAIpQLSf9Sp9N6glz105wqomwfLVogWTgeit4Hdp5pjNnjHFWsC8MwA/formResponse';
 
-const reviewCards = [
+const fallbackReviewCards = [
   {
     author: 'Jeevan P.',
-    time: 'Google - 3 weeks ago',
+    relativeTime: 'Google review',
+    rating: 5,
     text: 'Guests highlight the taste, clean cooking, polite staff, and a warm atmosphere that feels made for family dinners.',
   },
   {
     author: 'Kandukuri N.',
-    time: 'Google - 2 weeks ago',
+    relativeTime: 'Google review',
+    rating: 5,
     text: 'The location, quick service, and biryani are getting special praise from first-time diners and regulars alike.',
   },
   {
     author: 'Poojitha',
-    time: 'Public review - Jan 2026',
+    relativeTime: 'Google review',
+    rating: 5,
     text: 'Reviewers consistently call out flavorful biryani, fast service, and presentation that feels worth the visit.',
   },
   {
     author: 'Naveen Kumar',
-    time: 'Public review - Sep 2025',
+    relativeTime: 'Google review',
+    rating: 5,
     text: 'Comfortable seating, friendly staff, and quick turnaround are common reasons people recommend the restaurant.',
   },
 ];
@@ -54,8 +61,15 @@ const faqItems = [
 
 export default function HomePage() {
   const [open, setOpen] = useState(false);
-  const [desktop, setDesktop] = useState(window.innerWidth >= 768);
+  const [desktop, setDesktop] = useState(false);
   const [openFaq, setOpenFaq] = useState(0);
+  const [reviews, setReviews] = useState(fallbackReviewCards);
+  const [reviewSummary, setReviewSummary] = useState({
+    name: 'Bangaru Vakili Family Restaurant',
+    rating: 4.9,
+    userRatingCount: 69,
+  });
+  const [loadingReviews, setLoadingReviews] = useState(true);
   const [feedback, setFeedback] = useState({
     name: '',
     phone: '',
@@ -65,6 +79,7 @@ export default function HomePage() {
 
   useEffect(() => {
     const handleResize = () => setDesktop(window.innerWidth >= 768);
+    handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
@@ -75,6 +90,29 @@ export default function HomePage() {
       document.body.style.overflow = '';
     };
   }, [open]);
+
+  useEffect(() => {
+    const loadReviews = async () => {
+      try {
+        setLoadingReviews(true);
+        const data = await fetchPublicReviews();
+        setReviews(data.reviews?.length ? data.reviews : fallbackReviewCards);
+        setReviewSummary(
+          data.summary || {
+            name: 'Bangaru Vakili Family Restaurant',
+            rating: 4.9,
+            userRatingCount: 69,
+          },
+        );
+      } catch {
+        setReviews(fallbackReviewCards);
+      } finally {
+        setLoadingReviews(false);
+      }
+    };
+
+    loadReviews();
+  }, []);
 
   const handleFeedbackChange = (event) => {
     const { name, value } = event.target;
@@ -106,22 +144,21 @@ export default function HomePage() {
       .catch(() => {
         showToast('Could not submit feedback right now.', 'error');
       });
-
   };
 
   return (
     <div>
       <nav className="navbar">
         <div className="nav-inner">
-          <Link className="brand-link" to="/">
+          <Link className="brand-link" href="/">
             <img alt="BVR Logo" className="brand-logo-img" src="/bvr-logo.png" />
           </Link>
           {desktop ? (
             <div className="desktop-nav">
-              <Link className="nav-active" to="/">
+              <Link className="nav-active" href="/">
                 Home
               </Link>
-              <Link to="/menu">Menu</Link>
+              <Link href="/menu">Menu</Link>
               <a href="#about">About</a>
               <a href="#services">Services</a>
               <a href="#faq">FAQ</a>
@@ -129,12 +166,7 @@ export default function HomePage() {
               <a href="#contact">Contact</a>
             </div>
           ) : (
-            <button
-              aria-label="Open menu"
-              className="hamburger"
-              onClick={() => setOpen(true)}
-              type="button"
-            >
+            <button aria-label="Open menu" className="hamburger" onClick={() => setOpen(true)} type="button">
               <span />
               <span />
               <span />
@@ -155,22 +187,18 @@ export default function HomePage() {
           <em>&quot;Authentic Taste. Royal Experience.&quot;</em>
         </p>
         <p className="fade-up fade-delay-2 hero-est">Est. 2025</p>
-        <p className="fade-up fade-delay-2 hero-copy">
-          Welcome to our family. Experience the authentic flavors of South India.
-        </p>
-        <Link className="btn-gold fade-up fade-delay-3" to="/menu">
+        <p className="fade-up fade-delay-2 hero-copy">Welcome to our family. Experience the authentic flavors of South India.</p>
+        <Link className="btn-gold fade-up fade-delay-3" href="/menu">
           Start Ordering
         </Link>
-        <p className="fade-up fade-delay-4 hero-note">Scan QR at your table to order • Also available on Pickzy</p>
+        <p className="fade-up fade-delay-4 hero-note">Scan QR at your table to order - Also available on Pickzy</p>
       </section>
 
       <section className="section" id="about">
         <h2 className="section-title">About Us</h2>
         <div className="about-card-centered">
           <p className="about-description-large">
-            At Bangaru Vakili Family Restaurant, we bring you a perfect blend of tradition and taste.
-            Experience premium dining with authentic recipes, quality ingredients, and warm hospitality.
-            We are committed to serving delicious food with excellence.
+            At Bangaru Vakili Family Restaurant, we bring you a perfect blend of tradition and taste. Experience premium dining with authentic recipes, quality ingredients, and warm hospitality. We are committed to serving delicious food with excellence.
           </p>
         </div>
 
@@ -179,27 +207,27 @@ export default function HomePage() {
         </h2>
         <div className="services-scroll">
           <div className="service-card">
-            <div className="service-icon">🍽️</div>
+            <div className="service-icon">{'\u{1F37D}\uFE0F'}</div>
             <h3>Dine-In</h3>
             <p>Scan table QR and order instantly from your seat.</p>
           </div>
           <div className="service-card">
-            <div className="service-icon">🥡</div>
+            <div className="service-icon">{'\u{1F961}'}</div>
             <h3>Takeaway</h3>
             <p>Pack your favorites and enjoy them wherever you go.</p>
           </div>
           <div className="service-card">
-            <div className="service-icon">🛵</div>
+            <div className="service-icon">{'\u{1F6F5}'}</div>
             <h3>Home Delivery</h3>
             <p>Order from anywhere, and we deliver to your door.</p>
           </div>
           <div className="service-card">
-            <div className="service-icon">🏠</div>
+            <div className="service-icon">{'\u{1F3E0}'}</div>
             <h3>Indoor Catering</h3>
             <p>Premium catering for private events and celebrations.</p>
           </div>
           <div className="service-card">
-            <div className="service-icon">🎪</div>
+            <div className="service-icon">{'\u{1F3AA}'}</div>
             <h3>Outdoor Catering</h3>
             <p>Events, functions, and large party catering service.</p>
           </div>
@@ -210,16 +238,15 @@ export default function HomePage() {
             <span className="about-kicker">Why Choose Us</span>
             <h3 className="about-title">Loved in Nalgonda for biryani, hospitality, and family dining.</h3>
             <p className="about-description">
-              Bangaru Vakili Family Restaurant brings together South Indian favorites, rich biryani plates,
-              warm service, and a comfortable dine-in space right near Shivaji Nagar Circle, Nalgonda.
+              Bangaru Vakili Family Restaurant brings together South Indian favorites, rich biryani plates, warm service, and a comfortable dine-in space right near Shivaji Nagar Circle, Nalgonda.
             </p>
             <div className="about-highlights">
               <div>
-                <strong>4.9/5</strong>
-                <span>Public Google review rating snapshot</span>
+                <strong>{reviewSummary.rating}/5</strong>
+                <span>Google review rating snapshot</span>
               </div>
               <div>
-                <strong>69+</strong>
+                <strong>{reviewSummary.userRatingCount}+</strong>
                 <span>Customer reviews surfaced publicly</span>
               </div>
               <div>
@@ -235,12 +262,7 @@ export default function HomePage() {
                 <span className="about-kicker">Visit Us</span>
                 <h3 className="map-card-title">Shivaji Nagar Circle, Nalgonda - 508801</h3>
               </div>
-              <a
-                className="review-link"
-                href="https://maps.app.goo.gl/n9FMSQ9tQxgsFgCC8"
-                rel="noreferrer"
-                target="_blank"
-              >
+              <a className="review-link" href="https://maps.app.goo.gl/n9FMSQ9tQxgsFgCC8" rel="noreferrer" target="_blank">
                 Review Us
               </a>
             </div>
@@ -262,12 +284,7 @@ export default function HomePage() {
               <span className="about-kicker">Guest Reviews</span>
               <h3 className="reviews-title">What diners keep saying about BVR</h3>
             </div>
-            <a
-              className="review-link secondary"
-              href="https://maps.app.goo.gl/n9FMSQ9tQxgsFgCC8"
-              rel="noreferrer"
-              target="_blank"
-            >
+            <a className="review-link secondary" href="https://maps.app.goo.gl/n9FMSQ9tQxgsFgCC8" rel="noreferrer" target="_blank">
               Open Maps
             </a>
           </div>
@@ -276,31 +293,40 @@ export default function HomePage() {
             <div className="review-brand">
               <img alt="BVR" className="brand-logo-img-small" src="/bvr-logo.png" />
               <div>
-                <h4>Bangaru Vakili Family Restaurant</h4>
+                <h4>{reviewSummary.name}</h4>
                 <p>Shivaji Nagar Circle, Nalgonda</p>
               </div>
             </div>
             <div className="review-score">
-              <strong>4.9</strong>
+              <strong>{reviewSummary.rating}</strong>
               <span>★★★★★</span>
-              <p>Based on public review listings</p>
+              <p>Based on {reviewSummary.userRatingCount}+ public reviews</p>
             </div>
           </div>
 
           <div className="reviews-scroll">
-            {reviewCards.map((review) => (
-              <article className="review-card" key={review.author}>
-                <div className="review-stars">★★★★★</div>
-                <p className="review-text">{review.text}</p>
-                <div className="review-footer">
-                  <div className="review-avatar">{review.author.charAt(0)}</div>
-                  <div>
-                    <strong>{review.author}</strong>
-                    <span>{review.time}</span>
-                  </div>
-                </div>
-              </article>
-            ))}
+            {loadingReviews
+              ? Array.from({ length: 4 }).map((_, index) => (
+                  <article className="review-card" key={`review-skeleton-${index}`}>
+                    <div className="skeleton-line mid" />
+                    <div className="skeleton-line wide" />
+                    <div className="skeleton-line wide" />
+                    <div className="skeleton-line mid" />
+                  </article>
+                ))
+              : reviews.map((review) => (
+                  <article className="review-card" key={`${review.author}-${review.relativeTime}`}>
+                    <div className="review-stars">{'★'.repeat(review.rating || 5)}</div>
+                    <p className="review-text">{review.text}</p>
+                    <div className="review-footer">
+                      <div className="review-avatar">{review.author.charAt(0)}</div>
+                      <div>
+                        <strong>{review.author}</strong>
+                        <span>{review.relativeTime}</span>
+                      </div>
+                    </div>
+                  </article>
+                ))}
           </div>
         </div>
 
@@ -320,7 +346,7 @@ export default function HomePage() {
                   <article className={`faq-item ${isOpen ? 'open' : ''}`} key={item.question}>
                     <button className="faq-button" onClick={() => setOpenFaq(isOpen ? -1 : index)} type="button">
                       <span>{item.question}</span>
-                      <span className="faq-symbol">{isOpen ? '−' : '+'}</span>
+                      <span className="faq-symbol">{isOpen ? '-' : '+'}</span>
                     </button>
                     {isOpen && <p className="faq-answer">{item.answer}</p>}
                   </article>
@@ -335,35 +361,15 @@ export default function HomePage() {
                 <span className="about-kicker">Feedback</span>
                 <h3 className="reviews-title">Share a suggestion, catering request, or dining experience</h3>
               </div>
-              <a
-                className="review-link secondary"
-                href="https://maps.app.goo.gl/n9FMSQ9tQxgsFgCC8"
-                rel="noreferrer"
-                target="_blank"
-              >
+              <a className="review-link secondary" href="https://maps.app.goo.gl/n9FMSQ9tQxgsFgCC8" rel="noreferrer" target="_blank">
                 Leave Public Review
               </a>
             </div>
 
             <form className="feedback-form" onSubmit={handleFeedbackSubmit}>
               <div className="feedback-fields">
-                <input
-                  className="input-field"
-                  name="name"
-                  onChange={handleFeedbackChange}
-                  placeholder="Your name"
-                  type="text"
-                  value={feedback.name}
-                />
-                <input
-                  className="input-field"
-                  maxLength={10}
-                  name="phone"
-                  onChange={handleFeedbackChange}
-                  placeholder="Phone number (optional)"
-                  type="tel"
-                  value={feedback.phone}
-                />
+                <input className="input-field" name="name" onChange={handleFeedbackChange} placeholder="Your name" type="text" value={feedback.name} />
+                <input className="input-field" maxLength={10} name="phone" onChange={handleFeedbackChange} placeholder="Phone number (optional)" type="tel" value={feedback.phone} />
               </div>
               <textarea
                 className="feedback-textarea"
@@ -395,8 +401,7 @@ export default function HomePage() {
           <div className="info-item">
             <span className="info-icon">📞</span>
             <span>
-              <a href="tel:7337334474">7337334474</a> • <a href="tel:9701054013">9701054013</a> •{' '}
-              <a href="tel:9505523839">9505523839</a>
+              <a href="tel:7337334474">7337334474</a> - <a href="tel:9701054013">9701054013</a> - <a href="tel:9505523839">9505523839</a>
             </span>
           </div>
           <div className="info-item">
@@ -415,7 +420,7 @@ export default function HomePage() {
       </section>
 
       <footer className="footer">
-        <p>Copyright © 2025 BVR Bangaru Vakili Family Restaurant. All rights reserved.</p>
+        <p>Copyright (c) 2025 BVR Bangaru Vakili Family Restaurant. All rights reserved.</p>
         <p>Powered by BVR Digital</p>
       </footer>
     </div>

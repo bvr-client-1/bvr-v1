@@ -1,3 +1,5 @@
+'use client';
+
 import { api } from './api.js';
 
 export const ownerLogin = async (email, password) => {

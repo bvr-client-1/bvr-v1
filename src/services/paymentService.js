@@ -1,7 +1,9 @@
+'use client';
+
 import { api } from './api.js';
 
-export const createPaymentOrder = async ({ amount, receipt }) => {
-  const { data } = await api.post('/orders/create-order', { amount, receipt });
+export const createPaymentOrder = async (payload) => {
+  const { data } = await api.post('/orders/create-order', payload);
   return data;
 };
 

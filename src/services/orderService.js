@@ -1,3 +1,5 @@
+'use client';
+
 import { api, authApi } from './api.js';
 
 export const fetchOrderById = async (orderId) => {
@@ -16,11 +18,22 @@ export const fetchAdminOrders = async (token) => {
 };
 
 export const updateAdminOrderStatus = async (token, orderId, status, rejectionReason = null) => {
-  await authApi(token).patch(`/orders/admin/${orderId}/status`, { status, rejectionReason });
+  const { data } = await authApi(token).patch(`/orders/admin/${orderId}/status`, { status, rejectionReason });
+  return data;
 };
 
 export const assignDeliveryPartner = async (token, orderId, deliveryPersonId) => {
   await authApi(token).patch(`/orders/admin/${orderId}/assign-delivery`, { deliveryPersonId });
+};
+
+export const addDeliveryPerson = async (token, { name, phone }) => {
+  const { data } = await authApi(token).post('/orders/admin/delivery-people', { name, phone });
+  return data.person;
+};
+
+export const removeDeliveryPerson = async (token, deliveryPersonId) => {
+  const { data } = await authApi(token).delete(`/orders/admin/delivery-people/${deliveryPersonId}`);
+  return data.person;
 };
 
 export const fetchKitchenQueue = async (token) => {

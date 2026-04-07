@@ -1,3 +1,5 @@
+'use client';
+
 const GEO_SEPARATOR = '||geo:';
 
 export const parseDeliveryAddress = (value = '') => {

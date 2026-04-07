@@ -7,7 +7,10 @@ import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import authRoutes from './routes/authRoutes.js';
 import menuRoutes from './routes/menuRoutes.js';
 import orderRoutes from './routes/orderRoutes.js';
+import reviewRoutes from './routes/reviewRoutes.js';
 import restaurantRoutes from './routes/restaurantRoutes.js';
+import webhookRoutes from './routes/webhookRoutes.js';
+import { startSupabaseKeepalive } from './services/keepaliveService.js';
 import { isOriginAllowed } from './utils/cors.js';
 
 const app = express();
@@ -40,6 +43,7 @@ app.use(
     legacyHeaders: false,
   }),
 );
+app.use('/api/webhooks', express.raw({ type: 'application/json' }), webhookRoutes);
 app.use(express.json({ limit: '1mb' }));
 
 app.get('/api/health', (_req, res) => {
@@ -48,6 +52,7 @@ app.get('/api/health', (_req, res) => {
 
 app.use('/api/auth', authRoutes);
 app.use('/api/restaurant', restaurantRoutes);
+app.use('/api/reviews', reviewRoutes);
 app.use('/api/menu', menuRoutes);
 app.use('/api/orders', orderRoutes);
 
@@ -57,3 +62,5 @@ app.use(errorHandler);
 app.listen(env.port, () => {
   console.log(`BVR backend listening on port ${env.port}`);
 });
+
+startSupabaseKeepalive();

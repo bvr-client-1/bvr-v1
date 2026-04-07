@@ -1,5 +1,7 @@
+'use client';
+
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import Link from 'next/link';
 import { useAppContext } from '../context/AppContext.jsx';
 import { useToast } from '../context/ToastContext.jsx';
 import { useInterval } from '../hooks/useInterval.js';
@@ -7,10 +9,31 @@ import { fetchOrderById, lookupOrderByPhone } from '../services/orderService.js'
 import { STATUS_LABELS, STATUS_STEPS_DELIVERY, STATUS_STEPS_DINEIN } from '../utils/constants.js';
 import { formatPrice, formatTime } from '../utils/format.js';
 
+const getRefundMessage = (order) => {
+  if (order.payment_status === 'REFUNDED' || order.refund_status === 'processed') {
+    return 'Your refund has been completed to the original payment method.';
+  }
+
+  if (order.payment_status === 'REFUND_PENDING' || ['created', 'pending'].includes(order.refund_status || '')) {
+    return 'Your refund has been initiated and will reflect on the original payment method soon.';
+  }
+
+  if (order.payment_status === 'REFUND_FAILED' || order.refund_status === 'failed') {
+    return 'Refund initiation needs manual review from the restaurant team.';
+  }
+
+  if (order.payment_status === 'PAID') {
+    return 'Your payment is protected and the restaurant team will process the refund.';
+  }
+
+  return 'No payment was captured for this order.';
+};
+
 export default function StatusPage() {
   const { orderId, setOrderCode, setOrderId } = useAppContext();
   const { showToast } = useToast();
   const [order, setOrder] = useState(null);
+  const [loading, setLoading] = useState(false);
   const [lookupPhone, setLookupPhone] = useState('');
   const [lookupError, setLookupError] = useState('');
   const [expanded, setExpanded] = useState(false);
@@ -18,10 +41,13 @@ export default function StatusPage() {
   const loadStatus = async () => {
     if (!orderId) return;
     try {
+      setLoading(true);
       const nextOrder = await fetchOrderById(orderId);
       setOrder(nextOrder);
     } catch {
       setOrder(null);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -57,10 +83,10 @@ export default function StatusPage() {
       return (
         <div className="rejected-card">
           <div className="rejected-icon">❌</div>
-          <h3>Order Rejected</h3>
+          <h3>Order Cancelled</h3>
           <div className="reason-text">{order.rejection_reason || 'Order could not be fulfilled'}</div>
-          <p className="refund-note">We're sorry! Your payment will be refunded within 24-48 hours.</p>
-          <Link className="back-btn" to="/menu">
+          <p className="refund-note">{getRefundMessage(order)}</p>
+          <Link className="back-btn" href="/menu">
             🏠 Back to Menu
           </Link>
         </div>
@@ -90,7 +116,7 @@ export default function StatusPage() {
     <div>
       <nav className="navbar">
         <div className="nav-inner">
-          <Link className="back-link" to="/menu">
+          <Link className="back-link" href="/menu">
             ← <span>Menu</span>
           </Link>
           <h1 className="page-title">Order Status</h1>
@@ -99,7 +125,21 @@ export default function StatusPage() {
       </nav>
 
       <main className="status-main">
-        {!order ? (
+        {loading && !order ? (
+          <>
+            <div className="card skeleton-panel">
+              <div className="skeleton-line wide" />
+              <div className="skeleton-line mid" />
+              <div className="skeleton-line wide" />
+            </div>
+            <div className="card skeleton-panel">
+              <div className="skeleton-line wide" />
+              <div className="skeleton-line wide" />
+              <div className="skeleton-line mid" />
+              <div className="skeleton-line wide" />
+            </div>
+          </>
+        ) : !order ? (
           <div className="lookup-card">
             <h2>🔍 Find Your Order</h2>
             <p>Lost your status? Enter the phone number used to place your order.</p>
@@ -108,7 +148,7 @@ export default function StatusPage() {
               🔍 Find
             </button>
             {!!lookupError && <div className="form-error">{lookupError}</div>}
-            <Link className="lookup-link" to="/menu">
+            <Link className="lookup-link" href="/menu">
               🍽️ Order More
             </Link>
           </div>
@@ -177,7 +217,7 @@ export default function StatusPage() {
 
             <p className="auto-note">🔄 Status updates automatically every 10 seconds</p>
             <div className="center-box">
-              <Link className="btn-gold inline-button" to="/menu">
+              <Link className="btn-gold inline-button" href="/menu">
                 🍽️ Order More
               </Link>
             </div>

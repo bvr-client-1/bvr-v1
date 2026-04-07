@@ -1,3 +1,5 @@
+'use client';
+
 import { CAT_EMOJI } from './constants.js';
 
 export const formatPrice = (amount) => `₹${amount}`;

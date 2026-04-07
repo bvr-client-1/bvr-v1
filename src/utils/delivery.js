@@ -1,11 +1,13 @@
+'use client';
+
 const toRadians = (value) => (value * Math.PI) / 180;
 
 export const RESTAURANT_LOCATION = {
-  latitude: Number(import.meta.env.VITE_RESTAURANT_LAT),
-  longitude: Number(import.meta.env.VITE_RESTAURANT_LNG),
+  latitude: Number(process.env.NEXT_PUBLIC_RESTAURANT_LAT),
+  longitude: Number(process.env.NEXT_PUBLIC_RESTAURANT_LNG),
 };
 
-export const DELIVERY_RADIUS_KM = Number(import.meta.env.VITE_DELIVERY_RADIUS_KM || 4);
+export const DELIVERY_RADIUS_KM = Number(process.env.NEXT_PUBLIC_DELIVERY_RADIUS_KM || 4);
 
 export const hasDeliveryZoneConfig = () =>
   Number.isFinite(RESTAURANT_LOCATION.latitude) && Number.isFinite(RESTAURANT_LOCATION.longitude);

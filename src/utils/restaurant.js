@@ -1,11 +1,17 @@
+'use client';
+
 export const isRestaurantOpen = (restaurantStatus) => restaurantStatus?.isAcceptingOrders ?? true;
 
 export const getOpenMessage = (restaurantStatus) => {
-  if (restaurantStatus?.kitchenPaused) {
-    return 'Kitchen is paused manually. Ordering will resume when staff turns it back on.';
+  if (restaurantStatus?.maintenanceMode) {
+    return 'Back soon.';
   }
 
-  return restaurantStatus?.nextMessage || 'Opens today at 11:00 AM';
+  if (restaurantStatus?.kitchenPaused) {
+    return 'Back soon.';
+  }
+
+  return restaurantStatus?.nextMessage || 'Back soon.';
 };
 
 export const loadRazorpayScript = () =>

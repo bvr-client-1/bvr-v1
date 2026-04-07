@@ -23,18 +23,26 @@ export const getScheduleStatus = () => {
 export const buildRestaurantStatus = (runtimeState) => {
   const schedule = getScheduleStatus();
   const kitchenPaused = Boolean(runtimeState?.kitchenPaused);
+  const maintenanceMode = Boolean(runtimeState?.maintenanceMode);
 
   return {
     kitchenPaused,
+    maintenanceMode,
     updatedAt: runtimeState?.updatedAt || null,
     updatedByRole: runtimeState?.updatedByRole || null,
     ...schedule,
-    isAcceptingOrders: schedule.isWithinSchedule && !kitchenPaused,
+    isAcceptingOrders: schedule.isWithinSchedule && !kitchenPaused && !maintenanceMode,
   };
 };
 
 export const assertRestaurantAcceptingOrders = (runtimeState) => {
   const status = buildRestaurantStatus(runtimeState);
+
+  if (status.maintenanceMode) {
+    const error = new Error('We are currently under maintenance. Please try again soon.');
+    error.statusCode = 503;
+    throw error;
+  }
 
   if (!status.isWithinSchedule) {
     const error = new Error(`Orders are accepted only between ${status.opensAt} and ${status.closesAt} IST`);

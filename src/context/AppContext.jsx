@@ -1,3 +1,5 @@
+'use client';
+
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { fetchRestaurantStatus, updateRestaurantStatus } from '../services/restaurantService.js';
 import { useLocalStorage } from '../hooks/useLocalStorage.js';
@@ -13,6 +15,7 @@ export function AppProvider({ children }) {
   const [searchState, setSearchState] = useState('');
   const [restaurantStatus, setRestaurantStatus] = useState({
     kitchenPaused: false,
+    maintenanceMode: false,
     isWithinSchedule: true,
     isAcceptingOrders: true,
     opensAt: '11:00 AM',
@@ -31,16 +34,19 @@ export function AppProvider({ children }) {
     }
   };
 
-  const setKitchenPaused = async (kitchenPaused) => {
+  const updateRestaurantRuntime = async (payload) => {
     const token = ownerToken || kitchenToken;
     if (!token) {
       throw new Error('Authentication required');
     }
 
-    const data = await updateRestaurantStatus(token, kitchenPaused);
+    const data = await updateRestaurantStatus(token, payload);
     setRestaurantStatus(data);
     return data;
   };
+
+  const setKitchenPaused = async (kitchenPaused) => updateRestaurantRuntime({ kitchenPaused });
+  const setMaintenanceMode = async (maintenanceMode) => updateRestaurantRuntime({ maintenanceMode });
 
   useEffect(() => {
     refreshRestaurantStatus();
@@ -68,6 +74,7 @@ export function AppProvider({ children }) {
       restaurantStatus,
       refreshRestaurantStatus,
       setKitchenPaused,
+      setMaintenanceMode,
     }),
     [cart, kitchenToken, orderCode, orderId, ownerToken, restaurantStatus, searchState, setCart],
   );

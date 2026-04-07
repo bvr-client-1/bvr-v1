@@ -1,3 +1,5 @@
+'use client';
+
 import { api, authApi } from './api.js';
 
 export const fetchRestaurantStatus = async () => {
@@ -5,7 +7,7 @@ export const fetchRestaurantStatus = async () => {
   return data;
 };
 
-export const updateRestaurantStatus = async (token, kitchenPaused) => {
-  const { data } = await authApi(token).patch('/restaurant/status', { kitchenPaused });
+export const updateRestaurantStatus = async (token, payload) => {
+  const { data } = await authApi(token).patch('/restaurant/status', payload);
   return data;
 };

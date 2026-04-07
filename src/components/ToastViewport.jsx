@@ -1,3 +1,5 @@
+'use client';
+
 export function ToastViewport({ toast }) {
   if (!toast) {
     return null;

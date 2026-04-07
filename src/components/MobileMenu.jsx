@@ -1,4 +1,6 @@
-import { Link } from 'react-router-dom';
+'use client';
+
+import Link from 'next/link';
 
 export function MobileMenu({ open, onClose }) {
   return (
@@ -9,10 +11,10 @@ export function MobileMenu({ open, onClose }) {
           ×
         </button>
         <div className="mobile-menu-links">
-          <Link onClick={onClose} to="/">
+          <Link onClick={onClose} href="/">
             Home
           </Link>
-          <Link onClick={onClose} to="/menu">
+          <Link onClick={onClose} href="/menu">
             Menu
           </Link>
           <a href="#about" onClick={onClose}>

@@ -1,5 +1,6 @@
 {
   "kitchenPaused": false,
-  "updatedAt": "2026-04-06T05:53:31.817Z",
-  "updatedByRole": "kitchen"
+  "maintenanceMode": false,
+  "updatedAt": "2026-04-07T02:21:18.910Z",
+  "updatedByRole": "owner"
 }

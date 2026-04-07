@@ -1,4 +1,6 @@
-import { Link } from 'react-router-dom';
+'use client';
+
+import Link from 'next/link';
 import { formatPrice } from '../utils/format.js';
 
 export function FloatingCart({ cart }) {
@@ -11,7 +13,7 @@ export function FloatingCart({ cart }) {
 
   return (
     <div className="float-cart visible">
-      <Link className="float-cart-btn" to="/cart">
+      <Link className="float-cart-btn" href="/cart">
         <span>🛒</span>
         <span>View Cart</span>
         <div className="float-cart-divider" />
