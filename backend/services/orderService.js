@@ -25,7 +25,13 @@ const stripMissingOptionalOrderColumn = (payload, error) => {
   let changed = false;
 
   for (const column of ['rejection_reason', 'cook_started_at']) {
-    if (Object.prototype.hasOwnProperty.call(nextPayload, column) && message.includes(`orders.${column}`)) {
+    const missingColumn =
+      message.includes(`orders.${column}`) ||
+      message.includes(`'${column}' column of 'orders'`) ||
+      message.includes(`column "${column}"`) ||
+      message.includes(`column '${column}'`);
+
+    if (Object.prototype.hasOwnProperty.call(nextPayload, column) && missingColumn) {
       delete nextPayload[column];
       changed = true;
     }
