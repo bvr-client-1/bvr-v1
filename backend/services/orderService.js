@@ -19,6 +19,40 @@ const raise = (error, fallback = 500) => {
   }
 };
 
+const stripMissingOptionalOrderColumn = (payload, error) => {
+  const message = String(error?.message || '');
+  const nextPayload = { ...payload };
+  let changed = false;
+
+  for (const column of ['rejection_reason', 'cook_started_at']) {
+    if (Object.prototype.hasOwnProperty.call(nextPayload, column) && message.includes(`orders.${column}`)) {
+      delete nextPayload[column];
+      changed = true;
+    }
+  }
+
+  return changed ? nextPayload : null;
+};
+
+const updateOrderRecord = async (orderId, payload) => {
+  let nextPayload = { ...payload };
+
+  while (true) {
+    const { error } = await supabase.from('orders').update(nextPayload).eq('id', orderId);
+    if (!error) {
+      return nextPayload;
+    }
+
+    const fallbackPayload = stripMissingOptionalOrderColumn(nextPayload, error);
+    if (fallbackPayload) {
+      nextPayload = fallbackPayload;
+      continue;
+    }
+
+    raise(error);
+  }
+};
+
 export const createRazorpayOrder = async ({ amount, receipt }) =>
   razorpay.orders.create({
     amount,
@@ -268,8 +302,7 @@ export const updateOrderStatus = async (orderId, status, rejectionReason = null)
     payload.cook_started_at = new Date().toISOString();
   }
 
-  const { error } = await supabase.from('orders').update(payload).eq('id', orderId);
-  raise(error);
+  await updateOrderRecord(orderId, payload);
 };
 
 export const cancelOrderWithRefund = async (orderId, rejectionReason = null) => {
@@ -324,8 +357,7 @@ export const cancelOrderWithRefund = async (orderId, rejectionReason = null) => 
     }
   }
 
-  const { error } = await supabase.from('orders').update(payload).eq('id', orderId);
-  raise(error);
+  await updateOrderRecord(orderId, payload);
 
   return getOrderById(orderId);
 };
