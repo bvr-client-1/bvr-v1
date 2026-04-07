@@ -274,6 +274,10 @@ export const updateOrderStatus = async (orderId, status, rejectionReason = null)
 
 export const cancelOrderWithRefund = async (orderId, rejectionReason = null) => {
   const currentOrder = await getOrderSummary(orderId);
+  if (currentOrder.status === 'CANCELLED') {
+    return getOrderById(orderId);
+  }
+
   assertValidStatusTransition({
     currentStatus: currentOrder.status,
     nextStatus: 'CANCELLED',
@@ -294,34 +298,30 @@ export const cancelOrderWithRefund = async (orderId, rejectionReason = null) => 
       throw error;
     }
 
-    if (paymentRecord.refundId && ['created', 'pending', 'processed'].includes(paymentRecord.refundStatus || '')) {
-      const error = new Error('Refund has already been initiated for this order.');
-      error.statusCode = 409;
-      throw error;
+    if (!(paymentRecord.refundId && ['created', 'pending', 'processed', 'failed'].includes(paymentRecord.refundStatus || ''))) {
+      const refundAmount = Math.round(Number(currentOrder.total || 0) * 100);
+      const refund = await razorpay.payments.refund(paymentRecord.razorpayPaymentId, {
+        amount: refundAmount,
+        speed: 'normal',
+        notes: {
+          order_code: currentOrder.order_code,
+          reason: refundReason,
+        },
+      });
+
+      await upsertPaymentRecord({
+        ...paymentRecord,
+        orderId,
+        orderCode: currentOrder.order_code,
+        refundId: refund.id,
+        refundAmount: refund.amount,
+        refundStatus: refund.status,
+        refundFailureReason: refund.error_description || null,
+        refundInitiatedAt: new Date().toISOString(),
+        refundProcessedAt: refund.status === 'processed' ? new Date().toISOString() : null,
+        paymentStatus: currentOrder.payment_status,
+      });
     }
-
-    const refundAmount = Math.round(Number(currentOrder.total || 0) * 100);
-    const refund = await razorpay.payments.refund(paymentRecord.razorpayPaymentId, {
-      amount: refundAmount,
-      speed: 'normal',
-      notes: {
-        order_code: currentOrder.order_code,
-        reason: refundReason,
-      },
-    });
-
-    await upsertPaymentRecord({
-      ...paymentRecord,
-      orderId,
-      orderCode: currentOrder.order_code,
-      refundId: refund.id,
-      refundAmount: refund.amount,
-      refundStatus: refund.status,
-      refundFailureReason: refund.error_description || null,
-      refundInitiatedAt: new Date().toISOString(),
-      refundProcessedAt: refund.status === 'processed' ? new Date().toISOString() : null,
-      paymentStatus: currentOrder.payment_status,
-    });
   }
 
   const { error } = await supabase.from('orders').update(payload).eq('id', orderId);

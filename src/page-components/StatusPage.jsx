@@ -79,7 +79,7 @@ export default function StatusPage() {
 
   useInterval(() => {
     setCountdownNow(Date.now());
-  }, order && ['CONFIRMED', 'IN_KITCHEN'].includes(order.status) ? 1000 : null);
+  }, order && !isCancelledPresentation(order) && ['CONFIRMED', 'IN_KITCHEN'].includes(order.status) ? 1000 : null);
 
   const onLookup = async () => {
     if (!/^\d{10}$/.test(lookupPhone)) {
@@ -118,7 +118,7 @@ export default function StatusPage() {
   };
 
   const getPreparationCountdown = () => {
-    if (!order || !['CONFIRMED', 'IN_KITCHEN'].includes(order.status)) {
+    if (!order || isCancelledPresentation(order) || !['CONFIRMED', 'IN_KITCHEN'].includes(order.status)) {
       return null;
     }
 

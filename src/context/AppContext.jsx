@@ -10,10 +10,10 @@ export function AppProvider({ children }) {
   const [cart, setCart] = useLocalStorage('bvr_cart', []);
   const [ownerToken, setOwnerToken] = useLocalStorage('bvr_staff_token', '');
   const [kitchenToken, setKitchenToken] = useLocalStorage('bvr_kitchen_token', '');
-  const [orderId, setOrderId] = useLocalStorage('bvr_order_id', '');
-  const [orderCode, setOrderCode] = useLocalStorage('bvr_order_code', '');
-  const [orderTrackingToken, setOrderTrackingToken] = useLocalStorage('bvr_order_tracking_token', '');
-  const [orderHistory, setOrderHistory] = useLocalStorage('bvr_order_history', []);
+  const [orderId, setOrderId] = useLocalStorage('bvr_order_id_v2', '');
+  const [orderCode, setOrderCode] = useLocalStorage('bvr_order_code_v2', '');
+  const [orderTrackingToken, setOrderTrackingToken] = useLocalStorage('bvr_order_tracking_token_v2', '');
+  const [orderHistory, setOrderHistory] = useLocalStorage('bvr_order_history_v2', []);
   const [searchState, setSearchState] = useState('');
   const [restaurantStatus, setRestaurantStatus] = useState({
     kitchenPaused: false,
