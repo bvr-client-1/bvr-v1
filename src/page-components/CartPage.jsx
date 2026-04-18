@@ -19,13 +19,10 @@ import { getOpenMessage, isRestaurantOpen, loadRazorpayScript } from '../utils/r
 const FREE_DELIVERY_ENABLED = (process.env.NEXT_PUBLIC_FREE_DELIVERY_ENABLED ?? 'true') === 'true';
 const FREE_DELIVERY_COUPON = process.env.NEXT_PUBLIC_FREE_DELIVERY_COUPON_CODE || 'FREEDEL';
 const STANDARD_DELIVERY_CHARGE = 30;
-
 export default function CartPage() {
   const router = useRouter();
   const { cart, setCart, rememberOrder, restaurantStatus } = useAppContext();
   const { showToast } = useToast();
-  const [orderType, setOrderType] = useState('dine-in');
-  const [tableNumber, setTableNumber] = useState('');
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [landmark, setLandmark] = useState('');
   const [customerName, setCustomerName] = useState('');
@@ -36,8 +33,8 @@ export default function CartPage() {
   const open = isRestaurantOpen(restaurantStatus);
 
   const subtotal = useMemo(() => cart.reduce((sum, item) => sum + item.quantity * item.price, 0), [cart]);
-  const baseDeliveryCharge = orderType === 'delivery' ? STANDARD_DELIVERY_CHARGE : 0;
-  const couponDiscount = orderType === 'delivery' && FREE_DELIVERY_ENABLED ? baseDeliveryCharge : 0;
+  const baseDeliveryCharge = STANDARD_DELIVERY_CHARGE;
+  const couponDiscount = FREE_DELIVERY_ENABLED ? baseDeliveryCharge : 0;
   const deliveryCharge = Math.max(baseDeliveryCharge - couponDiscount, 0);
   const total = subtotal + deliveryCharge;
 
@@ -51,8 +48,7 @@ export default function CartPage() {
 
   const validateForm = () => {
     if (!cart.length) return 'Cart empty';
-    if (orderType === 'dine-in' && !tableNumber) return 'Please select a table number';
-    if (orderType === 'delivery' && deliveryAddress.trim().length < 10) return 'Please enter a valid delivery address';
+    if (deliveryAddress.trim().length < 10) return 'Please enter a valid delivery address';
     if (!customerName.trim()) return 'Please enter your name';
     if (!/^\d{10}$/.test(customerPhone.trim())) return 'Enter valid 10-digit phone';
     return '';
@@ -68,44 +64,37 @@ export default function CartPage() {
     setPaying(true);
 
     try {
-      let currentDeliveryLocation = deliveryLocation;
-      if (orderType === 'delivery') {
-        if (!hasDeliveryZoneConfig()) {
-          throw new Error('Delivery zone is not configured right now');
-        }
-
-        currentDeliveryLocation = await getCurrentPosition();
-        const distanceKm = calculateDistanceKm(currentDeliveryLocation, RESTAURANT_LOCATION);
-        if (distanceKm > DELIVERY_RADIUS_KM) {
-          throw new Error(`Delivery is available only within ${DELIVERY_RADIUS_KM} km of the restaurant`);
-        }
-        setDeliveryLocation(currentDeliveryLocation);
+      if (!hasDeliveryZoneConfig()) {
+        throw new Error('Delivery zone is not configured right now');
       }
 
-      const razorpayLoaded = await loadRazorpayScript();
-      if (!razorpayLoaded) {
-        throw new Error('Unable to load payment gateway');
+      const currentDeliveryLocation = await getCurrentPosition();
+      const distanceKm = calculateDistanceKm(currentDeliveryLocation, RESTAURANT_LOCATION);
+      if (distanceKm > DELIVERY_RADIUS_KM) {
+        throw new Error(`Delivery is available only within ${DELIVERY_RADIUS_KM} km of the restaurant`);
       }
+      setDeliveryLocation(currentDeliveryLocation);
 
-      const orderCode = `BVR${Date.now().toString().slice(-6)}`;
       const paymentDraft = {
-        receipt: orderCode,
-        orderCode,
-        orderType,
+        receipt: '',
+        orderCode: '',
+        orderType: 'delivery',
         customerName: customerName.trim(),
         customerPhone: customerPhone.trim(),
-        tableNumber,
-        deliveryAddress:
-          orderType === 'delivery'
-            ? `${deliveryAddress.trim()}${landmark.trim() ? `, ${landmark.trim()}` : ''}`
-            : '',
-        deliveryLatitude: orderType === 'delivery' ? currentDeliveryLocation.latitude : null,
-        deliveryLongitude: orderType === 'delivery' ? currentDeliveryLocation.longitude : null,
+        tableNumber: null,
+        deliveryAddress: `${deliveryAddress.trim()}${landmark.trim() ? `, ${landmark.trim()}` : ''}`,
+        deliveryLatitude: currentDeliveryLocation.latitude,
+        deliveryLongitude: currentDeliveryLocation.longitude,
         subtotal,
         deliveryCharge,
         total,
         items: cart,
       };
+
+      const razorpayLoaded = await loadRazorpayScript();
+      if (!razorpayLoaded) {
+        throw new Error('Unable to load payment gateway');
+      }
 
       const paymentOrder = await createPaymentOrder(paymentDraft);
 
@@ -114,7 +103,7 @@ export default function CartPage() {
         amount: paymentOrder.amount,
         currency: paymentOrder.currency,
         name: 'BVR Restaurant',
-        description: `Order #${orderCode}`,
+        description: 'BVR Restaurant Order',
         order_id: paymentOrder.orderId,
         handler: async (response) => {
           const payload = await verifyPayment({
@@ -171,8 +160,8 @@ export default function CartPage() {
     <div>
       <nav className="navbar">
         <div className="nav-inner">
-          <Link className="back-link" href="/menu">
-            <span>←</span>
+          <Link className="back-link" href="/menu?mode=outside">
+            <span>&larr;</span>
             <span>Menu</span>
           </Link>
           <h1 className="page-title">Your Cart</h1>
@@ -192,7 +181,7 @@ export default function CartPage() {
             <div className="empty-cart-icon">Cart</div>
             <h2>Your cart is empty</h2>
             <p>Add items from our menu to get started</p>
-            <Link className="btn-gold inline-button" href="/menu">
+            <Link className="btn-gold inline-button" href="/menu?mode=outside">
               Browse Menu
             </Link>
           </div>
@@ -230,54 +219,27 @@ export default function CartPage() {
             </div>
 
             <div className="card cart-card">
-              <h2 className="card-title">Order Type</h2>
-              <div aria-label="Order Type" className="order-type-toggle" role="tablist">
-                <button className={`toggle-btn ${orderType === 'dine-in' ? 'active' : ''}`} onClick={() => setOrderType('dine-in')} type="button">
-                  <span>Dine-In</span>
-                </button>
-                <button className={`toggle-btn ${orderType === 'delivery' ? 'active' : ''}`} onClick={() => setOrderType('delivery')} type="button">
-                  <span>Delivery</span>
-                </button>
-              </div>
-            </div>
-
-            <div className="card cart-card">
-              <h2 className="card-title">Your Details</h2>
-              {orderType === 'dine-in' ? (
+              <h2 className="card-title">Delivery Details</h2>
+              <div className="stacked-fields">
+                <div className="delivery-zone-note">
+                  Delivery is available only within {DELIVERY_RADIUS_KM} km of the restaurant. We use your current location at checkout to confirm eligibility.
+                </div>
                 <div>
-                  <label className="label">Table Number</label>
-                  <select className="input-field" onChange={(event) => setTableNumber(event.target.value)} value={tableNumber}>
-                    <option value="">Select table...</option>
-                    {Array.from({ length: 16 }).map((_, index) => (
-                      <option key={index + 1} value={index + 1}>
-                        Table {index + 1}
-                      </option>
-                    ))}
-                  </select>
+                  <label className="label">Delivery Address</label>
+                  <textarea className="input-field" onChange={(event) => setDeliveryAddress(event.target.value)} placeholder="Enter your full address" value={deliveryAddress} />
                 </div>
-              ) : (
-                <div className="stacked-fields">
-                  <div className="delivery-zone-note">
-                    Delivery is available only within {DELIVERY_RADIUS_KM} km of the restaurant. We use your current location at checkout to confirm eligibility.
-                  </div>
-                  <div>
-                    <label className="label">Delivery Address</label>
-                    <textarea className="input-field" onChange={(event) => setDeliveryAddress(event.target.value)} placeholder="Enter your full address" value={deliveryAddress} />
-                  </div>
-                  <div>
-                    <label className="label">Landmark (optional)</label>
-                    <input className="input-field" onChange={(event) => setLandmark(event.target.value)} placeholder="Near..." type="text" value={landmark} />
-                  </div>
+                <div>
+                  <label className="label">Landmark (optional)</label>
+                  <input className="input-field" onChange={(event) => setLandmark(event.target.value)} placeholder="Near..." type="text" value={landmark} />
                 </div>
-              )}
-
-              <div>
-                <label className="label">Your Name</label>
-                <input className="input-field" onChange={(event) => setCustomerName(event.target.value)} placeholder="Enter your name" type="text" value={customerName} />
-              </div>
-              <div>
-                <label className="label">Phone Number</label>
-                <input className="input-field" maxLength={10} onChange={(event) => setCustomerPhone(event.target.value.replace(/\D/g, ''))} placeholder="10-digit phone number" type="tel" value={customerPhone} />
+                <div>
+                  <label className="label">Your Name</label>
+                  <input className="input-field" onChange={(event) => setCustomerName(event.target.value)} placeholder="Enter your name" type="text" value={customerName} />
+                </div>
+                <div>
+                  <label className="label">Phone Number</label>
+                  <input className="input-field" maxLength={10} onChange={(event) => setCustomerPhone(event.target.value.replace(/\D/g, ''))} placeholder="10-digit phone number" type="tel" value={customerPhone} />
+                </div>
               </div>
             </div>
 
@@ -287,33 +249,33 @@ export default function CartPage() {
                 <span>Subtotal</span>
                 <span>{formatPrice(subtotal)}</span>
               </div>
-              {orderType === 'delivery' && (
+              <div className="summary-row">
+                <span>Delivery Charge</span>
+                <span>{formatPrice(baseDeliveryCharge)}</span>
+              </div>
+              {FREE_DELIVERY_ENABLED && (
                 <>
-                  <div className="summary-row">
-                    <span>Delivery Charge</span>
-                    <span>{formatPrice(baseDeliveryCharge)}</span>
+                  <div className="coupon-chip">Coupon Applied: {FREE_DELIVERY_COUPON} · Free Delivery</div>
+                  <div className="summary-row coupon-row">
+                    <span>Coupon Discount</span>
+                    <span>-{formatPrice(couponDiscount)}</span>
                   </div>
-                  {FREE_DELIVERY_ENABLED && (
-                    <>
-                      <div className="coupon-chip">Coupon Applied: {FREE_DELIVERY_COUPON} · Free Delivery</div>
-                      <div className="summary-row coupon-row">
-                        <span>Coupon Discount</span>
-                        <span>-{formatPrice(couponDiscount)}</span>
-                      </div>
-                    </>
-                  )}
                 </>
               )}
-              <div className="summary-row top-border total-row">
+              <div className="summary-row total-row">
                 <span>Total</span>
                 <span>{formatPrice(total)}</span>
               </div>
+              {deliveryLocation && (
+                <div className="delivery-zone-note">
+                  Location confirmed at {deliveryLocation.latitude.toFixed(5)}, {deliveryLocation.longitude.toFixed(5)}
+                </div>
+              )}
+              {!!error && <p className="form-error">{error}</p>}
+              <button className="btn-gold" disabled={!open || paying} onClick={handlePay} type="button">
+                {paying ? 'Starting Payment...' : `Pay ${formatPrice(total)}`}
+              </button>
             </div>
-
-            <button className="btn-gold full-width pay-button" disabled={paying || !open} onClick={handlePay} type="button">
-              {paying ? 'Processing...' : `Pay ${formatPrice(total)} via UPI`}
-            </button>
-            {!!error && <p className="form-error">{error}</p>}
           </div>
         )}
       </main>

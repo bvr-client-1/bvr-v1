@@ -8,7 +8,9 @@ import { assertRestaurantAcceptingOrders } from '../utils/restaurantStatus.js';
 import {
   cancelOrderWithRefund,
   assignDeliveryPartner,
+  closeActiveTableOrders,
   createDeliveryPerson,
+  createCounterTableOrder as createCounterTableOrderRecord,
   deactivateDeliveryPerson,
   createRazorpayOrder,
   fetchRazorpayPayment,
@@ -18,6 +20,7 @@ import {
   getKitchenOrders,
   getOrderById,
   getReadyCount,
+  generateDailyOrderCode,
   persistPaidOrder,
   updateOrderStatus,
   verifyPaymentSignature,
@@ -47,6 +50,8 @@ const assertValidOrderTrackingToken = (orderId, trackingToken) => {
 };
 
 const buildCanonicalOrderDraft = async (payload) => {
+  const resolvedOrderCode = String(payload.orderCode || '').trim() || (await generateDailyOrderCode());
+
   const itemIds = [...new Set((payload.items || []).map((item) => item.id))];
   const menuItems = await getMenuItemsByIds(itemIds);
   const menuItemMap = new Map(menuItems.map((item) => [String(item.id), item]));
@@ -90,8 +95,8 @@ const buildCanonicalOrderDraft = async (payload) => {
   }
 
   return {
-    receipt: payload.receipt,
-    orderCode: payload.orderCode,
+    receipt: payload.receipt || resolvedOrderCode,
+    orderCode: resolvedOrderCode,
     orderType: payload.orderType,
     customerName: String(payload.customerName || '').trim(),
     customerPhone: String(payload.customerPhone || '').trim(),
@@ -222,6 +227,37 @@ export const lookupOrderByPhone = async (req, res) => {
 export const fetchAdminOrders = async (_req, res) => {
   const [orders, deliveryPeople] = await Promise.all([getAllOrders(), getDeliveryPeople()]);
   res.json({ orders, deliveryPeople });
+};
+
+export const createCounterTableOrder = async (req, res) => {
+  const subtotal = Number(req.body.subtotal || 0);
+  const total = Number(req.body.total || subtotal);
+
+  const order = await createCounterTableOrderRecord({
+    customerName: req.body.customerName,
+    customerPhone: req.body.customerPhone,
+    tableNumber: req.body.tableNumber,
+    subtotal,
+    total,
+    items: req.body.items,
+  });
+
+  res.status(201).json({
+    success: true,
+    order,
+    orderId: order.id,
+    orderCode: order.order_code,
+  });
+};
+
+export const settleTableBill = async (req, res) => {
+  const closedCount = await closeActiveTableOrders(req.params.tableNumber);
+  res.json({
+    success: true,
+    tableNumber: String(req.params.tableNumber),
+    paymentMethod: req.body.paymentMethod,
+    closedCount,
+  });
 };
 
 export const patchOrderStatus = async (req, res) => {
