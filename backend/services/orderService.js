@@ -168,7 +168,9 @@ export const persistPaidOrder = async ({
       subtotal,
       delivery_charge: deliveryCharge,
       total,
-      status: 'CONFIRMED',
+      // Freshly paid customer orders should still enter the owner queue
+      // for explicit acceptance, KOT printing, or cancellation.
+      status: 'NEW',
       payment_status: 'PAID',
     })
     .select()

@@ -958,7 +958,7 @@ export default function OwnerPage() {
                     {!!getRefundNote(order) && <div className="reason-note">{getRefundNote(order)}</div>}
                     {!!order.rejection_reason && <div className="reason-note">Reason: {order.rejection_reason}</div>}
 
-                    {order.status === 'NEW' && (
+                    {['NEW', 'CONFIRMED'].includes(order.status) && (
                       <div className="action-row">
                         <button className="act-btn act-confirm" onClick={() => handleStatusUpdate(order.id, 'IN_KITCHEN')} type="button">
                           Accept & Send to Kitchen
