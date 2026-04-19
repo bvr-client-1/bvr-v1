@@ -10,7 +10,10 @@ export const requireAuth = (role) => (req, res, next) => {
   }
 
   try {
-    const payload = jwt.verify(token, env.jwtSecret);
+    const payload = jwt.verify(token, env.jwtSecret, {
+      issuer: env.jwtIssuer,
+      audience: env.jwtAudience,
+    });
     if (role && payload.role !== role) {
       return res.status(403).json({ message: 'Forbidden' });
     }

@@ -28,6 +28,13 @@ const apiRateLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+const orderLookupRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 app.disable('x-powered-by');
 app.set('trust proxy', 1);
 
@@ -57,6 +64,7 @@ app.get('/api/health', (_req, res) => {
 
 app.use('/api/auth', authRateLimiter, authRoutes);
 app.use('/api', apiRateLimiter);
+app.use('/api/orders/lookup', orderLookupRateLimiter);
 app.use('/api/restaurant', restaurantRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/menu', menuRoutes);

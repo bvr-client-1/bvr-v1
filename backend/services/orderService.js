@@ -209,6 +209,31 @@ export const createCounterTableOrder = async ({
 }) => {
   const fallbackName = String(customerName || '').trim() || `Walk-in Table ${tableNumber}`;
   const fallbackPhone = String(customerPhone || '').trim() || '0000000000';
+  const itemIds = [...new Set((items || []).map((item) => item.id))];
+  const menuItems = await getMenuItemsByIds(itemIds);
+  const menuItemMap = new Map(menuItems.map((item) => [String(item.id), item]));
+  const normalizedItems = (items || []).map((item) => {
+    const menuItem = menuItemMap.get(String(item.id));
+    if (!menuItem) {
+      const error = new Error(`Menu item not found: ${item.id}`);
+      error.statusCode = 400;
+      throw error;
+    }
+
+    if (!menuItem.is_available) {
+      const error = new Error(`${menuItem.name} is currently unavailable`);
+      error.statusCode = 409;
+      throw error;
+    }
+
+    return {
+      id: String(menuItem.id),
+      name: menuItem.name,
+      price: Number(menuItem.price),
+      quantity: Number(item.quantity),
+    };
+  });
+  const canonicalSubtotal = normalizedItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
   let order = null;
 
   for (let attempt = 0; attempt < 20; attempt += 1) {
@@ -221,9 +246,9 @@ export const createCounterTableOrder = async ({
         table_number: String(tableNumber),
         customer_name: fallbackName,
         customer_phone: fallbackPhone,
-        subtotal,
+        subtotal: canonicalSubtotal,
         delivery_charge: 0,
-        total,
+        total: canonicalSubtotal,
         status: 'IN_KITCHEN',
         payment_status: 'PENDING',
       })
@@ -247,7 +272,7 @@ export const createCounterTableOrder = async ({
   }
 
   const { error: itemsError } = await supabase.from('order_items').insert(
-    items.map((item) => ({
+    normalizedItems.map((item) => ({
       order_id: order.id,
       item_name: item.name,
       quantity: item.quantity,
@@ -283,10 +308,12 @@ export const getOrderById = async (orderId) => {
 };
 
 export const findLatestOrderByPhone = async (phone) => {
+  const minCreatedAt = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
   const { data, error } = await supabase
     .from('orders')
     .select('id, order_code')
     .eq('customer_phone', phone)
+    .gte('created_at', minCreatedAt)
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();

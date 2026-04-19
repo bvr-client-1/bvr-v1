@@ -175,7 +175,7 @@ export const verifyPayment = async (req, res) => {
     return res.status(400).json({ message: 'Payment order mismatch' });
   }
 
-  if (payment.status !== 'captured' && payment.status !== 'authorized') {
+  if (payment.status !== 'captured') {
     return res.status(400).json({ message: 'Payment is not captured yet' });
   }
 

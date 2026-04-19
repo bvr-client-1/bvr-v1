@@ -9,6 +9,14 @@ const compareSecret = async (value, configuredSecret) => {
   return value === configuredSecret;
 };
 
+const signAuthToken = (role) =>
+  jwt.sign({ role }, env.jwtSecret, {
+    expiresIn: '12h',
+    issuer: env.jwtIssuer,
+    audience: env.jwtAudience,
+    subject: role,
+  });
+
 export const ownerLogin = async ({ email, password }) => {
   const emailMatches = email.toLowerCase() === env.ownerEmail.toLowerCase();
   const passwordMatches = await compareSecret(password, env.ownerPasswordHash);
@@ -19,7 +27,7 @@ export const ownerLogin = async ({ email, password }) => {
     throw error;
   }
 
-  return jwt.sign({ role: 'owner' }, env.jwtSecret, { expiresIn: '12h' });
+  return signAuthToken('owner');
 };
 
 export const kitchenLogin = async ({ loginId, password }) => {
@@ -32,5 +40,5 @@ export const kitchenLogin = async ({ loginId, password }) => {
     throw error;
   }
 
-  return jwt.sign({ role: 'kitchen' }, env.jwtSecret, { expiresIn: '12h' });
+  return signAuthToken('kitchen');
 };

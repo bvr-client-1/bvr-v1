@@ -38,6 +38,9 @@ if (jwtSecret.length < 32) {
   throw new Error('JWT_SECRET must be at least 32 characters long');
 }
 
+const ownerPasswordHash = process.env.OWNER_PASSWORD_HASH;
+const kitchenPasswordHash = process.env.KITCHEN_PASSWORD_HASH;
+
 const frontendUrls = process.env.FRONTEND_URLS || process.env.FRONTEND_URL;
 const allowedOrigins = parseAllowedOrigins(frontendUrls);
 if (!allowedOrigins.length) {
@@ -76,6 +79,15 @@ if (!Number.isFinite(authRateLimitMax) || authRateLimitMax <= 0) {
   throw new Error('AUTH_RATE_LIMIT_MAX must be a positive number');
 }
 
+if ((process.env.NODE_ENV || 'development') === 'production') {
+  if (!ownerPasswordHash.startsWith('$2') || !kitchenPasswordHash.startsWith('$2')) {
+    throw new Error('Production credentials must use bcrypt hashes for owner and kitchen passwords');
+  }
+  if (!process.env.RAZORPAY_WEBHOOK_SECRET) {
+    throw new Error('RAZORPAY_WEBHOOK_SECRET is required in production');
+  }
+}
+
 export const env = {
   nodeEnv: process.env.NODE_ENV || 'development',
   isProduction: (process.env.NODE_ENV || 'development') === 'production',
@@ -89,9 +101,9 @@ export const env = {
   razorpayKeySecret: process.env.RAZORPAY_KEY_SECRET,
   jwtSecret,
   ownerEmail: process.env.OWNER_EMAIL,
-  ownerPasswordHash: process.env.OWNER_PASSWORD_HASH,
+  ownerPasswordHash,
   kitchenLoginId: process.env.KITCHEN_LOGIN_ID,
-  kitchenPasswordHash: process.env.KITCHEN_PASSWORD_HASH,
+  kitchenPasswordHash,
   restaurantLocation: {
     latitude: restaurantLatitude,
     longitude: restaurantLongitude,
@@ -108,4 +120,6 @@ export const env = {
   rateLimitMax: Number(process.env.RATE_LIMIT_MAX || 500),
   authRateLimitWindowMs,
   authRateLimitMax,
+  jwtIssuer: process.env.JWT_ISSUER || 'bvr-api',
+  jwtAudience: process.env.JWT_AUDIENCE || 'bvr-clients',
 };
