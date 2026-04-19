@@ -15,3 +15,7 @@ export const fetchAdminMenuItems = async (token) => {
 export const updateMenuAvailability = async (token, itemId, isAvailable) => {
   await authApi(token).patch(`/menu/admin/items/${itemId}`, { isAvailable });
 };
+
+export const updateMenuItemPrice = async (token, itemId, price) => {
+  await authApi(token).patch(`/menu/admin/items/${itemId}`, { price });
+};

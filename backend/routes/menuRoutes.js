@@ -17,8 +17,9 @@ router.patch(
   requireAuth('owner'),
   validate(
     Joi.object({
-      isAvailable: Joi.boolean().required(),
-    }),
+      isAvailable: Joi.boolean(),
+      price: Joi.number().min(0),
+    }).or('isAvailable', 'price'),
   ),
   patchMenuItemAvailability,
 );

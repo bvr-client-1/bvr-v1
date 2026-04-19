@@ -8,6 +8,56 @@ const throwSupabaseError = (error) => {
   }
 };
 
+const nonVegKeywords = [
+  'chicken',
+  'mutton',
+  'fish',
+  'prawn',
+  'prawns',
+  'crab',
+  'egg',
+  'eggs',
+  'meat',
+  'keema',
+  'lamb',
+  'seafood',
+];
+
+const vegKeywords = ['paneer', 'veg', 'vegetable', 'mushroom', 'gobi', 'aloo', 'dal'];
+
+const normalizeFoodType = (value) => {
+  if (value === true) return 'veg';
+  if (value === false) return 'non-veg';
+  if (typeof value !== 'string') return '';
+
+  const normalized = value.trim().toLowerCase();
+  if (['veg', 'vegetarian', 'v'].includes(normalized)) return 'veg';
+  if (['non-veg', 'non veg', 'nonvegetarian', 'non-vegetarian', 'nv'].includes(normalized)) return 'non-veg';
+  return '';
+};
+
+const resolveFoodType = (item) => {
+  const explicitType =
+    normalizeFoodType(item.food_type) ||
+    normalizeFoodType(item.diet_type) ||
+    normalizeFoodType(item.item_type) ||
+    normalizeFoodType(item.is_veg);
+
+  if (explicitType) {
+    return explicitType;
+  }
+
+  const searchableText = `${item.name || ''} ${item.description || ''} ${item.menu_categories?.name || ''}`.toLowerCase();
+  if (nonVegKeywords.some((keyword) => searchableText.includes(keyword))) {
+    return 'non-veg';
+  }
+  if (vegKeywords.some((keyword) => searchableText.includes(keyword))) {
+    return 'veg';
+  }
+
+  return 'veg';
+};
+
 export const getPublicMenu = async () => {
   const [{ data: categories, error: categoryError }, { data: items, error: itemError }] =
     await Promise.all([
@@ -28,6 +78,7 @@ export const getPublicMenu = async () => {
         price: item.price,
         imageUrl: item.image_url || null,
         category: item.menu_categories?.name || 'Other',
+        foodType: resolveFoodType(item),
       })) || [],
   };
 };
@@ -42,11 +93,22 @@ export const getMenuManagementItems = async () => {
   return data || [];
 };
 
-export const updateMenuItemAvailability = async (itemId, isAvailable) => {
-  const { error } = await supabase
-    .from('menu_items')
-    .update({ is_available: isAvailable })
-    .eq('id', itemId);
+export const updateMenuItemDetails = async (itemId, updates) => {
+  const payload = {};
+
+  if (typeof updates.isAvailable === 'boolean') {
+    payload.is_available = updates.isAvailable;
+  }
+
+  if (typeof updates.price === 'number') {
+    payload.price = updates.price;
+  }
+
+  if (!Object.keys(payload).length) {
+    return;
+  }
+
+  const { error } = await supabase.from('menu_items').update(payload).eq('id', itemId);
 
   throwSupabaseError(error);
 };

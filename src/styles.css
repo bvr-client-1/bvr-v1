@@ -121,6 +121,8 @@ h1, h2, h3, h4 { font-family: 'Playfair Display', serif; margin: 0; }
 .status-toggle-btn.resume { background: linear-gradient(135deg, #d4a017, #f5c842); color: #1a0e00; box-shadow: 0 12px 28px rgba(212,160,23,.2); }
 .dashboard-order-card, .revenue-card, .availability-bar { background: linear-gradient(180deg, rgba(32,16,0,.96), rgba(24,11,0,.96)); border: 1px solid rgba(212,160,23,.2); box-shadow: 0 18px 40px rgba(0,0,0,.18); }
 .availability-bar { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 18px; margin-bottom: 12px; border-radius: 16px; color: #e5c89a; }
+.menu-admin-tools { margin-bottom: 12px; }
+.menu-admin-search { max-width: 960px; }
 .review-summary-bar { margin-top: 18px; padding: 18px; border-radius: 20px; background: rgba(255,255,255,.03); border: 1px solid rgba(212,160,23,.15); }
 .review-brand h4 { color: #f8ddb0; font-size: 1.1rem; }
 .review-brand p, .review-score p { margin: 4px 0 0; color: #b88a43; font-size: .85rem; }
@@ -161,6 +163,9 @@ h1, h2, h3, h4 { font-family: 'Playfair Display', serif; margin: 0; }
 .selected-filter-chip, .clear-filter-btn { border: 1px solid rgba(212,160,23,.22); background: rgba(212,160,23,.08); color: var(--bright-gold); border-radius: 999px; cursor: pointer; }
 .selected-filter-chip { min-height: 34px; padding: 0 14px; font-size: .82rem; }
 .clear-filter-btn { min-height: 32px; padding: 0 12px; font-size: .78rem; }
+.food-filter-wrap { max-width: 960px; margin: 0 auto; padding: 10px 16px 2px; display: flex; gap: 10px; flex-wrap: wrap; }
+.food-filter-btn { min-height: 36px; padding: 0 16px; border-radius: 999px; border: 1px solid rgba(212,160,23,.22); background: rgba(212,160,23,.08); color: #e5c89a; font-size: .82rem; font-weight: 600; cursor: pointer; }
+.food-filter-btn.active { background: linear-gradient(135deg, #d4a017, #f5c842); color: #0a0500; border-color: transparent; }
 .search-wrap, .menu-grid, .section-header, .cart-main, .status-main, .dashboard-main { max-width: 960px; margin: 0 auto; }
 .search-wrap { padding: 12px 16px 4px; }
 .search-inner { position: relative; }
@@ -288,6 +293,15 @@ h1, h2, h3, h4 { font-family: 'Playfair Display', serif; margin: 0; }
 .menu-item-row { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid #d4a01715; }
 .menu-item-body { flex: 1; }
 .menu-item-side { display: flex; align-items: center; gap: 10px; }
+.menu-item-side-admin { align-items: center; gap: 14px; }
+.menu-price-editor { display: grid; gap: 6px; min-width: 130px; }
+.menu-price-label { color: #e5c89a; font-size: .72rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.menu-price-input-row { display: flex; align-items: center; min-height: 40px; border: 1px solid rgba(212,160,23,.22); border-radius: 10px; background: rgba(255,255,255,.03); overflow: hidden; }
+.menu-price-currency { padding: 0 10px; color: var(--bright-gold); font-weight: 700; }
+.menu-price-input { width: 100%; min-height: 40px; border: 0; background: transparent; color: var(--text); padding: 0 10px 0 0; font: inherit; }
+.menu-price-input:focus { outline: none; }
+.menu-price-save-btn { min-height: 34px; border: 1px solid rgba(212,160,23,.22); border-radius: 999px; background: rgba(212,160,23,.1); color: var(--bright-gold); font-size: .76rem; font-weight: 700; cursor: pointer; }
+.menu-price-save-btn:disabled { opacity: .7; cursor: wait; }
 .login-overlay, .password-overlay, .reject-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.9); z-index: 200; display: flex; align-items: center; justify-content: center; padding: 20px; }
 .auth-screen { position: relative; min-height: 100vh; background: #0a0500; }
 .reject-overlay { background: rgba(0,0,0,.75); }
@@ -340,4 +354,6 @@ h1, h2, h3, h4 { font-family: 'Playfair Display', serif; margin: 0; }
   .status-control-card { flex-direction: column; align-items: flex-start; }
   .availability-bar { flex-direction: column; align-items: flex-start; }
   .terms-meta-row, .terms-action-row { flex-direction: column; align-items: flex-start; }
+  .menu-item-side-admin { width: 100%; align-items: stretch; justify-content: space-between; }
+  .menu-price-editor { flex: 1; min-width: 0; }
 }

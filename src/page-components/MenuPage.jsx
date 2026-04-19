@@ -22,6 +22,7 @@ export default function MenuPage() {
   const [categories, setCategories] = useState([]);
   const [menuItems, setMenuItems] = useState([]);
   const [selectedCategories, setSelectedCategories] = useState([]);
+  const [foodFilter, setFoodFilter] = useState('all');
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
@@ -56,10 +57,14 @@ export default function MenuPage() {
       items = items.filter((item) => item.name.toLowerCase().includes(query));
     }
 
-    return items;
-  }, [menuItems, searchQuery, selectedCategories]);
+    if (foodFilter !== 'all') {
+      items = items.filter((item) => item.foodType === foodFilter);
+    }
 
-  const showSectionedLayout = !selectedCategories.length && !searchQuery.trim();
+    return items;
+  }, [foodFilter, menuItems, searchQuery, selectedCategories]);
+
+  const showSectionedLayout = !selectedCategories.length && !searchQuery.trim() && foodFilter === 'all';
   const getQty = (id) => cart.find((item) => item.id === id)?.quantity || 0;
 
   const updateCartItem = (menuItem, delta) => {
@@ -258,6 +263,23 @@ export default function MenuPage() {
               </div>
             </div>
           )}
+
+          <div className="food-filter-wrap">
+            {[
+              { value: 'all', label: 'All Items' },
+              { value: 'veg', label: 'Veg' },
+              { value: 'non-veg', label: 'Non-Veg' },
+            ].map((option) => (
+              <button
+                className={`food-filter-btn ${foodFilter === option.value ? 'active' : ''}`}
+                key={option.value}
+                onClick={() => setFoodFilter(option.value)}
+                type="button"
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
 
           <div className="search-wrap">
             <div className="search-inner">

@@ -5,7 +5,7 @@ import { useAppContext } from '../context/AppContext.jsx';
 import { useToast } from '../context/ToastContext.jsx';
 import { useInterval } from '../hooks/useInterval.js';
 import { ownerLogin } from '../services/authService.js';
-import { fetchAdminMenuItems, updateMenuAvailability } from '../services/menuService.js';
+import { fetchAdminMenuItems, updateMenuAvailability, updateMenuItemPrice } from '../services/menuService.js';
 import {
   addDeliveryPerson,
   assignDeliveryPartner,
@@ -34,6 +34,7 @@ const statusBadgeMap = {
 
 const paymentMethods = ['CASH', 'CARD', 'UPI'];
 const tableOptions = Array.from({ length: 16 }, (_, index) => String(index + 1));
+const buildPriceDrafts = (items) => Object.fromEntries(items.map((item) => [item.id, String(item.price ?? '')]));
 
 const getRefundNote = (order) => {
   if (order.payment_status === 'REFUNDED' || order.refund_status === 'processed') {
@@ -128,6 +129,9 @@ export default function OwnerPage() {
   const [currentTab, setCurrentTab] = useState('orders');
   const [currentFilter, setCurrentFilter] = useState('all');
   const [menuFilter, setMenuFilter] = useState('all');
+  const [menuSearchQuery, setMenuSearchQuery] = useState('');
+  const [priceDrafts, setPriceDrafts] = useState({});
+  const [savingMenuItemId, setSavingMenuItemId] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -193,6 +197,7 @@ export default function OwnerPage() {
       setLoadingMenu(true);
       const items = await fetchAdminMenuItems(ownerToken);
       setManagedItems(items);
+      setPriceDrafts(buildPriceDrafts(items));
     } catch (error) {
       if (!handleAuthFailure(error)) {
         showToast('Failed to load menu', 'error');
@@ -264,7 +269,17 @@ export default function OwnerPage() {
   }, [activeTableGroups.length, deliveryOrders, orders]);
 
   const menuCategories = [...new Set(managedItems.map((item) => item.menu_categories?.name).filter(Boolean))];
-  const visibleMenuItems = menuFilter === 'all' ? managedItems : managedItems.filter((item) => item.menu_categories?.name === menuFilter);
+  const visibleMenuItems = useMemo(() => {
+    const normalizedQuery = menuSearchQuery.trim().toLowerCase();
+    return managedItems.filter((item) => {
+      const categoryMatch = menuFilter === 'all' || item.menu_categories?.name === menuFilter;
+      const searchMatch =
+        !normalizedQuery ||
+        item.name.toLowerCase().includes(normalizedQuery) ||
+        item.menu_categories?.name?.toLowerCase().includes(normalizedQuery);
+      return categoryMatch && searchMatch;
+    });
+  }, [managedItems, menuFilter, menuSearchQuery]);
   const builderItems = useMemo(() => {
     const availableItems = managedItems.filter((item) => item.is_available);
     return availableItems.filter((item) => {
@@ -413,6 +428,49 @@ export default function OwnerPage() {
       if (!handleAuthFailure(error)) {
         showToast('Update failed', 'error');
       }
+    }
+  };
+
+  const handlePriceDraftChange = (itemId, value) => {
+    if (/^\d*(\.\d{0,2})?$/.test(value)) {
+      setPriceDrafts((previous) => ({
+        ...previous,
+        [itemId]: value,
+      }));
+    }
+  };
+
+  const handleSavePrice = async (item) => {
+    const draftValue = String(priceDrafts[item.id] ?? '').trim();
+    const nextPrice = Number(draftValue);
+
+    if (!draftValue || Number.isNaN(nextPrice) || nextPrice < 0) {
+      showToast('Enter a valid price before saving.', 'error');
+      return;
+    }
+
+    if (Number(item.price) === nextPrice) {
+      showToast('Price is already up to date.', 'info');
+      return;
+    }
+
+    try {
+      setSavingMenuItemId(item.id);
+      await updateMenuItemPrice(ownerToken, item.id, nextPrice);
+      setManagedItems((previous) =>
+        previous.map((menuItem) => (menuItem.id === item.id ? { ...menuItem, price: nextPrice } : menuItem)),
+      );
+      setPriceDrafts((previous) => ({
+        ...previous,
+        [item.id]: String(nextPrice),
+      }));
+      showToast(`Updated price for ${item.name}.`, 'success');
+    } catch (error) {
+      if (!handleAuthFailure(error)) {
+        showToast(error.response?.data?.message || 'Could not update price', 'error');
+      }
+    } finally {
+      setSavingMenuItemId('');
     }
   };
 
@@ -963,6 +1021,21 @@ export default function OwnerPage() {
               <span>
                 Unavailable: <strong>{managedItems.filter((item) => !item.is_available).length}</strong>
               </span>
+              <span>
+                Showing: <strong>{visibleMenuItems.length}</strong>
+              </span>
+            </div>
+
+            <div className="menu-admin-tools">
+              <div className="menu-admin-search">
+                <input
+                  className="input-field"
+                  onChange={(event) => setMenuSearchQuery(event.target.value)}
+                  placeholder="Search menu item or category"
+                  type="text"
+                  value={menuSearchQuery}
+                />
+              </div>
             </div>
 
             <div className="filter-wrap">
@@ -977,33 +1050,59 @@ export default function OwnerPage() {
             </div>
 
             <div className="card">
-              {loadingMenu && !managedItems.length
-                ? Array.from({ length: 5 }).map((_, index) => (
-                    <div className="menu-item-row" key={`menu-skeleton-${index}`}>
-                      <div className="menu-item-thumb skeleton-img" />
-                      <div className="menu-item-body">
-                        <div className="skeleton-line wide" />
-                        <div className="skeleton-line mid" />
-                      </div>
+              {loadingMenu && !managedItems.length ? (
+                Array.from({ length: 5 }).map((_, index) => (
+                  <div className="menu-item-row" key={`menu-skeleton-${index}`}>
+                    <div className="menu-item-thumb skeleton-img" />
+                    <div className="menu-item-body">
+                      <div className="skeleton-line wide" />
+                      <div className="skeleton-line mid" />
                     </div>
-                  ))
-                : visibleMenuItems.map((item) => (
-                    <div className="menu-item-row" key={item.id}>
-                      <div className="menu-item-thumb">{item.image_url ? <img alt={item.name} src={item.image_url} /> : '🍽️'}</div>
-                      <div className="menu-item-body">
-                        <div className="menu-item-name">{item.name}</div>
-                        <div className="muted-small">{item.menu_categories?.name || 'Other'}</div>
-                        <div className={item.is_available ? 'available-text' : 'unavailable-text'}>● {item.is_available ? 'Available' : 'Unavailable'}</div>
-                      </div>
-                      <div className="menu-item-side">
-                        <span className="gold-text strong">{formatPrice(item.price)}</span>
-                        <label className="toggle-switch">
-                          <input checked={item.is_available} onChange={(event) => handleToggleMenu(item.id, event.target.checked)} type="checkbox" />
-                          <span className="toggle-slider" />
+                  </div>
+                ))
+              ) : visibleMenuItems.length ? (
+                visibleMenuItems.map((item) => (
+                  <div className="menu-item-row" key={item.id}>
+                    <div className="menu-item-thumb">{item.image_url ? <img alt={item.name} src={item.image_url} /> : '🍽️'}</div>
+                    <div className="menu-item-body">
+                      <div className="menu-item-name">{item.name}</div>
+                      <div className="muted-small">{item.menu_categories?.name || 'Other'}</div>
+                      <div className={item.is_available ? 'available-text' : 'unavailable-text'}>● {item.is_available ? 'Available' : 'Unavailable'}</div>
+                    </div>
+                    <div className="menu-item-side menu-item-side-admin">
+                      <div className="menu-price-editor">
+                        <label className="menu-price-label" htmlFor={`menu-price-${item.id}`}>
+                          Price
                         </label>
+                        <div className="menu-price-input-row">
+                          <span className="menu-price-currency">₹</span>
+                          <input
+                            className="menu-price-input"
+                            id={`menu-price-${item.id}`}
+                            onChange={(event) => handlePriceDraftChange(item.id, event.target.value)}
+                            type="text"
+                            value={priceDrafts[item.id] ?? ''}
+                          />
+                        </div>
+                        <button
+                          className="menu-price-save-btn"
+                          disabled={savingMenuItemId === item.id}
+                          onClick={() => handleSavePrice(item)}
+                          type="button"
+                        >
+                          {savingMenuItemId === item.id ? 'Saving...' : 'Save Price'}
+                        </button>
                       </div>
+                      <label className="toggle-switch">
+                        <input checked={item.is_available} onChange={(event) => handleToggleMenu(item.id, event.target.checked)} type="checkbox" />
+                        <span className="toggle-slider" />
+                      </label>
                     </div>
-                  ))}
+                  </div>
+                ))
+              ) : (
+                <div className="muted-small">No menu items match this category or search.</div>
+              )}
             </div>
           </>
         )}
