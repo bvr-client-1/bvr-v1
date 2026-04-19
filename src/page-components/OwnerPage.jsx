@@ -243,7 +243,10 @@ export default function OwnerPage() {
     () =>
       groupTableOrders(
         orders.filter(
-          (order) => order.type === 'dine-in' && order.status !== 'CANCELLED' && order.payment_status !== 'PAID',
+          (order) =>
+            order.type === 'dine-in' &&
+            !['CANCELLED', 'COMPLETED'].includes(order.status) &&
+            order.payment_status !== 'PAID',
         ),
       ),
     [orders],

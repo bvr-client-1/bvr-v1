@@ -24,12 +24,19 @@ const stripMissingOptionalOrderColumn = (payload, error) => {
   const nextPayload = { ...payload };
   let changed = false;
 
-  for (const column of ['rejection_reason', 'cook_started_at']) {
+  for (const column of ['rejection_reason', 'cook_started_at', 'payment_status']) {
     const missingColumn =
       message.includes(`orders.${column}`) ||
       message.includes(`'${column}' column of 'orders'`) ||
       message.includes(`column "${column}"`) ||
-      message.includes(`column '${column}'`);
+      message.includes(`column '${column}'`) ||
+      message.includes(`"${column}"`) ||
+      message.includes(`'${column}'`) ||
+      (column === 'payment_status' &&
+        (message.toLowerCase().includes('payment_status') ||
+          message.toLowerCase().includes('check constraint') ||
+          message.toLowerCase().includes('violates check constraint') ||
+          message.toLowerCase().includes('invalid input value')));
 
     if (Object.prototype.hasOwnProperty.call(nextPayload, column) && missingColumn) {
       delete nextPayload[column];
@@ -38,6 +45,25 @@ const stripMissingOptionalOrderColumn = (payload, error) => {
   }
 
   return changed ? nextPayload : null;
+};
+
+const insertOrderRecord = async (payload) => {
+  let nextPayload = { ...payload };
+
+  while (true) {
+    const { data, error } = await supabase.from('orders').insert(nextPayload).select().single();
+    if (!error) {
+      return data;
+    }
+
+    const fallbackPayload = stripMissingOptionalOrderColumn(nextPayload, error);
+    if (fallbackPayload) {
+      nextPayload = fallbackPayload;
+      continue;
+    }
+
+    raise(error);
+  }
 };
 
 const updateOrderRecord = async (orderId, payload) => {
@@ -149,34 +175,28 @@ export const persistPaidOrder = async ({
     return attachPaymentMetadata(existingOrder);
   }
 
-  const { data: order, error: orderError } = await supabase
-    .from('orders')
-    .insert({
-      order_code: orderCode,
-      type: orderType,
-      table_number: orderType === 'dine-in' ? tableNumber : null,
-      customer_name: customerName,
-      customer_phone: customerPhone,
-      delivery_address:
-        orderType === 'delivery'
-          ? serializeDeliveryAddress({
-              address: deliveryAddress,
-              latitude: deliveryLatitude,
-              longitude: deliveryLongitude,
-            })
-          : null,
-      subtotal,
-      delivery_charge: deliveryCharge,
-      total,
-      // Freshly paid customer orders should still enter the owner queue
-      // for explicit acceptance, KOT printing, or cancellation.
-      status: 'NEW',
-      payment_status: 'PAID',
-    })
-    .select()
-    .single();
-
-  raise(orderError);
+  const order = await insertOrderRecord({
+    order_code: orderCode,
+    type: orderType,
+    table_number: orderType === 'dine-in' ? tableNumber : null,
+    customer_name: customerName,
+    customer_phone: customerPhone,
+    delivery_address:
+      orderType === 'delivery'
+        ? serializeDeliveryAddress({
+            address: deliveryAddress,
+            latitude: deliveryLatitude,
+            longitude: deliveryLongitude,
+          })
+        : null,
+    subtotal,
+    delivery_charge: deliveryCharge,
+    total,
+    // Freshly paid customer orders should still enter the owner queue
+    // for explicit acceptance, KOT printing, or cancellation.
+    status: 'NEW',
+    payment_status: 'PAID',
+  });
 
   const { error: itemsError } = await supabase.from('order_items').insert(
     items.map((item) => ({
@@ -241,9 +261,8 @@ export const createCounterTableOrder = async ({
 
   for (let attempt = 0; attempt < 20; attempt += 1) {
     const orderCode = await generateDailyOrderCode(attempt);
-    const { data: nextOrder, error: orderError } = await supabase
-      .from('orders')
-      .insert({
+    try {
+      order = await insertOrderRecord({
         order_code: orderCode,
         type: 'dine-in',
         table_number: normalizedTableNumber,
@@ -254,17 +273,12 @@ export const createCounterTableOrder = async ({
         total: canonicalSubtotal,
         status: 'IN_KITCHEN',
         payment_status: 'PENDING',
-      })
-      .select()
-      .single();
-
-    if (!orderError) {
-      order = nextOrder;
+      });
       break;
-    }
-
-    if (!isDuplicateOrderCodeError(orderError)) {
-      raise(orderError);
+    } catch (orderError) {
+      if (!isDuplicateOrderCodeError(orderError)) {
+        throw orderError;
+      }
     }
   }
 
