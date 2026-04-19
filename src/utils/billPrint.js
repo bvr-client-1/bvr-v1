@@ -250,12 +250,65 @@ export const buildBillMarkup = (order, qrUrl = '', copyLabel = 'ORIGINAL COPY') 
   `;
 };
 
-export const printBillSlip = (order) => {
+const loadQrAsDataUrl = async () => {
+  if (typeof window === 'undefined') {
+    return '';
+  }
+
+  try {
+    const qrAssetUrl = `${window.location.origin}/qrcode_bangaruvakili.com.png`;
+    const response = await fetch(qrAssetUrl, { cache: 'no-store' });
+    if (!response.ok) {
+      return qrAssetUrl;
+    }
+
+    const blob = await response.blob();
+    return await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(typeof reader.result === 'string' ? reader.result : qrAssetUrl);
+      reader.onerror = () => reject(new Error('Could not read QR image'));
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return `${window.location.origin}/qrcode_bangaruvakili.com.png`;
+  }
+};
+
+const waitForPrintAssets = (printWindow) =>
+  new Promise((resolve) => {
+    const doc = printWindow.document;
+    const images = Array.from(doc.images || []);
+
+    if (!images.length) {
+      window.setTimeout(resolve, 120);
+      return;
+    }
+
+    let pending = images.length;
+    const finish = () => {
+      pending -= 1;
+      if (pending <= 0) {
+        window.setTimeout(resolve, 120);
+      }
+    };
+
+    images.forEach((image) => {
+      if (image.complete) {
+        finish();
+        return;
+      }
+
+      image.addEventListener('load', finish, { once: true });
+      image.addEventListener('error', finish, { once: true });
+    });
+  });
+
+export const printBillSlip = async (order) => {
   if (typeof window === 'undefined' || !order) {
     return false;
   }
 
-  const qrUrl = `${window.location.origin}/qrcode_bangaruvakili.com.png`;
+  const qrUrl = await loadQrAsDataUrl();
   const copyLabel = getBillCopyLabel(order.order_code);
   const printWindow = window.open('', '_blank', 'width=420,height=820');
   if (!printWindow) {
@@ -267,9 +320,8 @@ export const printBillSlip = (order) => {
   printWindow.document.close();
   printWindow.focus();
 
-  window.setTimeout(() => {
-    printWindow.print();
-  }, 300);
+  await waitForPrintAssets(printWindow);
+  printWindow.print();
 
   return true;
 };
