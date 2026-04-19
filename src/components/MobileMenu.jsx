@@ -11,10 +11,10 @@ export function MobileMenu({ open, onClose }) {
           ×
         </button>
         <div className="mobile-menu-links">
-          <Link onClick={onClose} href="/">
+          <Link href="/" onClick={onClose}>
             Home
           </Link>
-          <Link onClick={onClose} href="/menu">
+          <Link href="/menu" onClick={onClose}>
             Menu
           </Link>
           <a href="#about" onClick={onClose}>
@@ -29,10 +29,10 @@ export function MobileMenu({ open, onClose }) {
           <a href="#contact" onClick={onClose}>
             Contact
           </a>
-          <Link onClick={onClose} href="/status">
+          <Link href="/status" onClick={onClose}>
             Track Order
           </Link>
-          <Link onClick={onClose} href="/terms">
+          <Link href="/terms" onClick={onClose}>
             Terms
           </Link>
         </div>

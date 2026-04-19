@@ -79,7 +79,7 @@ export default function HomePage() {
   const { showToast } = useToast();
 
   useEffect(() => {
-    const handleResize = () => setDesktop(window.innerWidth >= 768);
+    const handleResize = () => setDesktop(window.innerWidth >= 1100);
     handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
@@ -191,12 +191,14 @@ export default function HomePage() {
         </p>
         <p className="fade-up fade-delay-2 hero-est">Est. 2025</p>
         <p className="fade-up fade-delay-2 hero-copy">Welcome to our family. Experience the authentic flavors of South India.</p>
-        <Link className="btn-gold fade-up fade-delay-3" href="/menu">
-          Start Ordering
-        </Link>
-        <Link className="review-link fade-up fade-delay-3" href="/status" style={{ marginTop: 12 }}>
-          Track Existing Order
-        </Link>
+        <div className="hero-actions fade-up fade-delay-3">
+          <Link className="btn-gold" href="/menu">
+            Start Ordering
+          </Link>
+          <Link className="review-link" href="/status">
+            Track Existing Order
+          </Link>
+        </div>
         <p className="fade-up fade-delay-4 hero-note">Scan QR at your table to order - Also available on Pickzy</p>
       </section>
 
