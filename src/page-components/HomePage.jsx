@@ -61,7 +61,6 @@ const faqItems = [
 ];
 
 export default function HomePage() {
-  const { orderHistory } = useAppContext();
   const [open, setOpen] = useState(false);
   const [desktop, setDesktop] = useState(false);
   const [openFaq, setOpenFaq] = useState(0);
@@ -166,7 +165,7 @@ export default function HomePage() {
               <a href="#faq">FAQ</a>
               <a href="#feedback">Feedback</a>
               <a href="#contact">Contact</a>
-              {!!orderHistory.length && <Link href="/status">Track Order</Link>}
+              <Link href="/status">Track Order</Link>
               <Link href="/terms">Terms</Link>
             </div>
           ) : (
@@ -195,11 +194,9 @@ export default function HomePage() {
         <Link className="btn-gold fade-up fade-delay-3" href="/menu">
           Start Ordering
         </Link>
-        {!!orderHistory.length && (
-          <Link className="review-link fade-up fade-delay-3" href="/status" style={{ marginTop: 12 }}>
-            Track Existing Order
-          </Link>
-        )}
+        <Link className="review-link fade-up fade-delay-3" href="/status" style={{ marginTop: 12 }}>
+          Track Existing Order
+        </Link>
         <p className="fade-up fade-delay-4 hero-note">Scan QR at your table to order - Also available on Pickzy</p>
       </section>
 
