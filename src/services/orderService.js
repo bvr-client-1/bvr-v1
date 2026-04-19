@@ -50,7 +50,12 @@ export const createCounterTableOrder = async (token, payload) => {
   return data;
 };
 
-export const settleTableBill = async (token, tableNumber, paymentMethod) => {
-  const { data } = await authApi(token).patch(`/orders/admin/dine-in/table/${tableNumber}/close`, { paymentMethod });
+export const settleTableBill = async (token, payload) => {
+  const { data } = await authApi(token).patch('/orders/admin/dine-in/group/close', payload);
+  return data;
+};
+
+export const removeTableOrderItem = async (token, orderId, payload) => {
+  const { data } = await authApi(token).patch(`/orders/admin/dine-in/${orderId}/items`, payload);
   return data;
 };

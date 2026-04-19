@@ -17,10 +17,24 @@ const escapeHtml = (value) =>
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
 
+const getTakeawayToken = (order) => {
+  const marker = String(order.delivery_address || '');
+  if (marker.startsWith('TAKEAWAY::')) {
+    return marker.slice('TAKEAWAY::'.length) || 'Walk-In';
+  }
+
+  return '';
+};
+
 const getOrderMetaLine = (order) => {
   if (order.type === 'delivery') {
     const deliveryMeta = parseDeliveryAddress(order.delivery_address || '');
     return deliveryMeta.address || 'Delivery order';
+  }
+
+  const takeawayToken = getTakeawayToken(order);
+  if (takeawayToken) {
+    return order.customer_name || `Takeaway Token ${takeawayToken}`;
   }
 
   return order.customer_name || 'Dine-in order';
@@ -60,7 +74,32 @@ const formatReceiptDate = (isoString) => {
   }
 };
 
-export const buildBillMarkup = (order, qrUrl = '', copyLabel = 'ORIGINAL COPY') => {
+const getBillHeading = (variant) => {
+  if (variant === 'demo') return 'DEMO CHECK BILL';
+  if (variant === 'counter') return 'COUNTER COPY';
+  return 'CASH / BILL';
+};
+
+const getCopyLabel = (orderCode, variant, explicitCopyLabel) => {
+  if (explicitCopyLabel) return explicitCopyLabel;
+  if (variant === 'demo') return 'DEMO CHECK COPY';
+  if (variant === 'counter') return 'COUNTER RECORD COPY';
+  return getBillCopyLabel(orderCode);
+};
+
+export const buildBillMarkup = (order, qrUrl = '', options = {}) => {
+  const {
+    variant = 'customer',
+    copyLabel: explicitCopyLabel = '',
+    tipAmount = 0,
+    paymentMethod = order.payment_method || 'Pending',
+    showQr = variant !== 'counter',
+  } = options;
+  const copyLabel = getCopyLabel(order.order_code, variant, explicitCopyLabel);
+  const takeawayToken = getTakeawayToken(order);
+  const numericTip = Number(tipAmount || 0);
+  const orderTotal = Number(order.total || 0);
+  const counterGrandTotal = orderTotal + numericTip;
   const itemsMarkup = (order.order_items || [])
     .map((item) => {
       const unitPrice = Number(item.price_at_purchase ?? item.price ?? 0);
@@ -198,10 +237,16 @@ export const buildBillMarkup = (order, qrUrl = '', copyLabel = 'ORIGINAL COPY') 
         <div class="center subhead">GSTIN: ${escapeHtml(RECEIPT_DETAILS.gstin)}</div>
         <div class="center subhead">CELL: ${escapeHtml(RECEIPT_DETAILS.phone)}</div>
         <div class="divider"></div>
-        <div class="center title">CASH / BILL</div>
+        <div class="center title">${escapeHtml(getBillHeading(variant))}</div>
         <div class="divider"></div>
         <div class="row">
-          <span>${order.type === 'delivery' ? 'DELIVERY' : `TABLE ${escapeHtml(order.table_number || '000')}`}</span>
+          <span>${
+            order.type === 'delivery'
+              ? 'DELIVERY'
+              : takeawayToken
+                ? `TAKEAWAY ${escapeHtml(takeawayToken)}`
+                : `TABLE ${escapeHtml(order.table_number || '000')}`
+          }</span>
           <span>CUR 01</span>
           <span>WAITER 00</span>
         </div>
@@ -227,13 +272,15 @@ export const buildBillMarkup = (order, qrUrl = '', copyLabel = 'ORIGINAL COPY') 
         </table>
         <div class="summary">
           <div class="summary-line"><span>ITM</span><span>${escapeHtml(String((order.order_items || []).reduce((sum, item) => sum + Number(item.quantity || 0), 0)))}</span></div>
-          <div class="summary-line total"><span>TOTAL</span><span>${escapeHtml(formatPrice(order.total || 0))}</span></div>
-          <div class="summary-line"><span>PAYMENT</span><span>${escapeHtml(order.payment_method || 'Online')}</span></div>
+          <div class="summary-line total"><span>TOTAL</span><span>${escapeHtml(formatPrice(orderTotal))}</span></div>
+          ${variant === 'counter' ? `<div class="summary-line"><span>TIP</span><span>${escapeHtml(formatPrice(numericTip))}</span></div>` : ''}
+          ${variant === 'counter' ? `<div class="summary-line total"><span>COUNTER TOTAL</span><span>${escapeHtml(formatPrice(counterGrandTotal))}</span></div>` : ''}
+          <div class="summary-line"><span>PAYMENT</span><span>${escapeHtml(paymentMethod)}</span></div>
           <div class="summary-line"><span>TIME</span><span>${escapeHtml(formatTime(order.created_at))}</span></div>
         </div>
         <div class="divider"></div>
         ${
-          qrUrl
+          qrUrl && showQr
             ? `
               <div class="qr-block">
                 <div class="qr-copy">ORDER WITH US AGAIN</div>
@@ -303,20 +350,19 @@ const waitForPrintAssets = (printWindow) =>
     });
   });
 
-export const printBillSlip = async (order) => {
+export const printBillSlip = async (order, options = {}) => {
   if (typeof window === 'undefined' || !order) {
     return false;
   }
 
-  const qrUrl = await loadQrAsDataUrl();
-  const copyLabel = getBillCopyLabel(order.order_code);
+  const qrUrl = options.showQr === false ? '' : await loadQrAsDataUrl();
   const printWindow = window.open('', '_blank', 'width=420,height=820');
   if (!printWindow) {
     return false;
   }
 
   printWindow.document.open();
-  printWindow.document.write(buildBillMarkup(order, qrUrl, copyLabel));
+  printWindow.document.write(buildBillMarkup(order, qrUrl, options));
   printWindow.document.close();
   printWindow.focus();
 

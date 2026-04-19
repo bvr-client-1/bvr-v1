@@ -11,6 +11,7 @@ import {
   assignDeliveryPartner,
   createCounterTableOrder,
   fetchAdminOrders,
+  removeTableOrderItem,
   removeDeliveryPerson,
   settleTableBill,
   updateAdminOrderStatus,
@@ -34,7 +35,42 @@ const statusBadgeMap = {
 
 const paymentMethods = ['CASH', 'CARD', 'UPI'];
 const tableOptions = Array.from({ length: 16 }, (_, index) => String(index + 1));
+const serviceModeOptions = [
+  { value: 'TABLE', label: 'Table Service' },
+  { value: 'TAKEAWAY', label: 'Takeaway' },
+];
 const buildPriceDrafts = (items) => Object.fromEntries(items.map((item) => [item.id, String(item.price ?? '')]));
+const formatHistoryDate = (date) =>
+  new Intl.DateTimeFormat('en-IN', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  }).format(date);
+const toDateKey = (value) => {
+  const date = value instanceof Date ? value : new Date(value);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+const getTodayDateKey = () => toDateKey(new Date());
+const getTakeawayToken = (order) => {
+  const marker = String(order.delivery_address || '');
+  return marker.startsWith('TAKEAWAY::') ? marker.slice('TAKEAWAY::'.length) || 'Walk-In' : '';
+};
+const parseSettlementMeta = (reason) => {
+  const prefix = 'SETTLEMENT_META::';
+  if (!String(reason || '').startsWith(prefix)) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(String(reason).slice(prefix.length));
+  } catch {
+    return null;
+  }
+};
 
 const getRefundNote = (order) => {
   if (order.payment_status === 'REFUNDED' || order.refund_status === 'processed') {
@@ -56,10 +92,18 @@ const groupTableOrders = (orders) => {
   const groups = new Map();
 
   for (const order of orders) {
-    const tableNumber = String(order.table_number || 'Unknown');
-    if (!groups.has(tableNumber)) {
-      groups.set(tableNumber, {
-        tableNumber,
+    const takeawayToken = getTakeawayToken(order);
+    const serviceMode = takeawayToken ? 'TAKEAWAY' : 'TABLE';
+    const groupKey = serviceMode === 'TAKEAWAY' ? `TAKEAWAY:${takeawayToken}` : `TABLE:${String(order.table_number || 'Unknown')}`;
+    const displayLabel = serviceMode === 'TAKEAWAY' ? `Takeaway ${takeawayToken}` : `Table ${order.table_number}`;
+
+    if (!groups.has(groupKey)) {
+      groups.set(groupKey, {
+        groupKey,
+        serviceMode,
+        displayLabel,
+        takeawayToken: takeawayToken || '',
+        tableNumber: serviceMode === 'TABLE' ? String(order.table_number || 'Unknown') : '',
         orders: [],
         total: 0,
         itemCount: 0,
@@ -69,7 +113,7 @@ const groupTableOrders = (orders) => {
       });
     }
 
-    const group = groups.get(tableNumber);
+    const group = groups.get(groupKey);
     group.orders.push(order);
     group.total += Number(order.total || 0);
     group.itemCount += (order.order_items || []).reduce((sum, item) => sum + Number(item.quantity || 0), 0);
@@ -84,10 +128,21 @@ const groupTableOrders = (orders) => {
     }
   }
 
-  return Array.from(groups.values()).sort((a, b) => Number(a.tableNumber) - Number(b.tableNumber));
+  return Array.from(groups.values()).sort((a, b) => {
+    if (a.serviceMode !== b.serviceMode) {
+      return a.serviceMode === 'TABLE' ? -1 : 1;
+    }
+
+    if (a.serviceMode === 'TABLE') {
+      return Number(a.tableNumber) - Number(b.tableNumber);
+    }
+
+    return String(a.takeawayToken).localeCompare(String(b.takeawayToken), undefined, { numeric: true });
+  });
 };
 
-const buildAggregatedBillOrder = (group, paymentMethod = 'Pending') => {
+const buildAggregatedBillOrder = (group, options = {}) => {
+  const { paymentMethod = 'Pending', tipAmount = 0 } = options;
   const itemMap = new Map();
 
   for (const order of group.orders) {
@@ -108,14 +163,18 @@ const buildAggregatedBillOrder = (group, paymentMethod = 'Pending') => {
   }
 
   return {
-    order_code: `TABLE-${group.tableNumber}`,
+    order_code: group.serviceMode === 'TAKEAWAY' ? `TAKEAWAY-${group.takeawayToken}` : `TABLE-${group.tableNumber}`,
     type: 'dine-in',
-    table_number: group.tableNumber,
-    customer_name: group.customerName || `Walk-in Table ${group.tableNumber}`,
+    table_number: group.serviceMode === 'TABLE' ? group.tableNumber : null,
+    delivery_address: group.serviceMode === 'TAKEAWAY' ? `TAKEAWAY::${group.takeawayToken}` : null,
+    customer_name:
+      group.customerName ||
+      (group.serviceMode === 'TAKEAWAY' ? `Takeaway ${group.takeawayToken}` : `Walk-in Table ${group.tableNumber}`),
     customer_phone: group.customerPhone || '',
     created_at: group.latestCreatedAt,
     total: group.total,
     payment_method: paymentMethod,
+    tip_amount: Number(tipAmount || 0),
     order_items: Array.from(itemMap.values()),
   };
 };
@@ -143,16 +202,21 @@ export default function OwnerPage() {
   const [removingDeliveryStaffId, setRemovingDeliveryStaffId] = useState('');
   const [loadingOrders, setLoadingOrders] = useState(false);
   const [loadingMenu, setLoadingMenu] = useState(false);
+  const [serviceMode, setServiceMode] = useState('TABLE');
   const [tableNumber, setTableNumber] = useState('');
+  const [takeawayToken, setTakeawayToken] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [builderCategory, setBuilderCategory] = useState('all');
   const [builderQuery, setBuilderQuery] = useState('');
   const [draftItems, setDraftItems] = useState([]);
   const [submittingTableOrder, setSubmittingTableOrder] = useState(false);
-  const [billingTableNumber, setBillingTableNumber] = useState('');
+  const [billingGroupKey, setBillingGroupKey] = useState('');
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('CASH');
+  const [selectedTipAmount, setSelectedTipAmount] = useState('0');
   const [settlingTable, setSettlingTable] = useState(false);
+  const [removingTableItemKey, setRemovingTableItemKey] = useState('');
+  const [historyDate, setHistoryDate] = useState(getTodayDateKey());
   const knownOrderIdsRef = useRef(new Set());
   const orderEntryRef = useRef(null);
 
@@ -251,6 +315,10 @@ export default function OwnerPage() {
       ),
     [orders],
   );
+  const historyOrders = useMemo(
+    () => orders.filter((order) => toDateKey(order.created_at) === historyDate),
+    [historyDate, orders],
+  );
 
   const filteredDeliveryOrders = useMemo(() => {
     if (currentFilter === 'all') return deliveryOrders;
@@ -263,13 +331,62 @@ export default function OwnerPage() {
   const stats = useMemo(() => {
     const today = new Date().toDateString();
     const todayOrders = orders.filter((order) => new Date(order.created_at).toDateString() === today);
+    const todayTips = todayOrders.reduce((sum, order) => {
+      const settlementMeta = parseSettlementMeta(order.rejection_reason);
+      return sum + Number(settlementMeta?.primary ? settlementMeta.tipAmount || 0 : 0);
+    }, 0);
+
     return {
       pending: deliveryOrders.filter((order) => order.status === 'NEW').length + activeTableGroups.length,
       active: orders.filter((order) => !['COMPLETED', 'CANCELLED'].includes(order.status)).length,
       today: todayOrders.length,
-      revenue: todayOrders.filter((order) => order.status !== 'CANCELLED').reduce((sum, order) => sum + (order.total || 0), 0),
+      revenue:
+        todayOrders.filter((order) => order.status !== 'CANCELLED').reduce((sum, order) => sum + (order.total || 0), 0) + todayTips,
     };
   }, [activeTableGroups.length, deliveryOrders, orders]);
+
+  const historySummary = useMemo(() => {
+    const tipTotal = historyOrders.reduce((sum, order) => {
+      const settlementMeta = parseSettlementMeta(order.rejection_reason);
+      return sum + Number(settlementMeta?.primary ? settlementMeta.tipAmount || 0 : 0);
+    }, 0);
+
+    return {
+      orderCount: historyOrders.length,
+      deliveryCount: historyOrders.filter((order) => order.type === 'delivery').length,
+      dineInCount: historyOrders.filter((order) => order.type === 'dine-in').length,
+      cancelledCount: historyOrders.filter((order) => order.status === 'CANCELLED').length,
+      revenue: historyOrders.filter((order) => order.status !== 'CANCELLED').reduce((sum, order) => sum + Number(order.total || 0), 0) + tipTotal,
+      tipTotal,
+    };
+  }, [historyOrders]);
+
+  const historyDateObject = useMemo(() => new Date(`${historyDate}T00:00:00`), [historyDate]);
+  const historyEntries = useMemo(
+    () =>
+      historyOrders.map((order) => {
+        const settlementMeta = parseSettlementMeta(order.rejection_reason);
+        const takeawayOrder = !!getTakeawayToken(order);
+        return {
+          id: order.id,
+          title:
+            order.type === 'delivery'
+              ? `Delivery #${order.order_code}`
+              : takeawayOrder
+                ? `Takeaway ${getTakeawayToken(order)}`
+                : `Table ${order.table_number}`,
+          subtitle: `${order.order_code} · ${order.status}${settlementMeta?.primary ? ` · ${settlementMeta.paymentMethod}` : ''}`,
+          amount: Number(order.total || 0) + Number(settlementMeta?.primary ? settlementMeta.tipAmount || 0 : 0),
+          detail:
+            (order.order_items || [])
+              .map((item) => `${item.item_name} ×${item.quantity}`)
+              .join(', ') || 'No items',
+          time: order.created_at,
+          tipAmount: Number(settlementMeta?.primary ? settlementMeta.tipAmount || 0 : 0),
+        };
+      }),
+    [historyOrders],
+  );
 
   const menuCategories = [...new Set(managedItems.map((item) => item.menu_categories?.name).filter(Boolean))];
   const visibleMenuItems = useMemo(() => {
@@ -336,8 +453,8 @@ export default function OwnerPage() {
     return true;
   };
 
-  const handlePrintBill = async (order) => {
-    const printOpened = printBillSlip(order);
+  const handlePrintBill = async (order, options = {}) => {
+    const printOpened = await printBillSlip(order, options);
     if (!printOpened) {
       showToast('Could not open bill print window. Please check pop-up permission.', 'error');
       return false;
@@ -530,28 +647,34 @@ export default function OwnerPage() {
   };
 
   const handleCreateTableKot = async () => {
-    if (!String(tableNumber).trim()) {
-      showToast('Enter table number first.', 'error');
+    if (serviceMode === 'TABLE' && !String(tableNumber).trim()) {
+      showToast('Select table number first.', 'error');
+      return;
+    }
+    if (serviceMode === 'TAKEAWAY' && !String(takeawayToken).trim()) {
+      showToast('Enter takeaway token first.', 'error');
       return;
     }
     if (!draftItems.length) {
-      showToast('Add at least one item for this table.', 'error');
+      showToast('Add at least one item before creating this KOT.', 'error');
       return;
     }
 
     try {
       setSubmittingTableOrder(true);
       const response = await createCounterTableOrder(ownerToken, {
+        serviceMode,
         customerName: customerName.trim(),
         customerPhone: customerPhone.trim(),
-        tableNumber: String(tableNumber).trim(),
+        tableNumber: serviceMode === 'TABLE' ? String(tableNumber).trim() : null,
+        takeawayToken: serviceMode === 'TAKEAWAY' ? takeawayToken.trim() : '',
         subtotal: draftSubtotal,
         total: draftSubtotal,
         items: draftItems,
       });
 
       await handlePrintKot(response.order);
-      showToast(`KOT created for Table ${tableNumber}.`);
+      showToast(serviceMode === 'TAKEAWAY' ? `KOT created for Takeaway ${takeawayToken}.` : `KOT created for Table ${tableNumber}.`);
       resetDraft();
       await loadOrders();
     } catch (error) {
@@ -564,22 +687,25 @@ export default function OwnerPage() {
   };
 
   const startAddMoreForTable = (group) => {
-    setTableNumber(group.tableNumber);
+    setServiceMode(group.serviceMode);
+    setTableNumber(group.serviceMode === 'TABLE' ? group.tableNumber : '');
+    setTakeawayToken(group.serviceMode === 'TAKEAWAY' ? group.takeawayToken : '');
     setCustomerName(group.customerName || '');
     setCustomerPhone(group.customerPhone || '');
     resetDraft();
     orderEntryRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    showToast(`Ready to add more items for Table ${group.tableNumber}.`, 'info');
+    showToast(`Ready to add more items for ${group.displayLabel}.`, 'info');
   };
 
   const openBillingForTable = (group) => {
-    setBillingTableNumber(group.tableNumber);
+    setBillingGroupKey(group.groupKey);
     setSelectedPaymentMethod('CASH');
+    setSelectedTipAmount('0');
   };
 
   const selectedBillingGroup = useMemo(
-    () => activeTableGroups.find((group) => group.tableNumber === billingTableNumber) || null,
-    [activeTableGroups, billingTableNumber],
+    () => activeTableGroups.find((group) => group.groupKey === billingGroupKey) || null,
+    [activeTableGroups, billingGroupKey],
   );
 
   const handleSettleCurrentTable = async () => {
@@ -587,9 +713,15 @@ export default function OwnerPage() {
 
     try {
       setSettlingTable(true);
-      await settleTableBill(ownerToken, selectedBillingGroup.tableNumber, selectedPaymentMethod);
-      showToast(`Table ${selectedBillingGroup.tableNumber} closed as ${selectedPaymentMethod}.`);
-      setBillingTableNumber('');
+      await settleTableBill(ownerToken, {
+        serviceMode: selectedBillingGroup.serviceMode,
+        tableNumber: selectedBillingGroup.serviceMode === 'TABLE' ? Number(selectedBillingGroup.tableNumber) : null,
+        takeawayToken: selectedBillingGroup.serviceMode === 'TAKEAWAY' ? selectedBillingGroup.takeawayToken : '',
+        paymentMethod: selectedPaymentMethod,
+        tipAmount: Number(selectedTipAmount || 0),
+      });
+      showToast(`${selectedBillingGroup.displayLabel} closed as ${selectedPaymentMethod}.`);
+      setBillingGroupKey('');
       await loadOrders();
     } catch (error) {
       if (!handleAuthFailure(error)) {
@@ -598,6 +730,38 @@ export default function OwnerPage() {
     } finally {
       setSettlingTable(false);
     }
+  };
+
+  const handleRemoveTableItem = async (orderId, orderItemId) => {
+    try {
+      setRemovingTableItemKey(`${orderId}:${orderItemId}`);
+      await removeTableOrderItem(ownerToken, orderId, { orderItemId, quantityToRemove: 1 });
+      showToast('Item updated in the active bill.', 'success');
+      await loadOrders({ silent: true });
+    } catch (error) {
+      if (!handleAuthFailure(error)) {
+        showToast(error.response?.data?.message || 'Could not remove item', 'error');
+      }
+    } finally {
+      setRemovingTableItemKey('');
+    }
+  };
+
+  const handlePrintDemoBill = async (group) => {
+    const printOpened = await handlePrintBill(
+      buildAggregatedBillOrder(group, { paymentMethod: 'Pending' }),
+      {
+        variant: 'demo',
+        copyLabel: 'DEMO CHECK COPY',
+      },
+    );
+    return printOpened;
+  };
+
+  const shiftHistoryDate = (days) => {
+    const nextDate = new Date(historyDateObject);
+    nextDate.setDate(nextDate.getDate() + days);
+    setHistoryDate(toDateKey(nextDate));
   };
 
   if (!ownerToken) {
@@ -759,17 +923,39 @@ export default function OwnerPage() {
             <div className="card" ref={orderEntryRef}>
               <div className="status-control-label" style={{ marginBottom: 12 }}>Counter Table Order Entry</div>
               <p className="muted-small" style={{ marginBottom: 16 }}>
-                Waiter tells the table number here, you add items, then create a KOT. Customers do not pay while ordering in restaurant.
+                Waiter tells the table or takeaway token here, you add items, then create a KOT. Customers do not pay while ordering in restaurant.
               </p>
+              <div className="service-mode-switch">
+                {serviceModeOptions.map((option) => (
+                  <button
+                    className={`filter-btn ${serviceMode === option.value ? 'active' : ''}`}
+                    key={option.value}
+                    onClick={() => setServiceMode(option.value)}
+                    type="button"
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
               <div className="staff-form-card" style={{ alignItems: 'stretch' }}>
-                <select className="input-field" onChange={(event) => setTableNumber(event.target.value)} value={tableNumber}>
-                  <option value="">Select table number</option>
-                  {tableOptions.map((option) => (
-                    <option key={option} value={option}>
-                      Table {option}
-                    </option>
-                  ))}
-                </select>
+                {serviceMode === 'TABLE' ? (
+                  <select className="input-field" onChange={(event) => setTableNumber(event.target.value)} value={tableNumber}>
+                    <option value="">Select table number</option>
+                    {tableOptions.map((option) => (
+                      <option key={option} value={option}>
+                        Table {option}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    className="input-field"
+                    onChange={(event) => setTakeawayToken(event.target.value)}
+                    placeholder="Takeaway token / slip number"
+                    type="text"
+                    value={takeawayToken}
+                  />
+                )}
                 <input className="input-field" onChange={(event) => setCustomerName(event.target.value)} placeholder="Customer name (optional)" type="text" value={customerName} />
                 <input className="input-field" inputMode="numeric" maxLength={10} onChange={(event) => setCustomerPhone(event.target.value.replace(/\D/g, '').slice(0, 10))} placeholder="Customer phone (optional)" type="tel" value={customerPhone} />
               </div>
@@ -824,19 +1010,19 @@ export default function OwnerPage() {
                   Clear Draft
                 </button>
                 <button className="act-btn act-confirm" disabled={submittingTableOrder} onClick={handleCreateTableKot} type="button">
-                  {submittingTableOrder ? 'Creating KOT...' : 'Create KOT For Table'}
+                  {submittingTableOrder ? 'Creating KOT...' : serviceMode === 'TAKEAWAY' ? 'Create Takeaway KOT' : 'Create KOT For Table'}
                 </button>
               </div>
             </div>
 
             <div className="card">
-              <div className="status-control-label" style={{ marginBottom: 12 }}>Active Table Orders</div>
-              {!activeTableGroups.length && <div className="muted-small">No active in-restaurant tables right now.</div>}
+              <div className="status-control-label" style={{ marginBottom: 12 }}>Active Table / Takeaway Orders</div>
+              {!activeTableGroups.length && <div className="muted-small">No active in-restaurant tables or takeaways right now.</div>}
               {activeTableGroups.map((group) => (
-                <div className="card" key={group.tableNumber} style={{ marginBottom: 16 }}>
+                <div className="card" key={group.groupKey} style={{ marginBottom: 16 }}>
                   <div className="order-card-head">
                     <div>
-                      <h3 className="order-card-title">Table {group.tableNumber}</h3>
+                      <h3 className="order-card-title">{group.displayLabel}</h3>
                       <div className="muted-small">{timeAgo(group.latestCreatedAt)} · {group.orders.length} KOTs · {group.itemCount} items</div>
                       <div className="muted-small">{group.customerName || `Walk-in Table ${group.tableNumber}`}{group.customerPhone ? ` · ${group.customerPhone}` : ''}</div>
                     </div>
@@ -858,7 +1044,24 @@ export default function OwnerPage() {
                             {statusBadgeMap[order.status]?.text || order.status}
                           </span>
                         </div>
-                        <div className="order-items-copy">{(order.order_items || []).map((item) => `${item.item_name} ×${item.quantity}`).join(', ')}</div>
+                        <div className="table-item-list">
+                          {(order.order_items || []).map((item) => (
+                            <div className="table-item-row" key={item.id || `${item.item_name}${item.quantity}`}>
+                              <span>{item.item_name} ×{item.quantity}</span>
+                              <div className="table-item-actions">
+                                <span className="gold-text strong">{formatPrice(Number(item.price_at_purchase ?? item.price ?? 0) * Number(item.quantity || 0))}</span>
+                                <button
+                                  className="table-item-remove-btn"
+                                  disabled={removingTableItemKey === `${order.id}:${item.id}`}
+                                  onClick={() => handleRemoveTableItem(order.id, item.id)}
+                                  type="button"
+                                >
+                                  {removingTableItemKey === `${order.id}:${item.id}` ? 'Updating...' : 'Remove 1'}
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                         <div className="action-row">
                           {order.status === 'IN_KITCHEN' && (
                             <button className="act-btn act-confirm" onClick={() => handleStatusUpdate(order.id, 'READY')} type="button">
@@ -889,7 +1092,10 @@ export default function OwnerPage() {
                     <button className="act-btn act-secondary" onClick={() => startAddMoreForTable(group)} type="button">
                       Add More Items
                     </button>
-                    <button className="act-btn act-secondary" onClick={() => handlePrintBill(buildAggregatedBillOrder(group, 'Pending'))} type="button">
+                    <button className="act-btn act-secondary" onClick={() => handlePrintDemoBill(group)} type="button">
+                      Print Demo Bill
+                    </button>
+                    <button className="act-btn act-secondary" onClick={() => handlePrintBill(buildAggregatedBillOrder(group, { paymentMethod: 'Pending' }), { variant: 'customer', copyLabel: 'FINAL CUSTOMER BILL' })} type="button">
                       Print Final Bill
                     </button>
                     <button className="act-btn act-confirm" onClick={() => openBillingForTable(group)} type="button">
@@ -898,6 +1104,71 @@ export default function OwnerPage() {
                   </div>
                 </div>
               ))}
+            </div>
+
+            <div className="card history-shell">
+              <div className="history-header">
+                <h3 className="order-card-title">Previous Orders & Revenue</h3>
+                <button className="history-today-btn" onClick={() => setHistoryDate(getTodayDateKey())} type="button">
+                  Today
+                </button>
+              </div>
+              <div className="history-nav">
+                <button className="history-nav-btn" onClick={() => shiftHistoryDate(-1)} type="button">
+                  ‹
+                </button>
+                <div className="history-date-label">{formatHistoryDate(historyDateObject)}</div>
+                <button className="history-nav-btn" onClick={() => shiftHistoryDate(1)} type="button">
+                  ›
+                </button>
+              </div>
+              <div className="history-stats-grid">
+                <div className="stat-card">
+                  <div className="stat-num">{historySummary.orderCount}</div>
+                  <div className="stat-label">Orders</div>
+                </div>
+                <div className="stat-card">
+                  <div className="stat-num">{historySummary.deliveryCount}</div>
+                  <div className="stat-label">Delivery</div>
+                </div>
+                <div className="stat-card">
+                  <div className="stat-num">{historySummary.dineInCount}</div>
+                  <div className="stat-label">In-house</div>
+                </div>
+                <div className="stat-card">
+                  <div className="stat-num">{historySummary.cancelledCount}</div>
+                  <div className="stat-label">Cancelled</div>
+                </div>
+              </div>
+              <div className="history-revenue-row">
+                <div>
+                  <div className="stat-label">Revenue</div>
+                  <div className="revenue-total">{formatPrice(historySummary.revenue)}</div>
+                </div>
+                <div>
+                  <div className="stat-label">Tips</div>
+                  <div className="gold-text strong">{formatPrice(historySummary.tipTotal)}</div>
+                </div>
+              </div>
+              {!historyEntries.length && <div className="muted-small">No orders found for this day.</div>}
+              <div className="history-entry-list">
+                {historyEntries.map((entry) => (
+                  <div className="history-entry-card" key={entry.id}>
+                    <div className="order-card-head">
+                      <div>
+                        <div className="gold-text strong">{entry.title}</div>
+                        <div className="muted-small">{entry.subtitle}</div>
+                      </div>
+                      <div className="order-card-price">
+                        <div className="gold-text strong">{formatPrice(entry.amount)}</div>
+                        <div className="muted-small">{timeAgo(entry.time)}</div>
+                      </div>
+                    </div>
+                    <div className="order-items-copy">{entry.detail}</div>
+                    {!!entry.tipAmount && <div className="reason-note">Tip recorded: {formatPrice(entry.tipAmount)}</div>}
+                  </div>
+                ))}
+              </div>
             </div>
 
             <div className="filter-wrap">
@@ -942,7 +1213,7 @@ export default function OwnerPage() {
                     </div>
 
                     <div className="muted-small">Customer: {order.customer_name} · {order.customer_phone}</div>
-                    <div className="order-items-copy">{(order.order_items || []).map((item) => `${item.item_name} ×${item.quantity}`).join(', ')}</div>
+                    <div className="order-items-copy">{(order.order_items || []).map((item) => `${item.item_name} ?{item.quantity}`).join(', ')}</div>
                     {!!deliveryMeta.address && (
                       <div className="delivery-info-block">
                         <div className="muted-small">Address: {deliveryMeta.address}</div>
@@ -1136,22 +1407,102 @@ export default function OwnerPage() {
       {!!selectedBillingGroup && (
         <div className="reject-overlay open">
           <div className="reject-box">
-            <h3>Close Table {selectedBillingGroup.tableNumber}</h3>
+            <h3>Close {selectedBillingGroup.displayLabel}</h3>
             <p className="muted-small">
-              Choose how the customer paid, then print or close the final table bill.
+              Review items, add tip if needed, print the customer bill or the counter copy, then close this order.
             </p>
             {paymentMethods.map((method) => (
               <button className={`reason-option ${selectedPaymentMethod === method ? 'selected' : ''}`} key={method} onClick={() => setSelectedPaymentMethod(method)} type="button">
                 {method}
               </button>
             ))}
-            <div className="reason-note">Total: {formatPrice(selectedBillingGroup.total)}</div>
+            <div className="reason-note">Bill Total: {formatPrice(selectedBillingGroup.total)}</div>
+            <div className="billing-review-list">
+              {selectedBillingGroup.orders.map((order) => (
+                <div className="billing-review-order" key={order.id}>
+                  <div className="gold-text strong">#{order.order_code}</div>
+                  {(order.order_items || []).map((item) => (
+                    <div className="table-item-row" key={item.id || `${order.id}-${item.item_name}`}>
+                      <span>{item.item_name} ×{item.quantity}</span>
+                      <div className="table-item-actions">
+                        <span>{formatPrice(Number(item.price_at_purchase ?? item.price ?? 0) * Number(item.quantity || 0))}</span>
+                        <button
+                          className="table-item-remove-btn"
+                          disabled={removingTableItemKey === `${order.id}:${item.id}`}
+                          onClick={() => handleRemoveTableItem(order.id, item.id)}
+                          type="button"
+                        >
+                          {removingTableItemKey === `${order.id}:${item.id}` ? 'Updating...' : 'Remove 1'}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+            <div className="stacked-fields" style={{ marginTop: 12 }}>
+              <input
+                className="input-field"
+                inputMode="decimal"
+                onChange={(event) => setSelectedTipAmount(event.target.value.replace(/[^0-9.]/g, ''))}
+                placeholder="Tip amount for waiter (optional)"
+                type="text"
+                value={selectedTipAmount}
+              />
+            </div>
+            <div className="billing-amount-grid">
+              <div className="billing-amount-line">
+                <span>Bill Total</span>
+                <strong>{formatPrice(selectedBillingGroup.total)}</strong>
+              </div>
+              <div className="billing-amount-line">
+                <span>Tip</span>
+                <strong>{formatPrice(Number(selectedTipAmount || 0))}</strong>
+              </div>
+              <div className="billing-amount-line total">
+                <span>Counter Total</span>
+                <strong>{formatPrice(Number(selectedBillingGroup.total) + Number(selectedTipAmount || 0))}</strong>
+              </div>
+            </div>
             <div className="reject-actions" style={{ flexWrap: 'wrap' }}>
-              <button className="reject-cancel-btn" onClick={() => setBillingTableNumber('')} type="button">
+              <button className="reject-cancel-btn" onClick={() => setBillingGroupKey('')} type="button">
                 Cancel
               </button>
-              <button className="act-btn act-secondary" onClick={() => handlePrintBill(buildAggregatedBillOrder(selectedBillingGroup, selectedPaymentMethod))} type="button">
+              <button
+                className="act-btn act-secondary"
+                onClick={() =>
+                  handlePrintBill(buildAggregatedBillOrder(selectedBillingGroup, { paymentMethod: 'Pending' }), {
+                    variant: 'customer',
+                    copyLabel: 'FINAL CUSTOMER BILL',
+                  })
+                }
+                type="button"
+              >
                 Print Final Bill
+              </button>
+              <button
+                className="act-btn act-secondary"
+                onClick={() =>
+                  handlePrintBill(
+                    buildAggregatedBillOrder(selectedBillingGroup, {
+                      paymentMethod: selectedPaymentMethod,
+                      tipAmount: Number(selectedTipAmount || 0),
+                    }),
+                    {
+                      variant: 'counter',
+                      copyLabel: 'COUNTER RECORD COPY',
+                      tipAmount: Number(selectedTipAmount || 0),
+                      paymentMethod: selectedPaymentMethod,
+                      showQr: false,
+                    },
+                  )
+                }
+                type="button"
+              >
+                Print Counter Copy
+              </button>
+              <button className="act-btn act-secondary" onClick={() => startAddMoreForTable(selectedBillingGroup)} type="button">
+                Add More Items
               </button>
               <button className="reject-confirm-btn" disabled={settlingTable} onClick={handleSettleCurrentTable} type="button">
                 {settlingTable ? 'Closing...' : 'Mark Paid & Close Table'}

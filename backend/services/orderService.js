@@ -12,6 +12,9 @@ import { getMenuItemsByIds } from './menuService.js';
 import { serializeDeliveryAddress } from '../utils/deliveryAddress.js';
 import { assertValidStatusTransition } from '../utils/orderStatus.js';
 
+const TAKEAWAY_PREFIX = 'TAKEAWAY::';
+const SETTLEMENT_PREFIX = 'SETTLEMENT_META::';
+
 const raise = (error, fallback = 500) => {
   if (error) {
     const wrapped = new Error(error.message);
@@ -223,15 +226,23 @@ export const persistPaidOrder = async ({
 };
 
 export const createCounterTableOrder = async ({
+  serviceMode = 'TABLE',
   customerName,
   customerPhone,
   tableNumber,
+  takeawayToken,
   subtotal,
   total,
   items,
 }) => {
+  const normalizedServiceMode = String(serviceMode || 'TABLE').toUpperCase();
   const normalizedTableNumber = Number(tableNumber);
-  const fallbackName = String(customerName || '').trim() || `Walk-in Table ${tableNumber}`;
+  const normalizedTakeawayToken = String(takeawayToken || '').trim();
+  const fallbackName =
+    String(customerName || '').trim() ||
+    (normalizedServiceMode === 'TAKEAWAY'
+      ? `Takeaway Token ${normalizedTakeawayToken || 'Walk-In'}`
+      : `Walk-in Table ${tableNumber}`);
   const fallbackPhone = String(customerPhone || '').trim() || '0000000000';
   const itemIds = [...new Set((items || []).map((item) => item.id))];
   const menuItems = await getMenuItemsByIds(itemIds);
@@ -266,9 +277,10 @@ export const createCounterTableOrder = async ({
       order = await insertOrderRecord({
         order_code: orderCode,
         type: 'dine-in',
-        table_number: normalizedTableNumber,
+        table_number: normalizedServiceMode === 'TABLE' ? normalizedTableNumber : null,
         customer_name: fallbackName,
         customer_phone: fallbackPhone,
+        delivery_address: normalizedServiceMode === 'TAKEAWAY' ? `${TAKEAWAY_PREFIX}${normalizedTakeawayToken || 'Walk-In'}` : null,
         subtotal: canonicalSubtotal,
         delivery_charge: 0,
         total: canonicalSubtotal,
@@ -321,6 +333,80 @@ export const createCounterTableOrder = async ({
   };
 };
 
+export const removeCounterOrderItem = async ({ orderId, orderItemId, quantityToRemove = 1 }) => {
+  const { data: orderItems, error: itemsFetchError } = await supabase
+    .from('order_items')
+    .select('*')
+    .eq('order_id', orderId)
+    .order('created_at', { ascending: true });
+
+  raise(itemsFetchError, 404);
+
+  const targetItem = (orderItems || []).find((item) => item.id === orderItemId);
+  if (!targetItem) {
+    const error = new Error('Could not find this item in the KOT.');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const removeCount = Math.max(1, Number(quantityToRemove || 1));
+  const nextQuantity = Number(targetItem.quantity || 0) - removeCount;
+
+  if (nextQuantity > 0) {
+    const { error: updateItemError } = await supabase
+      .from('order_items')
+      .update({ quantity: nextQuantity })
+      .eq('id', orderItemId);
+
+    raise(updateItemError);
+  } else {
+    const { error: deleteItemError } = await supabase.from('order_items').delete().eq('id', orderItemId);
+    raise(deleteItemError);
+  }
+
+  const { data: remainingItems, error: remainingItemsError } = await supabase
+    .from('order_items')
+    .select('*')
+    .eq('order_id', orderId);
+
+  raise(remainingItemsError);
+
+  const nextSubtotal = (remainingItems || []).reduce(
+    (sum, item) => sum + Number(item.price_at_purchase ?? item.price ?? 0) * Number(item.quantity || 0),
+    0,
+  );
+
+  if (!remainingItems?.length) {
+    await updateOrderRecord(orderId, {
+      subtotal: 0,
+      total: 0,
+      status: 'CANCELLED',
+      rejection_reason: 'Removed from final bill because the item was unavailable.',
+    });
+  } else {
+    await updateOrderRecord(orderId, {
+      subtotal: nextSubtotal,
+      total: nextSubtotal,
+    });
+  }
+
+  return getOrderById(orderId);
+};
+
+const buildSettlementReason = (payload) => `${SETTLEMENT_PREFIX}${JSON.stringify(payload)}`;
+
+export const parseSettlementReason = (reason) => {
+  if (!String(reason || '').startsWith(SETTLEMENT_PREFIX)) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(String(reason).slice(SETTLEMENT_PREFIX.length));
+  } catch {
+    return null;
+  }
+};
+
 export const getOrderByCode = async (orderCode) => {
   const { data, error } = await supabase
     .from('orders')
@@ -368,26 +454,59 @@ export const getAllOrders = async () => {
   return attachPaymentMetadataToList(data || []);
 };
 
-export const closeActiveTableOrders = async (tableNumber) => {
-  const normalizedTable = String(tableNumber);
-  const { data: tableOrders, error: ordersError } = await supabase
+export const closeActiveTableOrders = async ({
+  serviceMode = 'TABLE',
+  tableNumber = null,
+  takeawayToken = '',
+  paymentMethod = 'CASH',
+  tipAmount = 0,
+}) => {
+  const normalizedTable = String(tableNumber || '');
+  const normalizedTakeawayToken = String(takeawayToken || '').trim();
+  let ordersQuery = supabase
     .from('orders')
     .select('id, status, payment_status, type, table_number')
     .eq('type', 'dine-in')
-    .eq('table_number', normalizedTable)
     .neq('status', 'CANCELLED')
     .neq('payment_status', 'PAID');
 
+  if (String(serviceMode).toUpperCase() === 'TAKEAWAY') {
+    ordersQuery = ordersQuery.is('table_number', null).eq('delivery_address', `${TAKEAWAY_PREFIX}${normalizedTakeawayToken}`);
+  } else {
+    ordersQuery = ordersQuery.eq('table_number', normalizedTable);
+  }
+
+  const { data: tableOrders, error: ordersError } = await ordersQuery.order('created_at', { ascending: true });
+
   raise(ordersError);
 
+  const settlementGroupId = `${String(serviceMode).toUpperCase()}-${normalizedTable || normalizedTakeawayToken || 'GROUP'}-${Date.now()}`;
+  const primaryOrderId = tableOrders?.[tableOrders.length - 1]?.id || null;
+
   for (const order of tableOrders || []) {
+    const settlementReason = buildSettlementReason({
+      groupId: settlementGroupId,
+      paymentMethod,
+      tipAmount: order.id === primaryOrderId ? Number(tipAmount || 0) : 0,
+      serviceMode: String(serviceMode).toUpperCase(),
+      tableNumber: normalizedTable || null,
+      takeawayToken: normalizedTakeawayToken || null,
+      primary: order.id === primaryOrderId,
+      settledAt: new Date().toISOString(),
+    });
+
     await updateOrderRecord(order.id, {
       status: 'COMPLETED',
       payment_status: 'PAID',
+      rejection_reason: settlementReason,
     });
   }
 
-  return (tableOrders || []).length;
+  return {
+    closedCount: (tableOrders || []).length,
+    tipAmount: Number(tipAmount || 0),
+    settlementGroupId,
+  };
 };
 
 export const getOrderSummary = async (orderId) => {

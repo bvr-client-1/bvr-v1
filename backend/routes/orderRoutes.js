@@ -9,6 +9,7 @@ import {
   fetchKitchenQueue,
   fetchOrderById,
   lookupOrderByPhone,
+  patchCounterOrderItem,
   patchDeliveryAssignment,
   patchOrderStatus,
   settleTableBill,
@@ -81,31 +82,62 @@ router.post(
   requireAuth('owner'),
   validate(
     Joi.object({
+      serviceMode: Joi.string().valid('TABLE', 'TAKEAWAY').default('TABLE'),
       customerName: Joi.string().allow('', null),
       customerPhone: Joi.string().allow('', null),
-      tableNumber: Joi.number().integer().min(1).max(16).required(),
+      tableNumber: Joi.number().integer().min(1).max(16).allow(null),
+      takeawayToken: Joi.string().trim().max(40).allow('', null),
       subtotal: Joi.number().required(),
       total: Joi.number().required(),
       items: Joi.array().items(itemSchema).min(1).required(),
-    }),
+    }).custom((value, helpers) => {
+      if (value.serviceMode === 'TABLE' && !value.tableNumber) {
+        return helpers.error('any.invalid');
+      }
+
+      if (value.serviceMode === 'TAKEAWAY' && !String(value.takeawayToken || '').trim()) {
+        return helpers.error('any.invalid');
+      }
+
+      return value;
+    }, 'counter order validation'),
   ),
   createCounterTableOrder,
 );
 router.patch(
-  '/admin/dine-in/table/:tableNumber/close',
+  '/admin/dine-in/group/close',
   requireAuth('owner'),
   validate(
     Joi.object({
-      tableNumber: Joi.number().integer().min(1).max(16).required(),
-    }),
-    'params',
-  ),
-  validate(
-    Joi.object({
+      serviceMode: Joi.string().valid('TABLE', 'TAKEAWAY').default('TABLE'),
+      tableNumber: Joi.number().integer().min(1).max(16).allow(null),
+      takeawayToken: Joi.string().trim().max(40).allow('', null),
       paymentMethod: Joi.string().valid('CASH', 'CARD', 'UPI').required(),
-    }),
+      tipAmount: Joi.number().min(0).default(0),
+    }).custom((value, helpers) => {
+      if (value.serviceMode === 'TABLE' && !value.tableNumber) {
+        return helpers.error('any.invalid');
+      }
+
+      if (value.serviceMode === 'TAKEAWAY' && !String(value.takeawayToken || '').trim()) {
+        return helpers.error('any.invalid');
+      }
+
+      return value;
+    }, 'settlement validation'),
   ),
   settleTableBill,
+);
+router.patch(
+  '/admin/dine-in/:orderId/items',
+  requireAuth('owner'),
+  validate(
+    Joi.object({
+      orderItemId: Joi.string().required(),
+      quantityToRemove: Joi.number().integer().min(1).default(1),
+    }),
+  ),
+  patchCounterOrderItem,
 );
 router.post(
   '/admin/delivery-people',

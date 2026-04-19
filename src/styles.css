@@ -312,6 +312,28 @@ h1, h2, h3, h4 { font-family: 'Playfair Display', serif; margin: 0; }
 .menu-price-input:focus { outline: none; }
 .menu-price-save-btn { min-height: 34px; border: 1px solid rgba(212,160,23,.22); border-radius: 999px; background: rgba(212,160,23,.1); color: var(--bright-gold); font-size: .76rem; font-weight: 700; cursor: pointer; }
 .menu-price-save-btn:disabled { opacity: .7; cursor: wait; }
+.service-mode-switch { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
+.table-item-list { display: grid; gap: 8px; margin-top: 12px; }
+.table-item-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border-radius: 14px; background: rgba(255,255,255,.03); border: 1px solid rgba(212,160,23,.12); }
+.table-item-row span:first-child { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.table-item-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
+.table-item-remove-btn { min-height: 32px; padding: 0 12px; border-radius: 999px; border: 1px solid rgba(239,68,68,.28); background: rgba(239,68,68,.12); color: #fca5a5; font-size: .78rem; font-weight: 700; cursor: pointer; }
+.table-item-remove-btn:disabled { opacity: .7; cursor: wait; }
+.history-shell { display: grid; gap: 16px; }
+.history-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.history-today-btn, .history-nav-btn { min-height: 38px; padding: 0 16px; border-radius: 999px; border: 1px solid rgba(212,160,23,.24); background: rgba(212,160,23,.08); color: var(--bright-gold); font-weight: 700; cursor: pointer; }
+.history-nav { display: grid; grid-template-columns: 44px 1fr 44px; align-items: center; gap: 12px; }
+.history-nav-btn { padding: 0; font-size: 1.3rem; }
+.history-date-label { text-align: center; color: #f8ddb0; font-size: 1.1rem; font-weight: 700; }
+.history-stats-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.history-revenue-row { display: flex; align-items: stretch; justify-content: space-between; gap: 16px; padding: 16px 18px; border-radius: 18px; background: rgba(255,255,255,.03); border: 1px solid rgba(212,160,23,.16); }
+.history-entry-list { display: grid; gap: 12px; }
+.history-entry-card { padding: 16px; border-radius: 18px; background: rgba(255,255,255,.03); border: 1px solid rgba(212,160,23,.16); }
+.billing-review-list { display: grid; gap: 12px; max-height: 280px; overflow: auto; margin-top: 14px; padding-right: 4px; }
+.billing-review-order { padding: 12px; border-radius: 16px; background: rgba(255,255,255,.03); border: 1px solid rgba(212,160,23,.14); display: grid; gap: 8px; }
+.billing-amount-grid { display: grid; gap: 8px; margin-top: 12px; padding: 14px; border-radius: 16px; background: rgba(255,255,255,.03); border: 1px solid rgba(212,160,23,.14); }
+.billing-amount-line { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: #f5e6c8; font-size: .92rem; }
+.billing-amount-line.total { color: var(--bright-gold); font-size: 1rem; font-weight: 700; }
 .login-overlay, .password-overlay, .reject-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.9); z-index: 200; display: flex; align-items: center; justify-content: center; padding: 20px; }
 .auth-screen { position: relative; min-height: 100vh; background: #0a0500; }
 .reject-overlay { background: rgba(0,0,0,.75); }
@@ -349,6 +371,7 @@ h1, h2, h3, h4 { font-family: 'Playfair Display', serif; margin: 0; }
   .cart-main { max-width: 720px; }
   .about-showcase { grid-template-columns: 1.05fr .95fr; align-items: stretch; }
   .faq-feedback-grid { grid-template-columns: 1fr 1fr; align-items: start; }
+  .billing-review-list { max-height: 360px; }
 }
 @media (min-width: 1024px) {
   .menu-grid { grid-template-columns: repeat(4, 1fr); }
@@ -399,6 +422,12 @@ h1, h2, h3, h4 { font-family: 'Playfair Display', serif; margin: 0; }
   .menu-item-side, .menu-item-side-admin { width: 100%; justify-content: space-between; }
   .menu-item-side-admin { width: 100%; align-items: stretch; justify-content: space-between; }
   .menu-price-editor { flex: 1; min-width: 0; }
+  .table-item-row, .history-header, .history-revenue-row { flex-direction: column; align-items: flex-start; }
+  .table-item-actions { width: 100%; justify-content: space-between; }
+  .history-nav { grid-template-columns: 40px 1fr 40px; }
+  .history-date-label { font-size: 1rem; }
+  .history-stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .billing-review-list { max-height: none; }
   .reject-box, .login-box, .password-box { padding: 24px 18px; }
   .toast { width: min(calc(100vw - 24px), 420px); white-space: normal; text-align: center; bottom: 18px; }
 }

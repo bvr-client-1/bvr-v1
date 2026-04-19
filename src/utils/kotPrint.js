@@ -11,6 +11,11 @@ const escapeHtml = (value) =>
 
 const getOrderModeLabel = (order) => {
   if (order.type === 'delivery') return 'DELIVERY';
+  const marker = String(order.delivery_address || '');
+  if (marker.startsWith('TAKEAWAY::')) {
+    const token = marker.slice('TAKEAWAY::'.length) || 'Walk-In';
+    return `TAKEAWAY / TOKEN ${token}`;
+  }
   return `DINE-IN${order.table_number ? ` / TABLE ${order.table_number}` : ''}`;
 };
 
@@ -18,6 +23,12 @@ const getOrderMetaLine = (order) => {
   if (order.type === 'delivery') {
     const deliveryMeta = parseDeliveryAddress(order.delivery_address || '');
     return deliveryMeta.address || 'Delivery order';
+  }
+
+  const marker = String(order.delivery_address || '');
+  if (marker.startsWith('TAKEAWAY::')) {
+    const token = marker.slice('TAKEAWAY::'.length) || 'Walk-In';
+    return order.customer_name || `Takeaway Token ${token}`;
   }
 
   return order.customer_name || 'Dine-in order';

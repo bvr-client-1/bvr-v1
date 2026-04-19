@@ -22,6 +22,7 @@ import {
   getReadyCount,
   generateDailyOrderCode,
   persistPaidOrder,
+  removeCounterOrderItem,
   updateOrderStatus,
   verifyPaymentSignature,
 } from '../services/orderService.js';
@@ -234,9 +235,11 @@ export const createCounterTableOrder = async (req, res) => {
   const total = Number(req.body.total || subtotal);
 
   const order = await createCounterTableOrderRecord({
+    serviceMode: req.body.serviceMode,
     customerName: req.body.customerName,
     customerPhone: req.body.customerPhone,
     tableNumber: req.body.tableNumber,
+    takeawayToken: req.body.takeawayToken,
     subtotal,
     total,
     items: req.body.items,
@@ -251,12 +254,33 @@ export const createCounterTableOrder = async (req, res) => {
 };
 
 export const settleTableBill = async (req, res) => {
-  const closedCount = await closeActiveTableOrders(req.params.tableNumber);
+  const result = await closeActiveTableOrders({
+    serviceMode: req.body.serviceMode,
+    tableNumber: req.body.tableNumber,
+    takeawayToken: req.body.takeawayToken,
+    paymentMethod: req.body.paymentMethod,
+    tipAmount: req.body.tipAmount,
+  });
   res.json({
     success: true,
-    tableNumber: String(req.params.tableNumber),
+    tableNumber: req.params.tableNumber ? String(req.params.tableNumber) : null,
+    takeawayToken: req.body.takeawayToken || null,
     paymentMethod: req.body.paymentMethod,
-    closedCount,
+    closedCount: result.closedCount,
+    tipAmount: result.tipAmount,
+  });
+};
+
+export const patchCounterOrderItem = async (req, res) => {
+  const order = await removeCounterOrderItem({
+    orderId: req.params.orderId,
+    orderItemId: req.body.orderItemId,
+    quantityToRemove: req.body.quantityToRemove,
+  });
+
+  res.json({
+    success: true,
+    order,
   });
 };
 
