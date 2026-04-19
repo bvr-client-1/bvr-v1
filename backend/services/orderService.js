@@ -209,6 +209,7 @@ export const createCounterTableOrder = async ({
   total,
   items,
 }) => {
+  const normalizedTableNumber = Number(tableNumber);
   const fallbackName = String(customerName || '').trim() || `Walk-in Table ${tableNumber}`;
   const fallbackPhone = String(customerPhone || '').trim() || '0000000000';
   const itemIds = [...new Set((items || []).map((item) => item.id))];
@@ -245,7 +246,7 @@ export const createCounterTableOrder = async ({
       .insert({
         order_code: orderCode,
         type: 'dine-in',
-        table_number: String(tableNumber),
+        table_number: normalizedTableNumber,
         customer_name: fallbackName,
         customer_phone: fallbackPhone,
         subtotal: canonicalSubtotal,
