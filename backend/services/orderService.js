@@ -8,6 +8,7 @@ import {
   findPaymentRecordByPaymentId,
   upsertPaymentRecord,
 } from './paymentRecordService.js';
+import { getMenuItemsByIds } from './menuService.js';
 import { serializeDeliveryAddress } from '../utils/deliveryAddress.js';
 import { assertValidStatusTransition } from '../utils/orderStatus.js';
 
