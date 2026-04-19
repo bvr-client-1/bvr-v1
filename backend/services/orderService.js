@@ -284,7 +284,25 @@ export const createCounterTableOrder = async ({
 
   raise(itemsError);
 
-  return getOrderById(order.id);
+  return {
+    ...order,
+    order_items: normalizedItems.map((item) => ({
+      order_id: order.id,
+      item_name: item.name,
+      quantity: item.quantity,
+      price: item.price,
+    })),
+    delivery_people: null,
+    payment_record: null,
+    razorpay_order_id: null,
+    razorpay_payment_id: null,
+    refund_id: null,
+    refund_amount: null,
+    refund_status: null,
+    refund_failure_reason: null,
+    refund_initiated_at: null,
+    refund_processed_at: null,
+  };
 };
 
 export const getOrderByCode = async (orderCode) => {
