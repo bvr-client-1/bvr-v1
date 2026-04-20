@@ -43,7 +43,7 @@ services:
       - key: RESTAURANT_LNG
         value: 79.2686857
       - key: DELIVERY_RADIUS_KM
-        value: 4
+        value: 6
       - key: FREE_DELIVERY_ENABLED
         value: true
       - key: FREE_DELIVERY_COUPON_CODE

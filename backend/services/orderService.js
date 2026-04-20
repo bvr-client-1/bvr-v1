@@ -145,7 +145,10 @@ export const verifyPaymentSignature = ({ orderId, paymentId, signature, secret }
     .update(`${orderId}|${paymentId}`)
     .digest('hex');
 
-  return expected === signature;
+  const expectedBuffer = Buffer.from(expected, 'hex');
+  const signatureBuffer = Buffer.from(String(signature || ''), 'hex');
+
+  return expectedBuffer.length === signatureBuffer.length && crypto.timingSafeEqual(expectedBuffer, signatureBuffer);
 };
 
 export const persistPaidOrder = async ({
@@ -164,43 +167,54 @@ export const persistPaidOrder = async ({
   razorpayOrderId,
   razorpayPaymentId,
 }) => {
-  const existingOrder = await getOrderByCode(orderCode);
-  if (existingOrder) {
-    if (razorpayOrderId || razorpayPaymentId) {
-      await upsertPaymentRecord({
-        orderId: existingOrder.id,
-        orderCode: existingOrder.order_code,
-        razorpayOrderId,
-        razorpayPaymentId,
-        amount: Math.round(Number(existingOrder.total || total || 0) * 100),
-        paymentStatus: existingOrder.payment_status || 'PAID',
-      });
+  if (razorpayPaymentId) {
+    const existingPaymentRecord = await findPaymentRecordByPaymentId(razorpayPaymentId);
+    if (existingPaymentRecord?.orderId) {
+      return getOrderById(existingPaymentRecord.orderId);
     }
-    return attachPaymentMetadata(existingOrder);
   }
 
-  const order = await insertOrderRecord({
-    order_code: orderCode,
-    type: orderType,
-    table_number: orderType === 'dine-in' ? tableNumber : null,
-    customer_name: customerName,
-    customer_phone: customerPhone,
-    delivery_address:
-      orderType === 'delivery'
-        ? serializeDeliveryAddress({
-            address: deliveryAddress,
-            latitude: deliveryLatitude,
-            longitude: deliveryLongitude,
-          })
-        : null,
-    subtotal,
-    delivery_charge: deliveryCharge,
-    total,
-    // Freshly paid customer orders should still enter the owner queue
-    // for explicit acceptance, KOT printing, or cancellation.
-    status: 'NEW',
-    payment_status: 'PAID',
-  });
+  let order = null;
+
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const nextOrderCode = attempt === 0 ? orderCode : await generateDailyOrderCode(attempt);
+
+    try {
+      order = await insertOrderRecord({
+        order_code: nextOrderCode,
+        type: orderType,
+        table_number: orderType === 'dine-in' ? tableNumber : null,
+        customer_name: customerName,
+        customer_phone: customerPhone,
+        delivery_address:
+          orderType === 'delivery'
+            ? serializeDeliveryAddress({
+                address: deliveryAddress,
+                latitude: deliveryLatitude,
+                longitude: deliveryLongitude,
+              })
+            : null,
+        subtotal,
+        delivery_charge: deliveryCharge,
+        total,
+        // Freshly paid customer orders should still enter the owner queue
+        // for explicit acceptance, KOT printing, or cancellation.
+        status: 'NEW',
+        payment_status: 'PAID',
+      });
+      break;
+    } catch (orderError) {
+      if (!isDuplicateOrderCodeError(orderError)) {
+        throw orderError;
+      }
+    }
+  }
+
+  if (!order) {
+    const error = new Error('Could not allocate a unique order code. Please contact the restaurant.');
+    error.statusCode = 409;
+    throw error;
+  }
 
   const { error: itemsError } = await supabase.from('order_items').insert(
     items.map((item) => ({

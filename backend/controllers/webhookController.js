@@ -10,7 +10,9 @@ const verifyWebhookSignature = (rawBody, signature) => {
   }
 
   const expected = crypto.createHmac('sha256', env.razorpayWebhookSecret).update(rawBody).digest('hex');
-  return expected === signature;
+  const expectedBuffer = Buffer.from(expected, 'hex');
+  const signatureBuffer = Buffer.from(String(signature || ''), 'hex');
+  return expectedBuffer.length === signatureBuffer.length && crypto.timingSafeEqual(expectedBuffer, signatureBuffer);
 };
 
 export const handleRazorpayWebhook = async (req, res) => {
