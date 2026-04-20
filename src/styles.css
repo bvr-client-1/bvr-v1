@@ -321,6 +321,7 @@ h1, h2, h3, h4 { font-family: 'Playfair Display', serif; margin: 0; }
 .table-item-remove-btn:disabled { opacity: .7; cursor: wait; }
 .history-shell { display: grid; gap: 16px; }
 .history-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.history-action-group { display: flex; align-items: center; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
 .history-today-btn, .history-nav-btn { min-height: 38px; padding: 0 16px; border-radius: 999px; border: 1px solid rgba(212,160,23,.24); background: rgba(212,160,23,.08); color: var(--bright-gold); font-weight: 700; cursor: pointer; }
 .history-nav { display: grid; grid-template-columns: 44px 1fr 44px; align-items: center; gap: 12px; }
 .history-nav-btn { padding: 0; font-size: 1.3rem; }
@@ -334,10 +335,24 @@ h1, h2, h3, h4 { font-family: 'Playfair Display', serif; margin: 0; }
 .billing-amount-grid { display: grid; gap: 8px; margin-top: 12px; padding: 14px; border-radius: 16px; background: rgba(255,255,255,.03); border: 1px solid rgba(212,160,23,.14); }
 .billing-amount-line { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: #f5e6c8; font-size: .92rem; }
 .billing-amount-line.total { color: var(--bright-gold); font-size: 1rem; font-weight: 700; }
+.owner-section-tabs { gap: 8px; padding: 8px; background: rgba(255,255,255,.02); border-color: rgba(212,160,23,.16); }
+.owner-section-tabs .owner-tab { border-radius: 999px; background: transparent; color: #e5c89a; font-weight: 700; white-space: nowrap; }
+.owner-section-tabs .owner-tab.active { background: linear-gradient(135deg, #d4a017, #f5c842); color: #130900; }
+.table-board-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 14px 0 16px; }
+.takeaway-board-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 0 0 16px; }
+.table-board-card { min-height: 88px; padding: 12px; border-radius: 16px; border: 1px solid rgba(212,160,23,.18); background: rgba(255,255,255,.03); color: #f5e6c8; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 4px; cursor: pointer; text-align: left; }
+.table-board-card span { font-weight: 800; color: #f8ddb0; }
+.table-board-card strong { color: var(--bright-gold); font-size: 1.05rem; }
+.table-board-card small { color: var(--muted); }
+.table-board-card.free { opacity: .55; cursor: not-allowed; }
+.table-board-card.occupied { background: linear-gradient(180deg, rgba(64,32,0,.92), rgba(32,16,0,.92)); border-color: rgba(212,160,23,.32); }
+.table-board-card.active { outline: 2px solid rgba(245,200,66,.78); box-shadow: 0 0 0 5px rgba(212,160,23,.1); }
+.table-board-card.takeaway { min-height: 76px; }
 .login-overlay, .password-overlay, .reject-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.9); z-index: 200; display: flex; align-items: center; justify-content: center; padding: 20px; }
 .auth-screen { position: relative; min-height: 100vh; background: #0a0500; }
 .reject-overlay { background: rgba(0,0,0,.75); }
 .login-box, .password-box, .reject-box { max-width: 360px; width: 100%; padding: 32px; }
+.reject-box { max-height: min(88vh, 760px); overflow: auto; }
 .reason-option, .reject-cancel-btn, .reject-confirm-btn { width: 100%; min-height: 44px; border-radius: 12px; }
 .reason-option { background: transparent; color: var(--text); border: 1px solid var(--border); margin-bottom: 8px; }
 .reason-option.selected { border-color: var(--red); }
@@ -427,6 +442,11 @@ h1, h2, h3, h4 { font-family: 'Playfair Display', serif; margin: 0; }
   .history-nav { grid-template-columns: 40px 1fr 40px; }
   .history-date-label { font-size: 1rem; }
   .history-stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .history-action-group { width: 100%; justify-content: stretch; }
+  .history-action-group .history-today-btn { flex: 1; }
+  .table-board-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .takeaway-board-row { grid-template-columns: 1fr; }
+  .table-board-card { min-height: 82px; }
   .billing-review-list { max-height: none; }
   .reject-box, .login-box, .password-box { padding: 24px 18px; }
   .toast { width: min(calc(100vw - 24px), 420px); white-space: normal; text-align: center; bottom: 18px; }

@@ -35,9 +35,13 @@ const statusBadgeMap = {
 
 const paymentMethods = ['CASH', 'CARD', 'UPI'];
 const tableOptions = Array.from({ length: 16 }, (_, index) => String(index + 1));
-const serviceModeOptions = [
-  { value: 'TABLE', label: 'Table Service' },
-  { value: 'TAKEAWAY', label: 'Takeaway' },
+const ownerSections = [
+  { value: 'counter', label: 'Counter' },
+  { value: 'active', label: 'Active Tables' },
+  { value: 'delivery', label: 'Delivery' },
+  { value: 'reports', label: 'Reports' },
+  { value: 'controls', label: 'Controls' },
+  { value: 'menu', label: 'Menu' },
 ];
 const buildPriceDrafts = (items) => Object.fromEntries(items.map((item) => [item.id, String(item.price ?? '')]));
 const formatHistoryDate = (date) =>
@@ -179,13 +183,150 @@ const buildAggregatedBillOrder = (group, options = {}) => {
   };
 };
 
+const buildDaySalesReport = (ordersForDay) => {
+  const itemMap = new Map();
+  let foodRevenue = 0;
+  let tipTotal = 0;
+  let cancelledCount = 0;
+
+  for (const order of ordersForDay) {
+    if (order.status === 'CANCELLED') {
+      cancelledCount += 1;
+      continue;
+    }
+
+    const settlementMeta = parseSettlementMeta(order.rejection_reason);
+    tipTotal += Number(settlementMeta?.primary ? settlementMeta.tipAmount || 0 : 0);
+    foodRevenue += Number(order.total || 0);
+
+    for (const item of order.order_items || []) {
+      const rate = Number(item.price_at_purchase ?? item.price ?? 0);
+      const quantity = Number(item.quantity || 0);
+      const key = `${item.item_name}__${rate}`;
+      const entry = itemMap.get(key) || {
+        name: item.item_name,
+        quantity: 0,
+        rate,
+        amount: 0,
+      };
+
+      entry.quantity += quantity;
+      entry.amount += quantity * rate;
+      itemMap.set(key, entry);
+    }
+  }
+
+  return {
+    cancelledCount,
+    foodRevenue,
+    itemCount: Array.from(itemMap.values()).reduce((sum, item) => sum + item.quantity, 0),
+    items: Array.from(itemMap.values()).sort((a, b) => a.name.localeCompare(b.name)),
+    orderCount: ordersForDay.length,
+    tipTotal,
+    totalRevenue: foodRevenue + tipTotal,
+  };
+};
+
+const openDaySalesPrintWindow = ({ dateLabel, report }) => {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+
+  const rows = report.items
+    .map(
+      (item) => `
+        <tr>
+          <td>${item.name}</td>
+          <td class="right">${item.quantity}</td>
+          <td class="right">${formatPrice(item.rate)}</td>
+          <td class="right">${formatPrice(item.amount)}</td>
+        </tr>
+      `,
+    )
+    .join('');
+
+  const printWindow = window.open('', `Day Sale ${dateLabel}`, 'width=420,height=720');
+  if (!printWindow) {
+    return false;
+  }
+
+  printWindow.document.write(`
+    <html>
+      <head>
+        <title>Day Sale ${dateLabel}</title>
+        <style>
+          @page { size: 80mm auto; margin: 4mm; }
+          * { box-sizing: border-box; }
+          body { margin: 0; font-family: "Courier New", monospace; color: #000; font-weight: 700; }
+          .receipt { width: 72mm; margin: 0 auto; }
+          h1, h2, p { margin: 0; text-align: center; }
+          h1 { font-size: 18px; letter-spacing: 1px; }
+          h2 { font-size: 15px; margin-top: 6px; }
+          p { font-size: 11px; line-height: 1.35; }
+          .line { border-top: 1px dashed #000; margin: 8px 0; }
+          table { width: 100%; border-collapse: collapse; font-size: 10px; }
+          th, td { padding: 3px 0; border-bottom: 1px dotted #777; vertical-align: top; }
+          th { text-align: left; }
+          .right { text-align: right; }
+          .summary { display: grid; gap: 4px; font-size: 12px; }
+          .summary div { display: flex; justify-content: space-between; gap: 10px; }
+          .total { font-size: 15px; }
+        </style>
+      </head>
+      <body>
+        <div class="receipt">
+          <h1>BANGARU VAKILI</h1>
+          <p>FAMILY RESTAURANT</p>
+          <p>SHIVAJI NAGAR, NALGONDA</p>
+          <p>GSTIN: 36ELLPP6523H1ZP</p>
+          <p>CELL: 7337334474 / 9701054013</p>
+          <div class="line"></div>
+          <h2>DAY SALE REPORT</h2>
+          <p>${dateLabel}</p>
+          <div class="line"></div>
+          <table>
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th class="right">Qty</th>
+                <th class="right">Rate</th>
+                <th class="right">Amt</th>
+              </tr>
+            </thead>
+            <tbody>${rows || '<tr><td colspan="4">No items sold</td></tr>'}</tbody>
+          </table>
+          <div class="line"></div>
+          <div class="summary">
+            <div><span>Orders</span><strong>${report.orderCount}</strong></div>
+            <div><span>Items</span><strong>${report.itemCount}</strong></div>
+            <div><span>Cancelled</span><strong>${report.cancelledCount}</strong></div>
+            <div><span>Food Sale</span><strong>${formatPrice(report.foodRevenue)}</strong></div>
+            <div><span>Tips</span><strong>${formatPrice(report.tipTotal)}</strong></div>
+            <div class="total"><span>Total</span><strong>${formatPrice(report.totalRevenue)}</strong></div>
+          </div>
+          <div class="line"></div>
+          <p>END OF DAY COUNTER COPY</p>
+        </div>
+        <script>
+          window.onload = () => {
+            window.focus();
+            window.print();
+          };
+        </script>
+      </body>
+    </html>
+  `);
+  printWindow.document.close();
+  return true;
+};
+
 export default function OwnerPage() {
   const { ownerToken, setOwnerToken, restaurantStatus, setKitchenPaused, setMaintenanceMode } = useAppContext();
   const { showToast } = useToast();
   const [orders, setOrders] = useState([]);
   const [deliveryPeople, setDeliveryPeople] = useState([]);
   const [managedItems, setManagedItems] = useState([]);
-  const [currentTab, setCurrentTab] = useState('orders');
+  const [currentTab, setCurrentTab] = useState('counter');
   const [currentFilter, setCurrentFilter] = useState('all');
   const [menuFilter, setMenuFilter] = useState('all');
   const [menuSearchQuery, setMenuSearchQuery] = useState('');
@@ -217,6 +358,7 @@ export default function OwnerPage() {
   const [settlingTable, setSettlingTable] = useState(false);
   const [removingTableItemKey, setRemovingTableItemKey] = useState('');
   const [historyDate, setHistoryDate] = useState(getTodayDateKey());
+  const [selectedActiveGroupKey, setSelectedActiveGroupKey] = useState('');
   const knownOrderIdsRef = useRef(new Set());
   const orderEntryRef = useRef(null);
 
@@ -315,6 +457,32 @@ export default function OwnerPage() {
       ),
     [orders],
   );
+  const activeTableMap = useMemo(
+    () => new Map(activeTableGroups.filter((group) => group.serviceMode === 'TABLE').map((group) => [String(group.tableNumber), group])),
+    [activeTableGroups],
+  );
+  const activeTakeawayGroups = useMemo(
+    () => activeTableGroups.filter((group) => group.serviceMode === 'TAKEAWAY'),
+    [activeTableGroups],
+  );
+  const selectedActiveGroup = useMemo(
+    () => activeTableGroups.find((group) => group.groupKey === selectedActiveGroupKey) || activeTableGroups[0] || null,
+    [activeTableGroups, selectedActiveGroupKey],
+  );
+
+  useEffect(() => {
+    if (!activeTableGroups.length) {
+      if (selectedActiveGroupKey) {
+        setSelectedActiveGroupKey('');
+      }
+      return;
+    }
+
+    if (!activeTableGroups.some((group) => group.groupKey === selectedActiveGroupKey)) {
+      setSelectedActiveGroupKey(activeTableGroups[0].groupKey);
+    }
+  }, [activeTableGroups, selectedActiveGroupKey]);
+
   const historyOrders = useMemo(
     () => orders.filter((order) => toDateKey(order.created_at) === historyDate),
     [historyDate, orders],
@@ -639,6 +807,27 @@ export default function OwnerPage() {
     () => draftItems.reduce((sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 0), 0),
     [draftItems],
   );
+  const counterTargetValue = serviceMode === 'TAKEAWAY' ? 'TAKEAWAY' : tableNumber ? `TABLE:${tableNumber}` : '';
+
+  const handleCounterTargetChange = (value) => {
+    if (value === 'TAKEAWAY') {
+      setServiceMode('TAKEAWAY');
+      setTableNumber('');
+      setTakeawayToken('');
+      return;
+    }
+
+    if (value.startsWith('TABLE:')) {
+      setServiceMode('TABLE');
+      setTableNumber(value.slice('TABLE:'.length));
+      setTakeawayToken('');
+      return;
+    }
+
+    setServiceMode('TABLE');
+    setTableNumber('');
+    setTakeawayToken('');
+  };
 
   const resetDraft = () => {
     setDraftItems([]);
@@ -647,18 +836,16 @@ export default function OwnerPage() {
   };
 
   const handleCreateTableKot = async () => {
-    if (serviceMode === 'TABLE' && !String(tableNumber).trim()) {
-      showToast('Select table number first.', 'error');
-      return;
-    }
-    if (serviceMode === 'TAKEAWAY' && !String(takeawayToken).trim()) {
-      showToast('Enter takeaway token first.', 'error');
+    if (!counterTargetValue) {
+      showToast('Select table or takeaway first.', 'error');
       return;
     }
     if (!draftItems.length) {
       showToast('Add at least one item before creating this KOT.', 'error');
       return;
     }
+
+    const generatedTakeawayToken = takeawayToken.trim() || `Walk-In-${Date.now().toString().slice(-5)}`;
 
     try {
       setSubmittingTableOrder(true);
@@ -667,14 +854,14 @@ export default function OwnerPage() {
         customerName: customerName.trim(),
         customerPhone: customerPhone.trim(),
         tableNumber: serviceMode === 'TABLE' ? String(tableNumber).trim() : null,
-        takeawayToken: serviceMode === 'TAKEAWAY' ? takeawayToken.trim() : '',
+        takeawayToken: serviceMode === 'TAKEAWAY' ? generatedTakeawayToken : '',
         subtotal: draftSubtotal,
         total: draftSubtotal,
         items: draftItems,
       });
 
       await handlePrintKot(response.order);
-      showToast(serviceMode === 'TAKEAWAY' ? `KOT created for Takeaway ${takeawayToken}.` : `KOT created for Table ${tableNumber}.`);
+      showToast(serviceMode === 'TAKEAWAY' ? 'Takeaway KOT created.' : `KOT created for Table ${tableNumber}.`);
       resetDraft();
       await loadOrders();
     } catch (error) {
@@ -758,6 +945,21 @@ export default function OwnerPage() {
     return printOpened;
   };
 
+  const handlePrintDaySales = () => {
+    const report = buildDaySalesReport(historyOrders);
+    const opened = openDaySalesPrintWindow({
+      dateLabel: formatHistoryDate(historyDateObject),
+      report,
+    });
+
+    if (!opened) {
+      showToast('Could not open day sale print window. Please check pop-up permission.', 'error');
+      return;
+    }
+
+    showToast('Day sale report opened for printing.');
+  };
+
   const shiftHistoryDate = (days) => {
     const nextDate = new Date(historyDateObject);
     nextDate.setDate(nextDate.getDate() + days);
@@ -806,15 +1008,21 @@ export default function OwnerPage() {
       </nav>
 
       <main className="dashboard-main">
-        <div className="owner-tabs">
-          <button className={`owner-tab ${currentTab === 'orders' ? 'active' : ''}`} onClick={() => setCurrentTab('orders')} type="button">
-            Orders
-          </button>
-          <button className={`owner-tab ${currentTab === 'menu' ? 'active' : ''}`} onClick={() => setCurrentTab('menu')} type="button">
-            Menu
-          </button>
+        <div className="owner-tabs owner-section-tabs">
+          {ownerSections.map((section) => (
+            <button
+              className={`owner-tab ${currentTab === section.value ? 'active' : ''}`}
+              key={section.value}
+              onClick={() => setCurrentTab(section.value)}
+              type="button"
+            >
+              {section.label}
+            </button>
+          ))}
         </div>
 
+        {currentTab === 'controls' && (
+          <>
         <div className="status-control-card">
           <div>
             <div className="status-control-label">Kitchen Control</div>
@@ -897,9 +1105,13 @@ export default function OwnerPage() {
             </button>
           </div>
         </div>
+          </>
+        )}
 
-        {currentTab === 'orders' ? (
+        {currentTab !== 'menu' ? (
           <>
+            {currentTab === 'reports' && (
+              <>
             <div className="stats-grid">
               <div className="stat-card">
                 <div className="stat-num">{stats.pending}</div>
@@ -919,43 +1131,25 @@ export default function OwnerPage() {
               <div className="stat-label">Today's Revenue</div>
               <div className="revenue-total">{formatPrice(stats.revenue)}</div>
             </div>
+              </>
+            )}
 
+            {currentTab === 'counter' && (
             <div className="card" ref={orderEntryRef}>
               <div className="status-control-label" style={{ marginBottom: 12 }}>Counter Table Order Entry</div>
               <p className="muted-small" style={{ marginBottom: 16 }}>
-                Waiter tells the table or takeaway token here, you add items, then create a KOT. Customers do not pay while ordering in restaurant.
+                Select a table or takeaway, add items, then create a KOT. Customers do not pay while ordering in restaurant.
               </p>
-              <div className="service-mode-switch">
-                {serviceModeOptions.map((option) => (
-                  <button
-                    className={`filter-btn ${serviceMode === option.value ? 'active' : ''}`}
-                    key={option.value}
-                    onClick={() => setServiceMode(option.value)}
-                    type="button"
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
               <div className="staff-form-card" style={{ alignItems: 'stretch' }}>
-                {serviceMode === 'TABLE' ? (
-                  <select className="input-field" onChange={(event) => setTableNumber(event.target.value)} value={tableNumber}>
-                    <option value="">Select table number</option>
-                    {tableOptions.map((option) => (
-                      <option key={option} value={option}>
-                        Table {option}
-                      </option>
-                    ))}
-                  </select>
-                ) : (
-                  <input
-                    className="input-field"
-                    onChange={(event) => setTakeawayToken(event.target.value)}
-                    placeholder="Takeaway token / slip number"
-                    type="text"
-                    value={takeawayToken}
-                  />
-                )}
+                <select className="input-field" onChange={(event) => handleCounterTargetChange(event.target.value)} value={counterTargetValue}>
+                  <option value="">Select table / takeaway</option>
+                  {tableOptions.map((option) => (
+                    <option key={option} value={`TABLE:${option}`}>
+                      Table {option}
+                    </option>
+                  ))}
+                  <option value="TAKEAWAY">Takeaway</option>
+                </select>
                 <input className="input-field" onChange={(event) => setCustomerName(event.target.value)} placeholder="Customer name (optional)" type="text" value={customerName} />
                 <input className="input-field" inputMode="numeric" maxLength={10} onChange={(event) => setCustomerPhone(event.target.value.replace(/\D/g, '').slice(0, 10))} placeholder="Customer phone (optional)" type="tel" value={customerPhone} />
               </div>
@@ -1014,11 +1208,52 @@ export default function OwnerPage() {
                 </button>
               </div>
             </div>
+            )}
 
+            {currentTab === 'active' && (
             <div className="card">
               <div className="status-control-label" style={{ marginBottom: 12 }}>Active Table / Takeaway Orders</div>
               {!activeTableGroups.length && <div className="muted-small">No active in-restaurant tables or takeaways right now.</div>}
-              {activeTableGroups.map((group) => (
+              {!!activeTableGroups.length && (
+                <>
+                  <div className="table-board-grid">
+                    {tableOptions.map((option) => {
+                      const group = activeTableMap.get(option);
+                      const selected = !!group && selectedActiveGroup?.groupKey === group.groupKey;
+                      return (
+                        <button
+                          className={`table-board-card ${group ? 'occupied' : 'free'} ${selected ? 'active' : ''}`}
+                          disabled={!group}
+                          key={option}
+                          onClick={() => group && setSelectedActiveGroupKey(group.groupKey)}
+                          type="button"
+                        >
+                          <span>Table {option}</span>
+                          <strong>{group ? formatPrice(group.total) : 'Free'}</strong>
+                          {group ? <small>{group.orders.length} KOTs · {group.itemCount} items</small> : <small>Ready</small>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {!!activeTakeawayGroups.length && (
+                    <div className="takeaway-board-row">
+                      {activeTakeawayGroups.map((group) => (
+                        <button
+                          className={`table-board-card occupied takeaway ${selectedActiveGroup?.groupKey === group.groupKey ? 'active' : ''}`}
+                          key={group.groupKey}
+                          onClick={() => setSelectedActiveGroupKey(group.groupKey)}
+                          type="button"
+                        >
+                          <span>{group.displayLabel}</span>
+                          <strong>{formatPrice(group.total)}</strong>
+                          <small>{group.orders.length} KOTs · {group.itemCount} items</small>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+              {[selectedActiveGroup].filter(Boolean).map((group) => (
                 <div className="card" key={group.groupKey} style={{ marginBottom: 16 }}>
                   <div className="order-card-head">
                     <div>
@@ -1105,13 +1340,20 @@ export default function OwnerPage() {
                 </div>
               ))}
             </div>
+            )}
 
+            {currentTab === 'reports' && (
             <div className="card history-shell">
               <div className="history-header">
                 <h3 className="order-card-title">Previous Orders & Revenue</h3>
-                <button className="history-today-btn" onClick={() => setHistoryDate(getTodayDateKey())} type="button">
-                  Today
-                </button>
+                <div className="history-action-group">
+                  <button className="history-today-btn" onClick={() => setHistoryDate(getTodayDateKey())} type="button">
+                    Today
+                  </button>
+                  <button className="history-today-btn" onClick={handlePrintDaySales} type="button">
+                    Print Day Sale
+                  </button>
+                </div>
               </div>
               <div className="history-nav">
                 <button className="history-nav-btn" onClick={() => shiftHistoryDate(-1)} type="button">
@@ -1170,7 +1412,10 @@ export default function OwnerPage() {
                 ))}
               </div>
             </div>
+            )}
 
+            {currentTab === 'delivery' && (
+              <>
             <div className="filter-wrap">
               {['all', 'new', 'active', 'ready', 'completed'].map((filter) => (
                 <button className={`filter-btn ${currentFilter === filter ? 'active' : ''}`} key={filter} onClick={() => setCurrentFilter(filter)} type="button">
@@ -1213,7 +1458,7 @@ export default function OwnerPage() {
                     </div>
 
                     <div className="muted-small">Customer: {order.customer_name} · {order.customer_phone}</div>
-                    <div className="order-items-copy">{(order.order_items || []).map((item) => `${item.item_name} ?{item.quantity}`).join(', ')}</div>
+                    <div className="order-items-copy">{(order.order_items || []).map((item) => `${item.item_name} ×${item.quantity}`).join(', ')}</div>
                     {!!deliveryMeta.address && (
                       <div className="delivery-info-block">
                         <div className="muted-small">Address: {deliveryMeta.address}</div>
@@ -1285,6 +1530,8 @@ export default function OwnerPage() {
                 );
               })}
             </div>
+              </>
+            )}
           </>
         ) : (
           <>
