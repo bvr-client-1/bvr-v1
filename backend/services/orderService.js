@@ -119,19 +119,41 @@ export const generateDailyOrderCode = async (offset = 0) => {
   const { startUtc, endUtc } = getIstDayUtcRange();
   const { data, error } = await supabase
     .from('orders')
-    .select('order_code')
-    .gte('created_at', startUtc)
-    .lt('created_at', endUtc);
+    .select('order_code, created_at')
+    .order('created_at', { ascending: false })
+    .limit(5000);
 
   raise(error);
 
-  const latestSequence = (data || []).reduce((max, row) => {
-    const match = String(row.order_code || '').match(/^BVR(\d{4})$/i);
-    if (!match) return max;
-    return Math.max(max, Number(match[1]));
+  const parseSequence = (value) => {
+    const match = String(value || '').match(/^BVR(\d{4})$/i);
+    return match ? Number(match[1]) : null;
+  };
+
+  const latestSequenceToday = (data || []).reduce((max, row) => {
+    const createdAt = row.created_at ? new Date(row.created_at).toISOString() : null;
+    if (!createdAt || createdAt < startUtc || createdAt >= endUtc) {
+      return max;
+    }
+
+    const sequence = parseSequence(row.order_code);
+    if (!Number.isInteger(sequence)) {
+      return max;
+    }
+
+    return Math.max(max, sequence);
   }, 0);
 
-  return `BVR${String(latestSequence + 1 + Number(offset || 0)).padStart(4, '0')}`;
+  const usedSequences = new Set(
+    (data || []).map((row) => parseSequence(row.order_code)).filter((value) => Number.isInteger(value)),
+  );
+
+  let candidate = latestSequenceToday + 1 + Number(offset || 0);
+  while (usedSequences.has(candidate)) {
+    candidate += 1;
+  }
+
+  return `BVR${String(candidate).padStart(4, '0')}`;
 };
 
 const isDuplicateOrderCodeError = (error) => {
