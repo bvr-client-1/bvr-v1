@@ -10,7 +10,6 @@ const parseBoolean = (value, fallback = false) => {
 
 const required = [
   'PORT',
-  'FRONTEND_URL',
   'SUPABASE_URL',
   'SUPABASE_SERVICE_ROLE_KEY',
   'RAZORPAY_KEY_ID',
@@ -28,6 +27,11 @@ for (const key of required) {
   }
 }
 
+const frontendUrls = process.env.FRONTEND_URLS || process.env.FRONTEND_URL || '';
+if (!frontendUrls.trim()) {
+  throw new Error('Missing required environment variable: FRONTEND_URL or FRONTEND_URLS');
+}
+
 const parsedPort = Number(process.env.PORT || 4000);
 if (!Number.isInteger(parsedPort) || parsedPort <= 0) {
   throw new Error('PORT must be a positive integer');
@@ -41,7 +45,6 @@ if (jwtSecret.length < 32) {
 const ownerPasswordHash = process.env.OWNER_PASSWORD_HASH;
 const kitchenPasswordHash = process.env.KITCHEN_PASSWORD_HASH;
 
-const frontendUrls = process.env.FRONTEND_URLS || process.env.FRONTEND_URL;
 const allowedOrigins = parseAllowedOrigins(frontendUrls);
 if (!allowedOrigins.length) {
   throw new Error('At least one frontend origin must be configured');
@@ -92,7 +95,7 @@ export const env = {
   nodeEnv: process.env.NODE_ENV || 'development',
   isProduction: (process.env.NODE_ENV || 'development') === 'production',
   port: parsedPort,
-  frontendUrl: process.env.FRONTEND_URL,
+  frontendUrl: process.env.FRONTEND_URL || allowedOrigins[0] || '',
   frontendUrls,
   allowedOrigins,
   supabaseUrl: process.env.SUPABASE_URL,
