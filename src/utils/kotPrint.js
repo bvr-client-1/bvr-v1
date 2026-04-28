@@ -34,7 +34,13 @@ const getOrderMetaLine = (order) => {
   return order.customer_name || 'Dine-in order';
 };
 
-export const buildKotMarkup = (order) => {
+export const buildKotMarkup = (order, options = {}) => {
+  const {
+    variant = 'standard',
+    heading = variant === 'cancel' ? 'CANCEL KOT' : 'KOT',
+    footer = variant === 'cancel' ? 'Stop preparation and confirm with counter' : 'Prepared from BVR live order system',
+    reason = '',
+  } = options;
   const itemsMarkup = (order.order_items || [])
     .map(
       (item) => `
@@ -69,6 +75,9 @@ export const buildKotMarkup = (order) => {
             font-size: 18px;
             font-weight: 800;
             letter-spacing: 1px;
+          }
+          .title.cancel {
+            color: #a40000;
           }
           .brand {
             margin-top: 4px;
@@ -122,10 +131,18 @@ export const buildKotMarkup = (order) => {
             font-size: 11px;
             text-align: center;
           }
+          .reason-box {
+            margin-top: 6px;
+            border: 1px solid #000;
+            padding: 6px;
+            font-size: 12px;
+            line-height: 1.35;
+            font-weight: 700;
+          }
         </style>
       </head>
       <body>
-        <div class="center title">KOT</div>
+        <div class="center title ${variant === 'cancel' ? 'cancel' : ''}">${escapeHtml(heading)}</div>
         <div class="center brand">Bangaru Vakili</div>
         <div class="divider"></div>
         <div class="row"><strong>Order</strong><strong>#${escapeHtml(order.order_code)}</strong></div>
@@ -133,17 +150,18 @@ export const buildKotMarkup = (order) => {
         <div class="row"><span>Type</span><span>${escapeHtml(getOrderModeLabel(order))}</span></div>
         <div class="section-label">Order Details</div>
         <div class="meta">${escapeHtml(getOrderMetaLine(order))}</div>
+        ${reason ? `<div class="reason-box">Reason: ${escapeHtml(reason)}</div>` : ''}
         <div class="divider"></div>
         <div class="section-label">Items</div>
         ${itemsMarkup || '<div class="meta">No items found</div>'}
         <div class="divider"></div>
-        <div class="footer">Prepared from BVR live order system</div>
+        <div class="footer">${escapeHtml(footer)}</div>
       </body>
     </html>
   `;
 };
 
-export const printKotSlip = (order) => {
+export const printKotSlip = (order, options = {}) => {
   if (typeof window === 'undefined' || !order) {
     return false;
   }
@@ -154,7 +172,7 @@ export const printKotSlip = (order) => {
   }
 
   printWindow.document.open();
-  printWindow.document.write(buildKotMarkup(order));
+  printWindow.document.write(buildKotMarkup(order, options));
   printWindow.document.close();
   printWindow.focus();
 

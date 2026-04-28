@@ -34,6 +34,10 @@ const statusBadgeMap = {
 };
 
 const paymentMethods = ['CASH', 'CARD', 'UPI'];
+const removalConsentOptions = [
+  { value: 'WITH_CONSENT', label: 'With customer consent' },
+  { value: 'WITHOUT_CONSENT', label: 'Without customer consent' },
+];
 const tableOptions = Array.from({ length: 16 }, (_, index) => String(index + 1));
 const ownerSections = [
   { value: 'counter', label: 'Counter' },
@@ -90,6 +94,12 @@ const getRefundNote = (order) => {
   }
 
   return '';
+};
+
+const getAuditConsentLabel = (value) => {
+  if (value === 'WITH_CONSENT') return 'With consent';
+  if (value === 'WITHOUT_CONSENT') return 'Without consent';
+  return 'Consent not recorded';
 };
 
 const groupTableOrders = (orders) => {
@@ -357,6 +367,9 @@ export default function OwnerPage() {
   const [selectedTipAmount, setSelectedTipAmount] = useState('0');
   const [settlingTable, setSettlingTable] = useState(false);
   const [removingTableItemKey, setRemovingTableItemKey] = useState('');
+  const [pendingRemoval, setPendingRemoval] = useState(null);
+  const [removalConsentStatus, setRemovalConsentStatus] = useState('WITH_CONSENT');
+  const [removalNote, setRemovalNote] = useState('');
   const [historyDate, setHistoryDate] = useState(getTodayDateKey());
   const [selectedActiveGroupKey, setSelectedActiveGroupKey] = useState('');
   const knownOrderIdsRef = useRef(new Set());
@@ -487,6 +500,20 @@ export default function OwnerPage() {
     () => orders.filter((order) => toDateKey(order.created_at) === historyDate),
     [historyDate, orders],
   );
+  const historyRemovalEvents = useMemo(
+    () =>
+      historyOrders
+        .flatMap((order) =>
+          (order.audit_events || []).map((event) => ({
+            ...event,
+            orderCode: order.order_code,
+            displayLabel: getTakeawayToken(order) ? `Takeaway ${getTakeawayToken(order)}` : `Table ${order.table_number || '-'}`,
+          })),
+        )
+        .filter((event) => event.eventType === 'ITEM_REMOVED')
+        .sort((left, right) => new Date(right.createdAt || 0).getTime() - new Date(left.createdAt || 0).getTime()),
+    [historyOrders],
+  );
 
   const filteredDeliveryOrders = useMemo(() => {
     if (currentFilter === 'all') return deliveryOrders;
@@ -594,6 +621,18 @@ export default function OwnerPage() {
     try {
       stopNewOrderAlertLoop();
       const result = await updateAdminOrderStatus(ownerToken, orderId, status, rejectionReason);
+      if (status === 'CANCELLED' && result?.order) {
+        const printOpened = printKotSlip(result.order, {
+          variant: 'cancel',
+          heading: 'CANCEL KOT',
+          reason: rejectionReason || result.order.rejection_reason || 'Cancelled by counter',
+        });
+        if (printOpened) {
+          showToast(`Cancel KOT opened for #${result.order.order_code}.`);
+        } else {
+          showToast('Order cancelled, but cancel KOT popup was blocked.', 'error');
+        }
+      }
       if (status === 'CANCELLED' && result?.refund?.status) {
         showToast(`Order cancelled. Refund ${result.refund.status === 'processed' ? 'completed' : 'initiated'}.`);
       } else {
@@ -922,8 +961,36 @@ export default function OwnerPage() {
   const handleRemoveTableItem = async (orderId, orderItemId) => {
     try {
       setRemovingTableItemKey(`${orderId}:${orderItemId}`);
-      await removeTableOrderItem(ownerToken, orderId, { orderItemId, quantityToRemove: 1 });
-      showToast('Item updated in the active bill.', 'success');
+      const response = await removeTableOrderItem(ownerToken, orderId, {
+        orderItemId,
+        quantityToRemove: 1,
+        consentStatus: removalConsentStatus,
+        note: removalNote.trim(),
+      });
+      if (response?.order?.status === 'CANCELLED') {
+        const fallbackCancelledOrder =
+          pendingRemoval && (!response.order.order_items || !response.order.order_items.length)
+            ? {
+                ...response.order,
+                order_items: [{ item_name: pendingRemoval.itemName, quantity: 1 }],
+              }
+            : response.order;
+        const printOpened = printKotSlip(fallbackCancelledOrder, {
+          variant: 'cancel',
+          heading: 'CANCEL KOT',
+          reason: response.order.rejection_reason || 'All items removed from the order',
+        });
+        if (printOpened) {
+          showToast('Item removed and cancel KOT opened for kitchen.', 'success');
+        } else {
+          showToast('Item removed and order cancelled, but cancel KOT popup was blocked.', 'error');
+        }
+      } else {
+        showToast('Item updated in the active bill.', 'success');
+      }
+      setPendingRemoval(null);
+      setRemovalConsentStatus('WITH_CONSENT');
+      setRemovalNote('');
       await loadOrders({ silent: true });
     } catch (error) {
       if (!handleAuthFailure(error)) {
@@ -932,6 +999,18 @@ export default function OwnerPage() {
     } finally {
       setRemovingTableItemKey('');
     }
+  };
+
+  const openRemoveItemPrompt = (order, item, displayLabel) => {
+    setPendingRemoval({
+      orderId: order.id,
+      orderItemId: item.id,
+      orderCode: order.order_code,
+      itemName: item.item_name,
+      displayLabel,
+    });
+    setRemovalConsentStatus('WITH_CONSENT');
+    setRemovalNote('');
   };
 
   const handlePrintDemoBill = async (group) => {
@@ -1288,7 +1367,7 @@ export default function OwnerPage() {
                                 <button
                                   className="table-item-remove-btn"
                                   disabled={removingTableItemKey === `${order.id}:${item.id}`}
-                                  onClick={() => handleRemoveTableItem(order.id, item.id)}
+                                  onClick={() => openRemoveItemPrompt(order, item, selectedActiveGroup.displayLabel)}
                                   type="button"
                                 >
                                   {removingTableItemKey === `${order.id}:${item.id}` ? 'Updating...' : 'Remove 1'}
@@ -1410,6 +1489,40 @@ export default function OwnerPage() {
                     {!!entry.tipAmount && <div className="reason-note">Tip recorded: {formatPrice(entry.tipAmount)}</div>}
                   </div>
                 ))}
+              </div>
+              <div className="card" style={{ marginTop: 18 }}>
+                <div className="status-control-label" style={{ marginBottom: 10 }}>Removed Items Review</div>
+                {!historyRemovalEvents.length ? (
+                  <div className="muted-small">No items were removed on this day.</div>
+                ) : (
+                  <div className="history-entry-list">
+                    {historyRemovalEvents.map((event) => (
+                      <div className="history-entry-card" key={event.id}>
+                        <div className="order-card-head">
+                          <div>
+                            <div className="gold-text strong">
+                              #{event.orderCode} · {event.itemName || 'Removed item'}
+                            </div>
+                            <div className="muted-small">
+                              {event.displayLabel} · {getAuditConsentLabel(event.consentStatus)}
+                            </div>
+                          </div>
+                          <div className="order-card-price">
+                            <div className="gold-text strong">x{event.quantityRemoved || 1}</div>
+                            <div className="muted-small">{timeAgo(event.createdAt)}</div>
+                          </div>
+                        </div>
+                        <div className="order-items-copy">
+                          Removed value: {formatPrice(Number(event.lineTotal || 0))}
+                        </div>
+                        <div className="muted-small">
+                          By {event.actorRole || 'owner'}
+                          {event.note ? ` · Note: ${event.note}` : ''}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
             )}
@@ -1629,6 +1742,64 @@ export default function OwnerPage() {
         )}
       </main>
 
+      {!!pendingRemoval && (
+        <div className="reject-overlay open">
+          <div className="reject-box">
+            <h3>Remove this item?</h3>
+            <p className="muted-small">
+              This will be saved for owner review with consent status and note.
+            </p>
+            <div className="reason-note">
+              #{pendingRemoval.orderCode} · {pendingRemoval.displayLabel}
+            </div>
+            <div className="gold-text strong" style={{ marginBottom: 10 }}>
+              {pendingRemoval.itemName}
+            </div>
+            {removalConsentOptions.map((option) => (
+              <button
+                className={`reason-option ${removalConsentStatus === option.value ? 'selected' : ''}`}
+                key={option.value}
+                onClick={() => setRemovalConsentStatus(option.value)}
+                type="button"
+              >
+                {option.label}
+              </button>
+            ))}
+            <div className="stacked-fields" style={{ marginTop: 12 }}>
+              <input
+                className="input-field"
+                maxLength={240}
+                onChange={(event) => setRemovalNote(event.target.value)}
+                placeholder="Optional note (kitchen said unavailable, customer changed mind, etc.)"
+                type="text"
+                value={removalNote}
+              />
+            </div>
+            <div className="reject-actions">
+              <button
+                className="reject-cancel-btn"
+                onClick={() => {
+                  setPendingRemoval(null);
+                  setRemovalConsentStatus('WITH_CONSENT');
+                  setRemovalNote('');
+                }}
+                type="button"
+              >
+                Back
+              </button>
+              <button
+                className="reject-confirm-btn"
+                disabled={removingTableItemKey === `${pendingRemoval.orderId}:${pendingRemoval.orderItemId}`}
+                onClick={() => handleRemoveTableItem(pendingRemoval.orderId, pendingRemoval.orderItemId)}
+                type="button"
+              >
+                {removingTableItemKey === `${pendingRemoval.orderId}:${pendingRemoval.orderItemId}` ? 'Removing...' : 'Confirm Remove'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {!!rejectingOrderId && (
         <div className="reject-overlay open">
           <div className="reject-box">
@@ -1676,7 +1847,7 @@ export default function OwnerPage() {
                         <button
                           className="table-item-remove-btn"
                           disabled={removingTableItemKey === `${order.id}:${item.id}`}
-                          onClick={() => handleRemoveTableItem(order.id, item.id)}
+                          onClick={() => openRemoveItemPrompt(order, item, selectedBillingGroup.displayLabel)}
                           type="button"
                         >
                           {removingTableItemKey === `${order.id}:${item.id}` ? 'Updating...' : 'Remove 1'}

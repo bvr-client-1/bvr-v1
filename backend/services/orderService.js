@@ -8,12 +8,28 @@ import {
   findPaymentRecordByPaymentId,
   upsertPaymentRecord,
 } from './paymentRecordService.js';
+import { getOrderAuditEventsByOrderIds, logOrderAuditEvent } from './orderAuditService.js';
 import { getMenuItemsByIds } from './menuService.js';
 import { serializeDeliveryAddress } from '../utils/deliveryAddress.js';
 import { assertValidStatusTransition } from '../utils/orderStatus.js';
 
 const TAKEAWAY_PREFIX = 'TAKEAWAY::';
 const SETTLEMENT_PREFIX = 'SETTLEMENT_META::';
+
+const attachAuditEventsToOrders = async (orders) => {
+  const list = Array.isArray(orders) ? orders : orders ? [orders] : [];
+  if (!list.length) {
+    return Array.isArray(orders) ? [] : orders;
+  }
+
+  const auditEventsByOrderId = await getOrderAuditEventsByOrderIds(list.map((order) => order.id));
+  const enriched = list.map((order) => ({
+    ...order,
+    audit_events: auditEventsByOrderId.get(order.id) || [],
+  }));
+
+  return Array.isArray(orders) ? enriched : enriched[0];
+};
 
 const raise = (error, fallback = 500) => {
   if (error) {
@@ -366,10 +382,19 @@ export const createCounterTableOrder = async ({
     refund_failure_reason: null,
     refund_initiated_at: null,
     refund_processed_at: null,
+    audit_events: [],
   };
 };
 
-export const removeCounterOrderItem = async ({ orderId, orderItemId, quantityToRemove = 1 }) => {
+export const removeCounterOrderItem = async ({
+  orderId,
+  orderItemId,
+  quantityToRemove = 1,
+  consentStatus = 'UNKNOWN',
+  note = '',
+  actorRole = 'owner',
+  actorId = 'owner',
+}) => {
   const { data: orderItems, error: itemsFetchError } = await supabase
     .from('order_items')
     .select('*')
@@ -387,6 +412,25 @@ export const removeCounterOrderItem = async ({ orderId, orderItemId, quantityToR
 
   const removeCount = Math.max(1, Number(quantityToRemove || 1));
   const nextQuantity = Number(targetItem.quantity || 0) - removeCount;
+  const unitPrice = Number(targetItem.price_at_purchase ?? targetItem.price ?? 0);
+
+  await logOrderAuditEvent({
+    orderId,
+    orderItemId,
+    eventType: 'ITEM_REMOVED',
+    actorRole,
+    actorId,
+    itemName: targetItem.item_name,
+    quantityRemoved: Math.min(removeCount, Number(targetItem.quantity || 0)),
+    unitPrice,
+    lineTotal: unitPrice * Math.min(removeCount, Number(targetItem.quantity || 0)),
+    consentStatus,
+    note: String(note || '').trim() || null,
+    metadata: {
+      remainingQuantity: Math.max(nextQuantity, 0),
+      source: 'owner-dashboard',
+    },
+  });
 
   if (nextQuantity > 0) {
     const { error: updateItemError } = await supabase
@@ -451,7 +495,8 @@ export const getOrderByCode = async (orderCode) => {
     .maybeSingle();
 
   raise(error);
-  return attachPaymentMetadata(data);
+  const enriched = await attachPaymentMetadata(data);
+  return attachAuditEventsToOrders(enriched);
 };
 
 export const getOrderById = async (orderId) => {
@@ -462,7 +507,8 @@ export const getOrderById = async (orderId) => {
     .single();
 
   raise(error, 404);
-  return attachPaymentMetadata(data);
+  const enriched = await attachPaymentMetadata(data);
+  return attachAuditEventsToOrders(enriched);
 };
 
 export const findLatestOrderByPhone = async (phone) => {
@@ -487,7 +533,8 @@ export const getAllOrders = async () => {
     .order('created_at', { ascending: false });
 
   raise(error);
-  return attachPaymentMetadataToList(data || []);
+  const enriched = await attachPaymentMetadataToList(data || []);
+  return attachAuditEventsToOrders(enriched);
 };
 
 export const closeActiveTableOrders = async ({
@@ -705,6 +752,24 @@ export const cancelOrderWithRefund = async (orderId, rejectionReason = null) => 
   }
 
   await updateOrderRecord(orderId, payload);
+
+  await logOrderAuditEvent({
+    orderId,
+    eventType: 'ORDER_CANCELLED',
+    actorRole: 'owner',
+    actorId: 'owner',
+    itemName: null,
+    quantityRemoved: null,
+    unitPrice: null,
+    lineTotal: Number(currentOrder.total || 0),
+    consentStatus: 'UNKNOWN',
+    note: refundReason,
+    metadata: {
+      orderCode: currentOrder.order_code,
+      paymentStatus: currentOrder.payment_status,
+      source: 'owner-dashboard',
+    },
+  });
 
   return getOrderById(orderId);
 };

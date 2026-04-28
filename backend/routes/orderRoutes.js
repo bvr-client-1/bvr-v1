@@ -135,6 +135,8 @@ router.patch(
     Joi.object({
       orderItemId: Joi.string().required(),
       quantityToRemove: Joi.number().integer().min(1).default(1),
+      consentStatus: Joi.string().valid('WITH_CONSENT', 'WITHOUT_CONSENT').required(),
+      note: Joi.string().allow('', null).max(240),
     }),
   ),
   patchCounterOrderItem,

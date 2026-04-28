@@ -276,6 +276,10 @@ export const patchCounterOrderItem = async (req, res) => {
     orderId: req.params.orderId,
     orderItemId: req.body.orderItemId,
     quantityToRemove: req.body.quantityToRemove,
+    consentStatus: req.body.consentStatus,
+    note: req.body.note,
+    actorRole: req.user?.role || 'owner',
+    actorId: req.user?.sub || req.user?.role || 'owner',
   });
 
   res.json({
