@@ -16,6 +16,7 @@ import {
   settleTableBill,
   updateAdminOrderStatus,
 } from '../services/orderService.js';
+import { getUserFacingErrorMessage } from '../utils/errorMessages.js';
 import { formatPrice, timeAgo } from '../utils/format.js';
 import { printBillSlip } from '../utils/billPrint.js';
 import { printKotSlip } from '../utils/kotPrint.js';
@@ -419,7 +420,7 @@ export default function OwnerPage() {
       setPriceDrafts(buildPriceDrafts(items));
     } catch (error) {
       if (!handleAuthFailure(error)) {
-        showToast('Failed to load menu', 'error');
+        showToast(getUserFacingErrorMessage(error, 'Menu could not be loaded right now.'), 'error');
       }
     } finally {
       setLoadingMenu(false);
@@ -613,7 +614,7 @@ export default function OwnerPage() {
       setLoginError('');
       showToast('Welcome, owner!');
     } catch (error) {
-      setLoginError(error.response?.data?.message || 'Invalid email or password');
+      setLoginError(getUserFacingErrorMessage(error, 'Invalid email or password'));
     }
   };
 
@@ -644,7 +645,7 @@ export default function OwnerPage() {
       return result;
     } catch (error) {
       if (!handleAuthFailure(error)) {
-        showToast(error.response?.data?.message || 'Update failed', 'error');
+        showToast(getUserFacingErrorMessage(error, 'Order update failed. Please try again.'), 'error');
       }
       return null;
     }
@@ -719,7 +720,7 @@ export default function OwnerPage() {
       showToast('Delivery person added.');
     } catch (error) {
       if (!handleAuthFailure(error)) {
-        showToast(error.response?.data?.message || 'Could not add delivery person', 'error');
+        showToast(getUserFacingErrorMessage(error, 'Could not add the delivery person right now.'), 'error');
       }
     } finally {
       setAddingDeliveryStaff(false);
@@ -738,7 +739,7 @@ export default function OwnerPage() {
       showToast('Delivery person removed from active staff.');
     } catch (error) {
       if (!handleAuthFailure(error)) {
-        showToast(error.response?.data?.message || 'Could not remove delivery person', 'error');
+        showToast(getUserFacingErrorMessage(error, 'Could not remove the delivery person right now.'), 'error');
       }
     } finally {
       setRemovingDeliveryStaffId('');
@@ -753,7 +754,7 @@ export default function OwnerPage() {
       showToast(isAvailable ? 'Marked available.' : 'Marked unavailable.', isAvailable ? 'success' : 'info');
     } catch (error) {
       if (!handleAuthFailure(error)) {
-        showToast('Update failed', 'error');
+        showToast(getUserFacingErrorMessage(error, 'Menu availability update failed. Please try again.'), 'error');
       }
     }
   };
@@ -794,7 +795,7 @@ export default function OwnerPage() {
       showToast(`Updated price for ${item.name}.`, 'success');
     } catch (error) {
       if (!handleAuthFailure(error)) {
-        showToast(error.response?.data?.message || 'Could not update price', 'error');
+        showToast(getUserFacingErrorMessage(error, 'Could not update the menu price right now.'), 'error');
       }
     } finally {
       setSavingMenuItemId('');
@@ -905,7 +906,7 @@ export default function OwnerPage() {
       await loadOrders();
     } catch (error) {
       if (!handleAuthFailure(error)) {
-        showToast(error.response?.data?.message || 'Could not create table KOT', 'error');
+        showToast(getUserFacingErrorMessage(error, 'Could not create the KOT right now. Please review the draft and try again.'), 'error');
       }
     } finally {
       setSubmittingTableOrder(false);
@@ -951,7 +952,7 @@ export default function OwnerPage() {
       await loadOrders();
     } catch (error) {
       if (!handleAuthFailure(error)) {
-        showToast(error.response?.data?.message || 'Could not close table', 'error');
+        showToast(getUserFacingErrorMessage(error, 'Could not close this table right now.'), 'error');
       }
     } finally {
       setSettlingTable(false);
@@ -994,7 +995,7 @@ export default function OwnerPage() {
       await loadOrders({ silent: true });
     } catch (error) {
       if (!handleAuthFailure(error)) {
-        showToast(error.response?.data?.message || 'Could not remove item', 'error');
+        showToast(getUserFacingErrorMessage(error, 'Could not remove that item right now.'), 'error');
       }
     } finally {
       setRemovingTableItemKey('');

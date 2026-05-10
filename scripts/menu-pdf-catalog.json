@@ -1,0 +1,379 @@
+[
+  {
+    "name": "Veg Soups",
+    "items": [
+      ["Tomato Soup", 130],
+      ["Veg Corn Soup", 130],
+      ["Cream of Mushroom Soup", 130],
+      ["Veg Manchow Soup", 140],
+      ["Veg Hot & Sour Soup", 140],
+      ["Lemon Coriander Veg Soup", 140]
+    ]
+  },
+  {
+    "name": "Non Veg Soups",
+    "items": [
+      ["Chicken Corn Soup", 150],
+      ["Chicken Manchow Soup", 150],
+      ["Chicken Hot & Sour Soup", 150],
+      ["Chicken Lemon Coriander Soup", 150],
+      ["Chicken Lung Pung Soup", 150]
+    ]
+  },
+  {
+    "name": "Veg Snacks",
+    "items": [
+      ["Veg Manchurian Dry", 240],
+      ["Babycorn Manchurian Dry", 260],
+      ["Gobi Manchurian Dry", 240],
+      ["Paneer Manchurian Dry", 280],
+      ["Golden Veg", 280],
+      ["Crispy Corn", 250],
+      ["Babycorn 65", 260],
+      ["Paneer 65", 280],
+      ["Gobi 65", 240],
+      ["Mushroom Salt & Pepper", 280],
+      ["Babycorn Salt & Pepper", 280],
+      ["Chilli Paneer", 280],
+      ["Chilli Mushroom", 280],
+      ["Veg Spring Rolls", 250],
+      ["Kaju Fry", 340],
+      ["Paneer Mejistick", 310],
+      ["Babycorn Mejistick", 310],
+      ["Corn Nugget", 280],
+      ["BVR Spl Veg Starter", 300],
+      ["Butter Garlic Broccoli", 310]
+    ]
+  },
+  {
+    "name": "Egg Starters",
+    "items": [
+      ["Egg Manchurian Dry", 250],
+      ["Egg 65", 250],
+      ["Chilli Egg", 250]
+    ]
+  },
+  {
+    "name": "Non Veg Starters",
+    "items": [
+      ["Chicken Manchurian Dry", 290],
+      ["Chicken 65", 290],
+      ["Chilli Chicken", 290],
+      ["Chicken Spring Rolls", 270],
+      ["Chicken Drumsticks", 290],
+      ["Hong Kong Chicken", 310],
+      ["Pepper Chicken", 310],
+      ["Chicken Lollipop", 310],
+      ["Ginger Chicken Dry", 330],
+      ["Schezwan Chicken Dry", 330],
+      ["Chicken 555", 320],
+      ["Chicken Mejistick", 330],
+      ["Dragon Chicken", 330],
+      ["Crispy Chicken", 330],
+      ["Kumpoo Chicken", 330],
+      ["Asian Chicken", 330],
+      ["Mutton Kheema Balls", 390],
+      ["Chilli Fish", 390],
+      ["Phuket Fish", 390],
+      ["Schezwan Fish", 390],
+      ["Apollo Fish", 390],
+      ["Finger Fish", 400],
+      ["Crispy Fish", 390],
+      ["Loose Prawns", 390],
+      ["Chilli Prawns", 390],
+      ["Butter Garlic Prawns", 400],
+      ["Golden Fried Prawns", 400],
+      ["BVR Spl Non Veg Starters", 400],
+      ["Prawns Salt Pepper", 400]
+    ]
+  },
+  {
+    "name": "Tandoori Veg Starter",
+    "items": [
+      ["Veg Harabara Kebab", 290],
+      ["Tandoori Stuffed Mushroom", 290],
+      ["Tandoori Gobi", 290],
+      ["Malai Broccoli", 310],
+      ["BBQ Paneer", 300],
+      ["Paneer Tikka", 300],
+      ["Hariyali Paneer Tikka", 300],
+      ["Malai Paneer Tikka", 300],
+      ["Achari Paneer Tikka", 300]
+    ]
+  },
+  {
+    "name": "Tandoori Non Veg Starter",
+    "items": [
+      ["Tandoori Chicken Half", 310],
+      ["Tandoori Chicken Full", 610],
+      ["Tangdi Kebab Half", 270],
+      ["Tangdi Kebab Full", 480],
+      ["Hariyali Chicken Tikka", 340],
+      ["Chicken Banjara Kebab", 340],
+      ["BBQ Chicken Tikka", 340],
+      ["Kariyapaku Chicken Tikka", 340],
+      ["Alishan Chicken Tikka", 340],
+      ["Murgh Malai Kebab", 340],
+      ["Chicken Kali Mirchi Kebab", 350],
+      ["Chicken Kalmi Kebab", 450],
+      ["Chicken Tikka", 350],
+      ["Cheese Stuffed Chicken Tikka", 370],
+      ["Achari Chicken Tikka", 350],
+      ["Lemon Chilli Garlic Chicken Kebab", 350],
+      ["Chicken Shikpuri Kebab", 350],
+      ["Ajwani Fish Tikka", 400],
+      ["Harivali Fish Tikka", 400],
+      ["Achari Fish Tikka", 400],
+      ["Lemon Fish Tikka", 400],
+      ["Tandoori Prawns", 400],
+      ["Achari Prawns", 400]
+    ]
+  },
+  {
+    "name": "Veg Curry",
+    "items": [
+      ["Paneer Butter Masala", 270],
+      ["Mushroom Masala", 270],
+      ["Babycorn Masala", 270],
+      ["Kaju Masala", 340],
+      ["Kaju Paneer Masala", 340],
+      ["Mixed Veg Curry", 250],
+      ["Mutter Paneer", 270],
+      ["Kadai Veg", 250],
+      ["Kadai Paneer", 280],
+      ["Kadai Kaju Mushroom", 350],
+      ["Palak Paneer", 290],
+      ["Paneer Tikka Lababdar", 300],
+      ["Veg Chatpat", 260],
+      ["Paneer Chatpat", 290],
+      ["Methi Chaman", 280],
+      ["Veg Jaipuri", 270],
+      ["Kasturi Veg", 270],
+      ["Paneer Tikka Masala", 290],
+      ["Babycorn Mushroom Masala", 300],
+      ["Dal Fry", 220],
+      ["Dal Tadka", 220],
+      ["Dal Makhni", 250],
+      ["BVR Spl Veg Curry", 300]
+    ]
+  },
+  {
+    "name": "Egg Curry",
+    "items": [
+      ["Egg Bhurji", 240],
+      ["Omelette", 70],
+      ["Egg Masala", 240],
+      ["Egg Curry", 250]
+    ]
+  },
+  {
+    "name": "Non Veg Curry",
+    "items": [
+      ["Chicken Ghee Roast", 355],
+      ["Achari Chicken Masala", 355],
+      ["Chicken Angara", 355],
+      ["Chicken Afghani", 350],
+      ["Chicken Curry Bone", 335],
+      ["Chicken Curry Boneless", 355],
+      ["Chicken Moghlai", 335],
+      ["Butter Chicken", 335],
+      ["Methi Chicken", 345],
+      ["Kadai Chicken", 320],
+      ["Chicken Tikka Masala", 350],
+      ["Chicken Maharaja", 350],
+      ["Chicken Kolapuri", 350],
+      ["Telangana Chicken Curry Boneless", 375],
+      ["Telangana Chicken Curry Bone", 335],
+      ["Punjabi Chicken", 355],
+      ["Kaju Chicken Masala", 360],
+      ["Chicken Noor Jahani Half", 320],
+      ["Chicken Noor Jahani Full", 600],
+      ["Mutton Rogon Josh", 420],
+      ["Mutton Ghee Roast", 480],
+      ["Methi Mutton", 420],
+      ["Mutton Curry Bone", 420],
+      ["Kadai Mutton", 420],
+      ["Mutton Moghlai", 420],
+      ["Andhra Mutton Curry", 420],
+      ["Punjabi Mutton", 420],
+      ["Mutton Curry Boneless", 480],
+      ["Mutton Kheema Fry", 480],
+      ["Mutton Kheema Masala", 480],
+      ["Mutton Kheema Curry", 480],
+      ["Achari Fish Curry", 430],
+      ["Punjabi Fish Curry", 430],
+      ["Prawns Masala", 430],
+      ["Achari Prawns Masala", 430],
+      ["BVR Spl Non Veg Curry", 440]
+    ]
+  },
+  {
+    "name": "Breads",
+    "items": [
+      ["Phulka", 30],
+      ["Butter Phulka", 35],
+      ["Roti", 30],
+      ["Butter Roti", 40],
+      ["Plain Naan", 45],
+      ["Butter Naan", 50],
+      ["Garlic Naan", 60],
+      ["Kashmiri Naan", 110],
+      ["Kandhari Naan", 60],
+      ["Laccha Paratha", 50],
+      ["Aloo Paratha", 65],
+      ["Plain Kulcha", 50],
+      ["Masala Kulcha", 70],
+      ["Onion Kulcha", 70],
+      ["Paneer Kulcha", 80],
+      ["Kolapuri Anda Paratha", 120],
+      ["Mutton Kheema Paratha", 180]
+    ]
+  },
+  {
+    "name": "Rice",
+    "items": [
+      ["Ghee Rice", 180],
+      ["Curd Rice", 130]
+    ]
+  },
+  {
+    "name": "Noodles",
+    "items": [
+      ["Veg Soft Noodles", 240],
+      ["Egg Soft Noodles", 250],
+      ["Chicken Soft Noodles", 280],
+      ["Schezwan Veg Noodles", 260],
+      ["Schezwan Egg Noodles", 275],
+      ["Schezwan Chicken Noodles", 290],
+      ["Veg Chilli Garlic Noodles", 240],
+      ["Chicken Chilli Garlic Noodles", 290],
+      ["Veg Hakka Noodles", 250],
+      ["Chicken Hakka Noodles", 300],
+      ["Veg Singapuri Noodles", 260],
+      ["Chicken Singapuri Noodles", 300],
+      ["Mixed Non Veg Noodles", 360],
+      ["American Chopsy Veg", 270],
+      ["American Chopsy Non Veg", 300]
+    ]
+  },
+  {
+    "name": "Fried Rice",
+    "items": [
+      ["Jeera Fried Rice", 250],
+      ["Veg Fried Rice", 250],
+      ["Kaju Fried Rice", 300],
+      ["Kaju Paneer Fried Rice", 340],
+      ["Egg Fried Rice", 260],
+      ["Double Egg Fried Rice", 275],
+      ["Chicken Fried Rice", 290],
+      ["Schezwan Veg Fried Rice", 260],
+      ["Schezwan Egg Fried Rice", 270],
+      ["Schezwan Chicken Fried Rice", 300],
+      ["Veg Chilli Garlic Fried Rice", 250],
+      ["Chicken Chilli Garlic Fried Rice", 300],
+      ["Paneer Fried Rice", 300],
+      ["Mushroom Fried Rice", 300],
+      ["Veg Manchurian Fried Rice", 300],
+      ["Mixed Veg Fried Rice", 300],
+      ["Mixed Non Veg Fried Rice", 390]
+    ]
+  },
+  {
+    "name": "Pulao",
+    "items": [
+      ["Veg Pulao", 260],
+      ["Kaju Paneer Pulao", 360],
+      ["Kaju Pulao", 310]
+    ]
+  },
+  {
+    "name": "Biryani",
+    "items": [
+      ["Veg Biryani", 250],
+      ["Paneer Biryani", 290],
+      ["Mushroom Biryani", 300],
+      ["Kaju Biryani", 400],
+      ["Kaju Paneer Biryani", 360],
+      ["Egg Biryani", 260],
+      ["Chicken Biryani", 300],
+      ["Chicken Fry Piece Biryani", 320],
+      ["Special Chicken Biryani", 340],
+      ["Mutton Biryani", 410],
+      ["Special Mutton Biryani", 440],
+      ["Mutton Kheema Biryani", 450],
+      ["Fish Biryani", 390],
+      ["Prawns Biryani", 390],
+      ["Lollipop Biryani", 370],
+      ["Biryani Rice", 200],
+      ["Chicken Biryani Half", 200]
+    ]
+  },
+  {
+    "name": "Family Packs",
+    "items": [
+      ["Veg Biryani Family Pack", 540],
+      ["Chicken Biryani Family Pack", 600],
+      ["Special Chicken Biryani Family Pack", 650],
+      ["Mutton Biryani Family Pack", 820],
+      ["Special Mutton Biryani Family Pack", 850],
+      ["Fish Biryani Family Pack", 800],
+      ["Prawns Biryani Family Pack", 800]
+    ]
+  },
+  {
+    "name": "Salad",
+    "items": [
+      ["Green Salad", 80],
+      ["Kheera Salad", 50],
+      ["Onion Salad", 50],
+      ["Masala Papad", 80],
+      ["Roasted Papad", 60]
+    ]
+  },
+  {
+    "name": "Dessert",
+    "items": [
+      ["Apricot Delight", 140],
+      ["Kaddu Ka Kheer", 120],
+      ["Gajar Ka Halwa", 140],
+      ["Double Ka Meetha", 90]
+    ]
+  },
+  {
+    "name": "Drinks",
+    "items": [
+      ["Thums Up", 35],
+      ["Sprite", 35],
+      ["Water Liter", 25],
+      ["Soda", 20],
+      ["Coke", 25],
+      ["Thums Up 250ml", 25],
+      ["Maaza 250ml", 25],
+      ["Pulpy Orange 250ml", 25],
+      ["Fresh Lemon Soda", 70],
+      ["Butter Milk", 70],
+      ["Lassi Sweet/Salt", 90]
+    ]
+  },
+  {
+    "name": "Ice Creams",
+    "items": [
+      ["Vanilla Ice Cream", 70],
+      ["Butter Scotch Ice Cream", 90],
+      ["Chocolate Ice Cream", 80],
+      ["Strawberry Ice Cream", 70],
+      ["Pista Ice Cream", 120],
+      ["Fruit Punch Ice Cream", 70]
+    ]
+  },
+  {
+    "name": "Milk Shakes",
+    "items": [
+      ["Vanilla Milk Shake", 110],
+      ["Butter Scotch Milk Shake", 120],
+      ["Chocolate Milk Shake", 120],
+      ["Strawberry Milk Shake", 120],
+      ["Pista Milk Shake", 150]
+    ]
+  }
+]

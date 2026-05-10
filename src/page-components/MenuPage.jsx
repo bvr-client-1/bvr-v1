@@ -1,12 +1,13 @@
 ﻿'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { FloatingCart } from '../components/FloatingCart.jsx';
 import { useAppContext } from '../context/AppContext.jsx';
 import { useToast } from '../context/ToastContext.jsx';
 import { fetchPublicMenu } from '../services/menuService.js';
+import { getUserFacingErrorMessage } from '../utils/errorMessages.js';
 import { formatPrice, getCatEmoji } from '../utils/format.js';
 import { getOpenMessage, isRestaurantOpen } from '../utils/restaurant.js';
 
@@ -29,23 +30,23 @@ export default function MenuPage() {
   const [error, setError] = useState('');
   const open = isRestaurantOpen(restaurantStatus);
 
-  useEffect(() => {
-    const loadMenu = async () => {
-      try {
-        setLoading(true);
-        const data = await fetchPublicMenu();
-        setCategories(data.categories);
-        setMenuItems(data.items);
-        setError('');
-      } catch {
-        setError('Menu unavailable. Please try again.');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadMenu();
+  const loadMenu = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await fetchPublicMenu();
+      setCategories(data.categories);
+      setMenuItems(data.items);
+      setError('');
+    } catch (requestError) {
+      setError(getUserFacingErrorMessage(requestError, 'We could not load the menu right now. Please refresh and try again.'));
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    loadMenu();
+  }, [loadMenu]);
 
   const filteredItems = useMemo(() => {
     let items = selectedCategories.length
@@ -305,9 +306,13 @@ export default function MenuPage() {
               ))}
             </div>
           ) : error ? (
-            <div className="empty-state">
+            <div className="empty-state error-state-card">
               <div className="empty-icon">!</div>
-              <h3>Menu unavailable. Please try again.</h3>
+              <h3>Menu temporarily unavailable</h3>
+              <p>{error}</p>
+              <button className="empty-state-action" onClick={loadMenu} type="button">
+                Refresh Menu
+              </button>
             </div>
           ) : filteredItems.length === 0 ? (
             <div className="empty-state">

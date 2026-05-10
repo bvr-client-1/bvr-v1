@@ -6,6 +6,7 @@ import { useToast } from '../context/ToastContext.jsx';
 import { useInterval } from '../hooks/useInterval.js';
 import { kitchenLogin } from '../services/authService.js';
 import { fetchKitchenQueue, updateKitchenOrderStatus } from '../services/orderService.js';
+import { getUserFacingErrorMessage } from '../utils/errorMessages.js';
 import { timeAgo } from '../utils/format.js';
 import { getDirectionsUrl, parseDeliveryAddress } from '../utils/orderLocation.js';
 import { notifyNewOrder, primeAlertAudio, requestStaffNotificationPermission, startNewOrderAlertLoop, stopNewOrderAlertLoop } from '../utils/staffAlerts.js';
@@ -97,7 +98,7 @@ export default function KitchenPage() {
       setError('');
       showToast('Welcome to Kitchen!');
     } catch (loginError) {
-      setError(loginError.response?.data?.message || 'Invalid kitchen ID or password');
+      setError(getUserFacingErrorMessage(loginError, 'Invalid kitchen ID or password'));
     }
   };
 
@@ -109,7 +110,7 @@ export default function KitchenPage() {
       await loadQueue();
     } catch (requestError) {
       if (!handleAuthFailure(requestError)) {
-        showToast('Could not update order', 'error');
+        showToast(getUserFacingErrorMessage(requestError, 'Could not update the kitchen order right now.'), 'error');
       }
     }
   };
@@ -121,7 +122,7 @@ export default function KitchenPage() {
       showToast(restaurantStatus.kitchenPaused ? 'Kitchen is back on and orders are open.' : 'Kitchen paused. New orders are blocked.');
     } catch (requestError) {
       if (!handleAuthFailure(requestError)) {
-        showToast('Could not update kitchen status', 'error');
+        showToast(getUserFacingErrorMessage(requestError, 'Could not update kitchen status right now.'), 'error');
       }
     }
   };

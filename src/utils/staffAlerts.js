@@ -3,6 +3,7 @@
 let audioContext;
 let alertIntervalId = null;
 let activeNodes = [];
+let alertAudio = null;
 
 const getAudioContext = () => {
   if (typeof window === 'undefined') return null;
@@ -14,8 +15,31 @@ const getAudioContext = () => {
   return audioContext;
 };
 
+const getAlertAudio = () => {
+  if (typeof window === 'undefined') return null;
+
+  if (!alertAudio) {
+    alertAudio = new window.Audio('/swiggy-new-order.mp3');
+    alertAudio.preload = 'auto';
+    alertAudio.loop = true;
+    alertAudio.volume = 1;
+  }
+
+  return alertAudio;
+};
+
 export const primeAlertAudio = async () => {
   try {
+    const audio = getAlertAudio();
+    if (audio) {
+      audio.muted = true;
+      audio.currentTime = 0;
+      await audio.play();
+      audio.pause();
+      audio.currentTime = 0;
+      audio.muted = false;
+    }
+
     const context = getAudioContext();
     if (context?.state === 'suspended') {
       await context.resume();
@@ -27,6 +51,13 @@ export const primeAlertAudio = async () => {
 
 export const playNewOrderAlert = async () => {
   try {
+    const audio = getAlertAudio();
+    if (audio) {
+      audio.currentTime = 0;
+      await audio.play();
+      return;
+    }
+
     const context = getAudioContext();
     if (!context) return;
     if (context.state === 'suspended') {
@@ -62,15 +93,30 @@ export const startNewOrderAlertLoop = async () => {
   }
 
   await playNewOrderAlert();
+  const audio = getAlertAudio();
+  if (audio) {
+    alertIntervalId = -1;
+    return;
+  }
+
   alertIntervalId = window.setInterval(() => {
     playNewOrderAlert();
   }, 1400);
 };
 
 export const stopNewOrderAlertLoop = () => {
-  if (alertIntervalId) {
+  if (alertIntervalId && alertIntervalId !== -1) {
     window.clearInterval(alertIntervalId);
-    alertIntervalId = null;
+  }
+  alertIntervalId = null;
+
+  if (alertAudio) {
+    try {
+      alertAudio.pause();
+      alertAudio.currentTime = 0;
+    } catch {
+      // Ignore cleanup failures.
+    }
   }
 
   activeNodes.forEach((node) => {
