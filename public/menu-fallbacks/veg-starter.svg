@@ -1,0 +1,18 @@
+<svg width="640" height="480" viewBox="0 0 640 480" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="640" height="480" rx="32" fill="#0E0A00"/>
+  <rect x="24" y="24" width="592" height="432" rx="28" fill="url(#bg)"/>
+  <g>
+    <rect x="180" y="198" width="86" height="86" rx="18" fill="#D59B23" transform="rotate(-8 180 198)"/>
+    <rect x="280" y="182" width="92" height="92" rx="18" fill="#E4B13C" transform="rotate(6 280 182)"/>
+    <rect x="376" y="210" width="84" height="84" rx="18" fill="#C57E18" transform="rotate(-4 376 210)"/>
+    <circle cx="220" cy="230" r="10" fill="#8BC36A"/><circle cx="318" cy="220" r="10" fill="#8BC36A"/><circle cx="420" cy="248" r="10" fill="#8BC36A"/>
+  </g>
+  <text x="320" y="118" text-anchor="middle" fill="#F5C842" font-size="42" font-family="Georgia, serif" font-weight="700">Veg Starter</text>
+  <text x="320" y="154" text-anchor="middle" fill="#F5E6C8" font-size="20" font-family="Arial, sans-serif">Crispy and savoury</text>
+  <defs>
+    <linearGradient id="bg" x1="320" y1="24" x2="320" y2="456" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#322000"/>
+      <stop offset="1" stop-color="#1A1100"/>
+    </linearGradient>
+  </defs>
+</svg>

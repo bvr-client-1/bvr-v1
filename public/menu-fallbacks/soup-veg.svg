@@ -1,0 +1,17 @@
+<svg width="640" height="480" viewBox="0 0 640 480" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="640" height="480" rx="32" fill="#120800"/>
+  <rect x="24" y="24" width="592" height="432" rx="28" fill="url(#bg)"/>
+  <path d="M186 234H454L432 316C425 342 401 360 374 360H266C239 360 215 342 208 316L186 234Z" fill="#F5E6C8"/>
+  <path d="M204 246H436L418 308C413 326 396 338 377 338H263C244 338 227 326 222 308L204 246Z" fill="#7BAA58"/>
+  <path d="M256 168C244 150 246 128 262 114" stroke="#F5C842" stroke-width="8" stroke-linecap="round"/>
+  <path d="M320 160C308 142 310 120 326 106" stroke="#F5C842" stroke-width="8" stroke-linecap="round"/>
+  <path d="M384 168C372 150 374 128 390 114" stroke="#F5C842" stroke-width="8" stroke-linecap="round"/>
+  <text x="320" y="118" text-anchor="middle" fill="#F5C842" font-size="42" font-family="Georgia, serif" font-weight="700">Soup</text>
+  <text x="320" y="154" text-anchor="middle" fill="#F5E6C8" font-size="20" font-family="Arial, sans-serif">Warm veg bowl</text>
+  <defs>
+    <linearGradient id="bg" x1="320" y1="24" x2="320" y2="456" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2B1400"/>
+      <stop offset="1" stop-color="#150900"/>
+    </linearGradient>
+  </defs>
+</svg>

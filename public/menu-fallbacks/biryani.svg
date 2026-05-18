@@ -1,0 +1,22 @@
+<svg width="640" height="480" viewBox="0 0 640 480" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="640" height="480" rx="32" fill="#1A0E00"/>
+  <rect x="24" y="24" width="592" height="432" rx="28" fill="url(#bg)"/>
+  <ellipse cx="320" cy="300" rx="190" ry="92" fill="#4A2500"/>
+  <ellipse cx="320" cy="288" rx="176" ry="78" fill="#6C3400"/>
+  <ellipse cx="320" cy="274" rx="156" ry="62" fill="#C78621"/>
+  <g fill="#F1D07A">
+    <circle cx="228" cy="258" r="10"/><circle cx="264" cy="300" r="9"/><circle cx="314" cy="248" r="8"/>
+    <circle cx="362" cy="292" r="10"/><circle cx="404" cy="258" r="9"/><circle cx="446" cy="284" r="8"/>
+  </g>
+  <g fill="#A8C66C">
+    <ellipse cx="280" cy="262" rx="16" ry="7"/><ellipse cx="356" cy="250" rx="15" ry="6"/><ellipse cx="414" cy="302" rx="15" ry="6"/>
+  </g>
+  <text x="320" y="118" text-anchor="middle" fill="#F5C842" font-size="42" font-family="Georgia, serif" font-weight="700">Biryani</text>
+  <text x="320" y="154" text-anchor="middle" fill="#F5E6C8" font-size="20" font-family="Arial, sans-serif">Aromatic rice bowl</text>
+  <defs>
+    <linearGradient id="bg" x1="320" y1="24" x2="320" y2="456" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#3A1D00"/>
+      <stop offset="1" stop-color="#201000"/>
+    </linearGradient>
+  </defs>
+</svg>

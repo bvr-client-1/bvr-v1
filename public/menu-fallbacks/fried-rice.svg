@@ -1,0 +1,20 @@
+<svg width="640" height="480" viewBox="0 0 640 480" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="640" height="480" rx="32" fill="#120800"/>
+  <rect x="24" y="24" width="592" height="432" rx="28" fill="url(#bg)"/>
+  <ellipse cx="320" cy="308" rx="172" ry="48" fill="#472100"/>
+  <ellipse cx="320" cy="282" rx="152" ry="36" fill="#E0B856"/>
+  <g fill="#9AC76B">
+    <circle cx="250" cy="274" r="8"/><circle cx="288" cy="296" r="8"/><circle cx="344" cy="268" r="8"/><circle cx="398" cy="288" r="8"/>
+  </g>
+  <g fill="#E57A2A">
+    <rect x="276" y="250" width="14" height="8" rx="4"/><rect x="368" y="260" width="14" height="8" rx="4"/><rect x="318" y="294" width="14" height="8" rx="4"/>
+  </g>
+  <text x="320" y="118" text-anchor="middle" fill="#F5C842" font-size="42" font-family="Georgia, serif" font-weight="700">Fried Rice</text>
+  <text x="320" y="154" text-anchor="middle" fill="#F5E6C8" font-size="20" font-family="Arial, sans-serif">Wok-tossed rice</text>
+  <defs>
+    <linearGradient id="bg" x1="320" y1="24" x2="320" y2="456" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#301700"/>
+      <stop offset="1" stop-color="#170B00"/>
+    </linearGradient>
+  </defs>
+</svg>

@@ -1,0 +1,18 @@
+<svg width="640" height="480" viewBox="0 0 640 480" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="640" height="480" rx="32" fill="#120700"/>
+  <rect x="24" y="24" width="592" height="432" rx="28" fill="url(#bg)"/>
+  <path d="M184 284C232 238 306 214 374 228C420 238 454 264 474 296C454 328 420 354 374 364C306 378 232 354 184 308C170 296 170 296 184 284Z" fill="#D06A20"/>
+  <circle cx="396" cy="282" r="8" fill="#1A0E00"/>
+  <path d="M202 292H152" stroke="#D06A20" stroke-width="18" stroke-linecap="round"/>
+  <g stroke="#F5C842" stroke-width="6" stroke-linecap="round">
+    <path d="M246 262L270 252"/><path d="M276 304L302 314"/><path d="M326 256L350 248"/><path d="M346 316L370 324"/>
+  </g>
+  <text x="320" y="118" text-anchor="middle" fill="#F5C842" font-size="42" font-family="Georgia, serif" font-weight="700">Fish Tikka</text>
+  <text x="320" y="154" text-anchor="middle" fill="#F5E6C8" font-size="20" font-family="Arial, sans-serif">Smoky tandoori special</text>
+  <defs>
+    <linearGradient id="bg" x1="320" y1="24" x2="320" y2="456" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#311700"/>
+      <stop offset="1" stop-color="#170A00"/>
+    </linearGradient>
+  </defs>
+</svg>

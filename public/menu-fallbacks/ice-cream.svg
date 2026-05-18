@@ -1,0 +1,17 @@
+<svg width="640" height="480" viewBox="0 0 640 480" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="640" height="480" rx="32" fill="#140900"/>
+  <rect x="24" y="24" width="592" height="432" rx="28" fill="url(#bg)"/>
+  <path d="M320 346L262 234H378L320 346Z" fill="#C88738"/>
+  <circle cx="292" cy="220" r="44" fill="#F7D7A3"/>
+  <circle cx="350" cy="214" r="46" fill="#DCA2C8"/>
+  <circle cx="322" cy="178" r="42" fill="#F1E4C1"/>
+  <circle cx="286" cy="214" r="6" fill="#8B5A2B"/><circle cx="340" cy="200" r="6" fill="#8B5A2B"/><circle cx="324" cy="168" r="6" fill="#8B5A2B"/>
+  <text x="320" y="118" text-anchor="middle" fill="#F5C842" font-size="42" font-family="Georgia, serif" font-weight="700">Ice Cream</text>
+  <text x="320" y="154" text-anchor="middle" fill="#F5E6C8" font-size="20" font-family="Arial, sans-serif">Sweet chilled dessert</text>
+  <defs>
+    <linearGradient id="bg" x1="320" y1="24" x2="320" y2="456" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2A1500"/>
+      <stop offset="1" stop-color="#150900"/>
+    </linearGradient>
+  </defs>
+</svg>
