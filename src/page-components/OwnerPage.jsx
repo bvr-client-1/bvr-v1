@@ -48,13 +48,21 @@ const ownerSections = [
   { value: 'controls', label: 'Controls' },
   { value: 'menu', label: 'Menu' },
 ];
+const roundUpToTen = (value) => {
+  const amount = Number(value || 0);
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return 0;
+  }
+
+  return Math.ceil(amount / 10) * 10;
+};
 const getDeliveryPrice = (item) => {
   const explicitDeliveryPrice = Number(item.delivery_price);
   if (Number.isFinite(explicitDeliveryPrice) && explicitDeliveryPrice > 0) {
-    return explicitDeliveryPrice;
+    return roundUpToTen(explicitDeliveryPrice);
   }
 
-  return Math.round(Number(item.price || 0) * 1.2 * 100) / 100;
+  return roundUpToTen(Number(item.price || 0) * 1.2);
 };
 const buildPriceDrafts = (items, priceType = 'restaurant') =>
   Object.fromEntries(items.map((item) => [item.id, String(priceType === 'delivery' ? getDeliveryPrice(item) : item.price ?? '')]));
@@ -1254,7 +1262,7 @@ export default function OwnerPage() {
           </button>
         </div>
 
-        <div className="status-control-card staff-control-card">
+        <div className="status-control-card staff-control-card settings-control-card">
           <div className="staff-control-copy">
             <div className="status-control-label">Table Setup</div>
             <p className="muted-small">
@@ -1280,7 +1288,7 @@ export default function OwnerPage() {
           </div>
         </div>
 
-        <div className="status-control-card staff-control-card">
+        <div className="status-control-card staff-control-card settings-control-card">
           <div className="staff-control-copy">
             <div className="status-control-label">Delivery Radius</div>
             <p className="muted-small">
@@ -1698,10 +1706,16 @@ export default function OwnerPage() {
 
             {currentTab === 'delivery' && (
               <>
-            <div className="filter-wrap">
-              {['all', 'new', 'active', 'ready', 'completed'].map((filter) => (
-                <button className={`filter-btn ${currentFilter === filter ? 'active' : ''}`} key={filter} onClick={() => setCurrentFilter(filter)} type="button">
-                  {filter}
+            <div className="owner-tabs owner-section-tabs delivery-section-tabs">
+              {[
+                { value: 'all', label: 'All' },
+                { value: 'new', label: 'New' },
+                { value: 'active', label: 'Active' },
+                { value: 'ready', label: 'Ready' },
+                { value: 'completed', label: 'Completed' },
+              ].map((filter) => (
+                <button className={`owner-tab ${currentFilter === filter.value ? 'active' : ''}`} key={filter.value} onClick={() => setCurrentFilter(filter.value)} type="button">
+                  {filter.label}
                 </button>
               ))}
             </div>

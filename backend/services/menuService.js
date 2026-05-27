@@ -8,6 +8,18 @@ const throwSupabaseError = (error) => {
   }
 };
 
+const isMissingDeliveryPriceColumn = (error) =>
+  !!error && String(`${error.code || ''} ${error.message || ''}`).toLowerCase().includes('delivery_price');
+
+const roundUpToTen = (value) => {
+  const amount = Number(value || 0);
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return 0;
+  }
+
+  return Math.ceil(amount / 10) * 10;
+};
+
 const nonVegKeywords = [
   'chicken',
   'mutton',
@@ -61,10 +73,10 @@ const resolveFoodType = (item) => {
 export const getDeliveryPrice = (item) => {
   const explicitDeliveryPrice = Number(item.delivery_price);
   if (Number.isFinite(explicitDeliveryPrice) && explicitDeliveryPrice > 0) {
-    return explicitDeliveryPrice;
+    return roundUpToTen(explicitDeliveryPrice);
   }
 
-  return Math.round(Number(item.price || 0) * 1.2 * 100) / 100;
+  return roundUpToTen(Number(item.price || 0) * 1.2);
 };
 
 export const getPublicMenu = async ({ priceMode = 'delivery' } = {}) => {
@@ -126,6 +138,12 @@ export const updateMenuItemDetails = async (itemId, updates) => {
 
   const { error } = await supabase.from('menu_items').update(payload).eq('id', itemId);
 
+  if (isMissingDeliveryPriceColumn(error)) {
+    const wrapped = new Error('Delivery price setup is not installed on the database yet.');
+    wrapped.statusCode = 409;
+    throw wrapped;
+  }
+
   throwSupabaseError(error);
 };
 
@@ -138,6 +156,16 @@ export const getMenuItemsByIds = async (itemIds) => {
     .from('menu_items')
     .select('id, name, price, delivery_price, is_available')
     .in('id', itemIds);
+
+  if (isMissingDeliveryPriceColumn(error)) {
+    const { data: fallbackData, error: fallbackError } = await supabase
+      .from('menu_items')
+      .select('id, name, price, is_available')
+      .in('id', itemIds);
+
+    throwSupabaseError(fallbackError);
+    return fallbackData || [];
+  }
 
   throwSupabaseError(error);
   return data || [];
