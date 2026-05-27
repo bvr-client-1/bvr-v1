@@ -105,6 +105,10 @@ const cleanCustomerPhone = (value) => {
   const phone = String(value || '').replace(/\D/g, '').slice(0, 10);
   return phone && phone !== '0000000000' ? phone : '';
 };
+const phoneHref = (value) => {
+  const phone = cleanCustomerPhone(value);
+  return phone ? `tel:${phone}` : '';
+};
 const parseSettlementMeta = (reason) => {
   const prefix = 'SETTLEMENT_META::';
   if (!String(reason || '').startsWith(prefix)) {
@@ -420,6 +424,8 @@ export default function OwnerPage() {
   const [removalConsentStatus, setRemovalConsentStatus] = useState('WITH_CONSENT');
   const [removalNote, setRemovalNote] = useState('');
   const [historyDate, setHistoryDate] = useState(getTodayDateKey());
+  const [deliveryDate, setDeliveryDate] = useState(getTodayDateKey());
+  const [expandedHistoryOrderId, setExpandedHistoryOrderId] = useState('');
   const [expandedAdjustmentOrderId, setExpandedAdjustmentOrderId] = useState('');
   const [selectedActiveGroupKey, setSelectedActiveGroupKey] = useState('');
   const [restaurantSettingsDraft, setRestaurantSettingsDraft] = useState({ tableCount: '16', deliveryRadiusKm: '4' });
@@ -527,7 +533,16 @@ export default function OwnerPage() {
     setExpandedAdjustmentOrderId('');
   }, [historyDate, reportSection]);
 
+  useEffect(() => {
+    setExpandedHistoryOrderId('');
+  }, [historyDate, reportSection]);
+
   const deliveryOrders = useMemo(() => orders.filter((order) => order.type === 'delivery'), [orders]);
+  const deliveryDateObject = useMemo(() => new Date(`${deliveryDate}T00:00:00`), [deliveryDate]);
+  const deliveryOrdersForDate = useMemo(
+    () => deliveryOrders.filter((order) => toDateKey(order.created_at) === deliveryDate),
+    [deliveryDate, deliveryOrders],
+  );
   const activeTableGroups = useMemo(
     () =>
       groupTableOrders(
@@ -641,12 +656,12 @@ export default function OwnerPage() {
   );
 
   const filteredDeliveryOrders = useMemo(() => {
-    if (currentFilter === 'all') return deliveryOrders;
-    if (currentFilter === 'new') return deliveryOrders.filter((order) => order.status === 'NEW');
-    if (currentFilter === 'active') return deliveryOrders.filter((order) => ['CONFIRMED', 'IN_KITCHEN'].includes(order.status));
-    if (currentFilter === 'ready') return deliveryOrders.filter((order) => ['READY', 'OUT_FOR_DELIVERY'].includes(order.status));
-    return deliveryOrders.filter((order) => ['COMPLETED', 'SERVED', 'CANCELLED'].includes(order.status));
-  }, [currentFilter, deliveryOrders]);
+    if (currentFilter === 'all') return deliveryOrdersForDate;
+    if (currentFilter === 'new') return deliveryOrdersForDate.filter((order) => order.status === 'NEW');
+    if (currentFilter === 'active') return deliveryOrdersForDate.filter((order) => ['CONFIRMED', 'IN_KITCHEN'].includes(order.status));
+    if (currentFilter === 'ready') return deliveryOrdersForDate.filter((order) => ['READY', 'OUT_FOR_DELIVERY'].includes(order.status));
+    return deliveryOrdersForDate.filter((order) => ['COMPLETED', 'SERVED', 'CANCELLED'].includes(order.status));
+  }, [currentFilter, deliveryOrdersForDate]);
 
   const stats = useMemo(() => {
     const today = new Date().toDateString();
@@ -702,6 +717,8 @@ export default function OwnerPage() {
             (order.order_items || [])
               .map((item) => `${item.item_name} ×${item.quantity}`)
               .join(', ') || 'No items',
+          items: order.order_items || [],
+          order,
           time: order.created_at,
           tipAmount: Number(settlementMeta?.primary ? settlementMeta.tipAmount || 0 : 0),
         };
@@ -1239,6 +1256,12 @@ export default function OwnerPage() {
     setHistoryDate(toDateKey(nextDate));
   };
 
+  const shiftDeliveryDate = (days) => {
+    const nextDate = new Date(deliveryDateObject);
+    nextDate.setDate(nextDate.getDate() + days);
+    setDeliveryDate(toDateKey(nextDate));
+  };
+
   if (!ownerToken) {
     return (
       <div className="login-overlay auth-screen">
@@ -1674,6 +1697,7 @@ export default function OwnerPage() {
                   <button className="history-today-btn" onClick={() => setHistoryDate(getTodayDateKey())} type="button">
                     Today
                   </button>
+                  <input className="history-date-input" onChange={(event) => setHistoryDate(event.target.value || getTodayDateKey())} type="date" value={historyDate} />
                   <button className="history-today-btn" onClick={handlePrintDaySales} type="button">
                     Print Day Sale
                   </button>
@@ -1735,9 +1759,15 @@ export default function OwnerPage() {
                 <>
               {!historyEntries.length && <div className="muted-small">No orders found for this day.</div>}
               <div className="history-entry-list">
-                {historyEntries.map((entry) => (
+                {historyEntries.map((entry) => {
+                  const expanded = expandedHistoryOrderId === entry.id;
+                  return (
                   <div className="history-entry-card" key={entry.id}>
-                    <div className="order-card-head">
+                    <button
+                      className="collapse-header adjustment-order-toggle"
+                      onClick={() => setExpandedHistoryOrderId(expanded ? '' : entry.id)}
+                      type="button"
+                    >
                       <div>
                         <div className="gold-text strong">{entry.title}</div>
                         <div className="muted-small">{entry.subtitle}</div>
@@ -1746,11 +1776,27 @@ export default function OwnerPage() {
                         <div className="gold-text strong">{formatPrice(entry.amount)}</div>
                         <div className="muted-small">{timeAgo(entry.time)}</div>
                       </div>
-                    </div>
-                    <div className="order-items-copy">{entry.detail}</div>
+                    </button>
+                    {expanded && (
+                      <div className="adjustment-detail-list">
+                        <div className="table-item-list">
+                          {entry.items.length ? (
+                            entry.items.map((item) => (
+                              <div className="table-item-row" key={item.id || `${item.item_name}-${item.quantity}`}>
+                                <span>{item.item_name} x{item.quantity}</span>
+                                <span className="gold-text strong">{formatPrice(Number(item.price_at_purchase ?? item.price ?? 0) * Number(item.quantity || 0))}</span>
+                              </div>
+                            ))
+                          ) : (
+                            <div className="muted-small">No items</div>
+                          )}
+                        </div>
+                      </div>
+                    )}
                     {!!entry.tipAmount && <div className="reason-note">Tip recorded: {formatPrice(entry.tipAmount)}</div>}
                   </div>
-                ))}
+                  );
+                })}
               </div>
                 </>
               )}
@@ -1863,6 +1909,21 @@ export default function OwnerPage() {
 
             {currentTab === 'delivery' && (
               <>
+            <div className="history-nav delivery-date-nav">
+              <button className="history-nav-btn" onClick={() => shiftDeliveryDate(-1)} type="button">
+                â€¹
+              </button>
+              <div className="history-date-label">{formatHistoryDate(deliveryDateObject)}</div>
+              <button className="history-nav-btn" onClick={() => shiftDeliveryDate(1)} type="button">
+                â€º
+              </button>
+            </div>
+            <div className="history-action-group delivery-date-actions">
+              <button className="history-today-btn" onClick={() => setDeliveryDate(getTodayDateKey())} type="button">
+                Today
+              </button>
+              <input className="history-date-input" onChange={(event) => setDeliveryDate(event.target.value || getTodayDateKey())} type="date" value={deliveryDate} />
+            </div>
             <div className="owner-tabs owner-section-tabs delivery-section-tabs">
               {[
                 { value: 'all', label: 'All' },
@@ -1879,7 +1940,7 @@ export default function OwnerPage() {
 
             <div className="card">
               <div className="status-control-label" style={{ marginBottom: 12 }}>Outside Restaurant Orders</div>
-              {loadingOrders && !deliveryOrders.length
+              {loadingOrders && !deliveryOrdersForDate.length
                 ? Array.from({ length: 3 }).map((_, index) => (
                     <div className="card dashboard-order-card skeleton-panel" key={`owner-order-skeleton-${index}`}>
                       <div className="skeleton-line wide" />
@@ -1910,7 +1971,14 @@ export default function OwnerPage() {
                       </div>
                     </div>
 
-                    <div className="muted-small">Customer: {order.customer_name} · {order.customer_phone}</div>
+                    <div className="muted-small">
+                      Customer: {order.customer_name}
+                      {phoneHref(order.customer_phone) ? (
+                        <>
+                          {' '}| <a className="phone-link" href={phoneHref(order.customer_phone)}>{cleanCustomerPhone(order.customer_phone)}</a>
+                        </>
+                      ) : null}
+                    </div>
                     <div className="order-items-copy">{(order.order_items || []).map((item) => `${item.item_name} ×${item.quantity}`).join(', ')}</div>
                     {!!deliveryMeta.address && (
                       <div className="delivery-info-block">
@@ -1924,7 +1992,12 @@ export default function OwnerPage() {
                     )}
                     {order.status === 'OUT_FOR_DELIVERY' && order.delivery_people && (
                       <div className="muted-small">
-                        Rider: {order.delivery_people.name} · {order.delivery_people.phone}
+                        Rider: {order.delivery_people.name}
+                        {phoneHref(order.delivery_people.phone) ? (
+                          <>
+                            {' '}| <a className="phone-link" href={phoneHref(order.delivery_people.phone)}>{cleanCustomerPhone(order.delivery_people.phone)}</a>
+                          </>
+                        ) : null}
                       </div>
                     )}
                     {!!getRefundNote(order) && <div className="reason-note">{getRefundNote(order)}</div>}
