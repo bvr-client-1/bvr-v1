@@ -14,10 +14,26 @@ const phoneHref = (value) => {
   const phone = cleanPhone(value);
   return phone ? `tel:${phone}` : '';
 };
+const toDateKey = (value) => {
+  const date = value instanceof Date ? value : new Date(value);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+const getTodayDateKey = () => toDateKey(new Date());
+const formatDateLabel = (date) =>
+  new Intl.DateTimeFormat('en-IN', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  }).format(date);
 
 export default function DeliveryDashboardPage() {
   const { showToast } = useToast();
   const [orders, setOrders] = useState([]);
+  const [deliveryDate, setDeliveryDate] = useState(getTodayDateKey());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -44,12 +60,20 @@ export default function DeliveryDashboardPage() {
     loadOrders({ silent: true });
   }, 10000);
 
+  const deliveryDateObject = useMemo(() => new Date(`${deliveryDate}T00:00:00`), [deliveryDate]);
+  const shiftDeliveryDate = (days) => {
+    const nextDate = new Date(deliveryDateObject);
+    nextDate.setDate(nextDate.getDate() + days);
+    setDeliveryDate(toDateKey(nextDate));
+  };
+
   const deliveryOrders = useMemo(
     () =>
       orders
         .filter((order) => order.type === 'delivery' && deliveryStatuses.has(order.status))
+        .filter((order) => toDateKey(order.created_at) === deliveryDate)
         .sort((left, right) => new Date(right.created_at).getTime() - new Date(left.created_at).getTime()),
-    [orders],
+    [deliveryDate, orders],
   );
 
   return (
@@ -64,6 +88,21 @@ export default function DeliveryDashboardPage() {
         </div>
       </nav>
       <main className="dashboard-main">
+        <div className="history-nav delivery-date-nav">
+          <button className="history-nav-btn" onClick={() => shiftDeliveryDate(-1)} type="button">
+            Prev
+          </button>
+          <div className="history-date-label">{formatDateLabel(deliveryDateObject)}</div>
+          <button className="history-nav-btn" onClick={() => shiftDeliveryDate(1)} type="button">
+            Next
+          </button>
+        </div>
+        <div className="history-action-group delivery-date-actions">
+          <button className="history-today-btn" onClick={() => setDeliveryDate(getTodayDateKey())} type="button">
+            Today
+          </button>
+          <input className="history-date-input" onChange={(event) => setDeliveryDate(event.target.value || getTodayDateKey())} type="date" value={deliveryDate} />
+        </div>
         <div className="availability-bar">
           <span>
             Ready / assigned: <strong>{deliveryOrders.length}</strong>
