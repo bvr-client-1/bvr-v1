@@ -6,6 +6,7 @@ import {
   createAdminDeliveryPerson,
   deleteAdminDeliveryPerson,
   fetchAdminOrders,
+  fetchDeliveryDashboard,
   fetchKitchenQueue,
   fetchOrderById,
   lookupOrderByPhone,
@@ -66,6 +67,7 @@ router.get(
   validate(Joi.object({ phone: Joi.string().pattern(/^\d{10}$/).required() }), 'query'),
   lookupOrderByPhone,
 );
+router.get('/delivery-dashboard', fetchDeliveryDashboard);
 router.get(
   '/:orderId',
   validate(

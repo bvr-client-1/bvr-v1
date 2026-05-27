@@ -16,6 +16,7 @@ import {
   fetchRazorpayPayment,
   findLatestOrderByPhone,
   getAllOrders,
+  getDeliveryDashboardOrders,
   getDeliveryPeople,
   getKitchenOrders,
   getOrderById,
@@ -230,6 +231,11 @@ export const lookupOrderByPhone = async (req, res) => {
 export const fetchAdminOrders = async (_req, res) => {
   const [orders, deliveryPeople] = await Promise.all([getAllOrders(), getDeliveryPeople()]);
   res.json({ orders, deliveryPeople });
+};
+
+export const fetchDeliveryDashboard = async (_req, res) => {
+  const orders = await getDeliveryDashboardOrders();
+  res.json({ orders });
 };
 
 export const createCounterTableOrder = async (req, res) => {

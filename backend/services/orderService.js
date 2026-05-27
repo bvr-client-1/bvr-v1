@@ -540,6 +540,19 @@ export const getAllOrders = async () => {
   return attachAuditEventsToOrders(enriched);
 };
 
+export const getDeliveryDashboardOrders = async () => {
+  const { data, error } = await supabase
+    .from('orders')
+    .select('id, order_code, status, type, customer_name, customer_phone, delivery_address, total, created_at, order_items(item_name, quantity), delivery_people(name, phone)')
+    .eq('type', 'delivery')
+    .in('status', ['READY', 'OUT_FOR_DELIVERY', 'COMPLETED'])
+    .order('created_at', { ascending: false })
+    .limit(100);
+
+  raise(error);
+  return data || [];
+};
+
 export const closeActiveTableOrders = async ({
   serviceMode = 'TABLE',
   tableNumber = null,

@@ -1,29 +1,30 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { useAppContext } from '../context/AppContext.jsx';
 import { useToast } from '../context/ToastContext.jsx';
 import { useInterval } from '../hooks/useInterval.js';
-import { fetchAdminOrders } from '../services/orderService.js';
+import { fetchDeliveryDashboardOrders } from '../services/orderService.js';
 import { getUserFacingErrorMessage } from '../utils/errorMessages.js';
 import { formatPrice, timeAgo } from '../utils/format.js';
 import { getDirectionsUrl, parseDeliveryAddress } from '../utils/orderLocation.js';
 
 const deliveryStatuses = new Set(['READY', 'OUT_FOR_DELIVERY', 'COMPLETED']);
+const cleanPhone = (value) => String(value || '').replace(/\D/g, '').slice(0, 10);
+const phoneHref = (value) => {
+  const phone = cleanPhone(value);
+  return phone ? `tel:${phone}` : '';
+};
 
 export default function DeliveryDashboardPage() {
-  const { ownerToken } = useAppContext();
   const { showToast } = useToast();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   const loadOrders = async ({ silent = false } = {}) => {
-    if (!ownerToken) return;
-
     try {
       if (!silent) setLoading(true);
-      const data = await fetchAdminOrders(ownerToken);
+      const data = await fetchDeliveryDashboardOrders();
       setOrders(data.orders || []);
       setError('');
     } catch (requestError) {
@@ -37,11 +38,11 @@ export default function DeliveryDashboardPage() {
 
   useEffect(() => {
     loadOrders();
-  }, [ownerToken]);
+  }, []);
 
   useInterval(() => {
     loadOrders({ silent: true });
-  }, ownerToken ? 10000 : null);
+  }, 10000);
 
   const deliveryOrders = useMemo(
     () =>
@@ -50,26 +51,6 @@ export default function DeliveryDashboardPage() {
         .sort((left, right) => new Date(right.created_at).getTime() - new Date(left.created_at).getTime()),
     [orders],
   );
-
-  if (!ownerToken) {
-    return (
-      <div>
-        <nav className="navbar">
-          <div className="nav-inner">
-            <div style={{ width: 96 }} />
-            <h1 className="page-title">Delivery Dashboard</h1>
-            <div style={{ width: 96 }} />
-          </div>
-        </nav>
-        <main className="dashboard-main">
-          <div className="card">
-            <h2 className="card-title">Login Required</h2>
-            <p className="muted-small">Open the owner dashboard and login on this device to view assigned delivery orders.</p>
-          </div>
-        </main>
-      </div>
-    );
-  }
 
   return (
     <div>
@@ -110,10 +91,22 @@ export default function DeliveryDashboardPage() {
                   <div className="gold-text strong">{formatPrice(order.total)}</div>
                 </div>
               </div>
-              <div className="muted-small">Customer: {order.customer_name} · {order.customer_phone}</div>
+              <div className="muted-small">
+                Customer: {order.customer_name}
+                {phoneHref(order.customer_phone) ? (
+                  <>
+                    {' '}| <a className="phone-link" href={phoneHref(order.customer_phone)}>{cleanPhone(order.customer_phone)}</a>
+                  </>
+                ) : null}
+              </div>
               {order.delivery_people && (
                 <div className="reason-note">
-                  Rider: {order.delivery_people.name} · {order.delivery_people.phone}
+                  Rider: {order.delivery_people.name}
+                  {phoneHref(order.delivery_people.phone) ? (
+                    <>
+                      {' '}| <a className="phone-link" href={phoneHref(order.delivery_people.phone)}>{cleanPhone(order.delivery_people.phone)}</a>
+                    </>
+                  ) : null}
                 </div>
               )}
               <div className="order-items-copy">{(order.order_items || []).map((item) => `${item.item_name} x${item.quantity}`).join(', ')}</div>

@@ -17,6 +17,11 @@ export const fetchAdminOrders = async (token) => {
   return data;
 };
 
+export const fetchDeliveryDashboardOrders = async () => {
+  const { data } = await api.get('/orders/delivery-dashboard');
+  return data;
+};
+
 export const updateAdminOrderStatus = async (token, orderId, status, rejectionReason = null) => {
   const { data } = await authApi(token).patch(`/orders/admin/${orderId}/status`, { status, rejectionReason });
   return data;
