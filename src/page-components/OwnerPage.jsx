@@ -139,6 +139,7 @@ const getAuditConsentLabel = (value) => {
   if (value === 'WITHOUT_CONSENT') return 'Without consent';
   return 'Consent not recorded';
 };
+const getAuditEventDateKey = (event, fallbackDate) => toDateKey(event.createdAt || event.created_at || fallbackDate);
 
 const countsAsRevenue = (order) =>
   order.status !== 'CANCELLED' && (order.payment_status === 'PAID' || order.status === 'COMPLETED');
@@ -385,6 +386,7 @@ export default function OwnerPage() {
   const [currentFilter, setCurrentFilter] = useState('all');
   const [menuFilter, setMenuFilter] = useState('all');
   const [menuAdminSection, setMenuAdminSection] = useState('restaurant');
+  const [reportSection, setReportSection] = useState('orders');
   const [menuSearchQuery, setMenuSearchQuery] = useState('');
   const [restaurantPriceDrafts, setRestaurantPriceDrafts] = useState({});
   const [deliveryPriceDrafts, setDeliveryPriceDrafts] = useState({});
@@ -418,6 +420,7 @@ export default function OwnerPage() {
   const [removalConsentStatus, setRemovalConsentStatus] = useState('WITH_CONSENT');
   const [removalNote, setRemovalNote] = useState('');
   const [historyDate, setHistoryDate] = useState(getTodayDateKey());
+  const [expandedAdjustmentOrderId, setExpandedAdjustmentOrderId] = useState('');
   const [selectedActiveGroupKey, setSelectedActiveGroupKey] = useState('');
   const [restaurantSettingsDraft, setRestaurantSettingsDraft] = useState({ tableCount: '16', deliveryRadiusKm: '4' });
   const [savingRestaurantSettings, setSavingRestaurantSettings] = useState(false);
@@ -520,6 +523,10 @@ export default function OwnerPage() {
     }
   }, [currentTab]);
 
+  useEffect(() => {
+    setExpandedAdjustmentOrderId('');
+  }, [historyDate, reportSection]);
+
   const deliveryOrders = useMemo(() => orders.filter((order) => order.type === 'delivery'), [orders]);
   const activeTableGroups = useMemo(
     () =>
@@ -572,19 +579,65 @@ export default function OwnerPage() {
     () => orders.filter((order) => toDateKey(order.created_at) === historyDate),
     [historyDate, orders],
   );
-  const historyRemovalEvents = useMemo(
+  const historyAdjustmentOrders = useMemo(
     () =>
-      historyOrders
-        .flatMap((order) =>
-          (order.audit_events || []).map((event) => ({
-            ...event,
+      orders
+        .map((order) => {
+          const matchingEvents = (order.audit_events || [])
+            .filter((event) => ['ITEM_REMOVED', 'ORDER_CANCELLED'].includes(event.eventType))
+            .filter((event) => getAuditEventDateKey(event, order.created_at) === historyDate)
+            .sort((left, right) => new Date(right.createdAt || 0).getTime() - new Date(left.createdAt || 0).getTime());
+          const hasCancellationEvent = matchingEvents.some((event) => event.eventType === 'ORDER_CANCELLED');
+          const shouldIncludeCancelledFallback =
+            order.status === 'CANCELLED' && !hasCancellationEvent && toDateKey(order.created_at) === historyDate;
+          const events = shouldIncludeCancelledFallback
+            ? [
+                {
+                  id: `${order.id}-cancelled-fallback`,
+                  eventType: 'ORDER_CANCELLED',
+                  lineTotal: Number(order.total || 0),
+                  note: order.rejection_reason || 'Cancelled',
+                  createdAt: order.created_at,
+                },
+                ...matchingEvents,
+              ]
+            : matchingEvents;
+
+          if (!events.length) {
+            return null;
+          }
+
+          const removedEvents = events.filter((event) => event.eventType === 'ITEM_REMOVED');
+          const cancelledEvents = events.filter((event) => event.eventType === 'ORDER_CANCELLED');
+          const takeawayToken = getTakeawayToken(order);
+          const displayLabel = order.type === 'delivery'
+            ? 'Delivery'
+            : takeawayToken
+              ? `Takeaway ${takeawayToken}`
+              : `Table ${order.table_number || '-'}`;
+          const latestEventTime = events.reduce(
+            (latest, event) => Math.max(latest, new Date(event.createdAt || order.created_at || 0).getTime()),
+            0,
+          );
+
+          return {
+            order,
+            id: order.id,
             orderCode: order.order_code,
-            displayLabel: getTakeawayToken(order) ? `Takeaway ${getTakeawayToken(order)}` : `Table ${order.table_number || '-'}`,
-          })),
-        )
-        .filter((event) => event.eventType === 'ITEM_REMOVED')
-        .sort((left, right) => new Date(right.createdAt || 0).getTime() - new Date(left.createdAt || 0).getTime()),
-    [historyOrders],
+            displayLabel,
+            events,
+            removedEvents,
+            cancelledEvents,
+            itemCount:
+              removedEvents.reduce((sum, event) => sum + Number(event.quantityRemoved || 0), 0) ||
+              (cancelledEvents.length ? (order.order_items || []).reduce((sum, item) => sum + Number(item.quantity || 0), 0) : 0),
+            amount: events.reduce((sum, event) => sum + Number(event.lineTotal || 0), 0),
+            latestEventTime,
+          };
+        })
+        .filter(Boolean)
+        .sort((left, right) => right.latestEventTime - left.latestEventTime),
+    [historyDate, orders],
   );
 
   const filteredDeliveryOrders = useMemo(() => {
@@ -1663,6 +1716,23 @@ export default function OwnerPage() {
                   <div className="gold-text strong">{formatPrice(historySummary.tipTotal)}</div>
                 </div>
               </div>
+              <div className="owner-tabs owner-section-tabs report-section-tabs">
+                {[
+                  { value: 'orders', label: 'Orders' },
+                  { value: 'adjustments', label: 'Removed / Cancelled' },
+                ].map((section) => (
+                  <button
+                    className={`owner-tab ${reportSection === section.value ? 'active' : ''}`}
+                    key={section.value}
+                    onClick={() => setReportSection(section.value)}
+                    type="button"
+                  >
+                    {section.label}
+                  </button>
+                ))}
+              </div>
+              {reportSection === 'orders' && (
+                <>
               {!historyEntries.length && <div className="muted-small">No orders found for this day.</div>}
               <div className="history-entry-list">
                 {historyEntries.map((entry) => (
@@ -1682,6 +1752,77 @@ export default function OwnerPage() {
                   </div>
                 ))}
               </div>
+                </>
+              )}
+              {reportSection === 'adjustments' && (
+                <>
+                  {!historyAdjustmentOrders.length && <div className="muted-small">No removed items or cancelled KOTs found for this day.</div>}
+                  <div className="history-entry-list">
+                    {historyAdjustmentOrders.map((adjustment) => {
+                      const expanded = expandedAdjustmentOrderId === adjustment.id;
+                      return (
+                        <div className="history-entry-card" key={adjustment.id}>
+                          <button
+                            className="collapse-header adjustment-order-toggle"
+                            onClick={() => setExpandedAdjustmentOrderId(expanded ? '' : adjustment.id)}
+                            type="button"
+                          >
+                            <span>
+                              <span className="gold-text strong">#{adjustment.orderCode}</span>
+                              <span className="muted-small">
+                                {adjustment.displayLabel} | {adjustment.removedEvents.length ? `${adjustment.removedEvents.length} removals` : ''}
+                                {adjustment.removedEvents.length && adjustment.cancelledEvents.length ? ' | ' : ''}
+                                {adjustment.cancelledEvents.length ? 'cancelled' : ''}
+                              </span>
+                            </span>
+                            <span className="order-card-price">
+                              <span className="gold-text strong">{formatPrice(adjustment.amount)}</span>
+                              <span className="muted-small">{timeAgo(adjustment.latestEventTime)}</span>
+                            </span>
+                          </button>
+                          {expanded && (
+                            <div className="adjustment-detail-list">
+                              {!!adjustment.removedEvents.length && (
+                                <div className="table-item-list">
+                                  {adjustment.removedEvents.map((event) => (
+                                    <div className="table-item-row" key={event.id}>
+                                      <span>{event.itemName || 'Removed item'} x{event.quantityRemoved || 1}</span>
+                                      <div className="table-item-actions">
+                                        <span className="gold-text strong">{formatPrice(Number(event.lineTotal || 0))}</span>
+                                        <span className="muted-small">{getAuditConsentLabel(event.consentStatus)}</span>
+                                      </div>
+                                      {!!event.note && <div className="muted-small full-width">Note: {event.note}</div>}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                              {!!adjustment.cancelledEvents.length && (
+                                <div className="billing-review-order">
+                                  <div className="status-control-label">Cancelled KOT Items</div>
+                                  <div className="table-item-list">
+                                    {(adjustment.order.order_items || []).map((item) => (
+                                      <div className="table-item-row" key={item.id || `${item.item_name}-${item.quantity}`}>
+                                        <span>{item.item_name} x{item.quantity}</span>
+                                        <span className="gold-text strong">{formatPrice(Number(item.price_at_purchase ?? item.price ?? 0) * Number(item.quantity || 0))}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                  {adjustment.cancelledEvents.map((event) => (
+                                    <div className="reason-note" key={event.id}>
+                                      Reason: {event.note || adjustment.order.rejection_reason || 'Cancelled'}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+              {false && (
               <div className="card" style={{ marginTop: 18 }}>
                 <div className="status-control-label" style={{ marginBottom: 10 }}>Removed Items Review</div>
                 {!historyRemovalEvents.length ? (
@@ -1716,6 +1857,7 @@ export default function OwnerPage() {
                   </div>
                 )}
               </div>
+              )}
             </div>
             )}
 

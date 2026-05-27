@@ -334,6 +334,10 @@ h1, h2, h3, h4 { font-family: 'Playfair Display', serif; margin: 0; }
 .history-revenue-row { display: flex; align-items: stretch; justify-content: space-between; gap: 16px; padding: 16px 18px; border-radius: 18px; background: rgba(255,255,255,.03); border: 1px solid rgba(212,160,23,.16); }
 .history-entry-list { display: grid; gap: 12px; }
 .history-entry-card { padding: 16px; border-radius: 18px; background: rgba(255,255,255,.03); border: 1px solid rgba(212,160,23,.16); }
+.report-section-tabs { margin: 2px 0 0; }
+.adjustment-order-toggle { align-items: center; text-align: left; padding: 0; cursor: pointer; }
+.adjustment-order-toggle > span:first-child { display: grid; gap: 4px; }
+.adjustment-detail-list { display: grid; gap: 12px; margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(212,160,23,.14); }
 .billing-review-list { display: grid; gap: 12px; max-height: 280px; overflow: auto; margin-top: 14px; padding-right: 4px; }
 .billing-review-order { padding: 12px; border-radius: 16px; background: rgba(255,255,255,.03); border: 1px solid rgba(212,160,23,.14); display: grid; gap: 8px; }
 .billing-amount-grid { display: grid; gap: 8px; margin-top: 12px; padding: 14px; border-radius: 16px; background: rgba(255,255,255,.03); border: 1px solid rgba(212,160,23,.14); }
