@@ -5,6 +5,7 @@ import { useAppContext } from '../context/AppContext.jsx';
 import { useToast } from '../context/ToastContext.jsx';
 import { useInterval } from '../hooks/useInterval.js';
 import { ownerLogin } from '../services/authService.js';
+import { printOrderCopiesLocally } from '../services/localPrintService.js';
 import { fetchAdminMenuItems, updateMenuAvailability, updateMenuItemPrice } from '../services/menuService.js';
 import {
   addDeliveryPerson,
@@ -639,6 +640,9 @@ export default function OwnerPage() {
     try {
       stopNewOrderAlertLoop();
       const result = await updateAdminOrderStatus(ownerToken, orderId, status, rejectionReason);
+      if (status === 'IN_KITCHEN' && result?.order) {
+        await handleAutoPrintKitchenAndCounter(result.order);
+      }
       if (status === 'CANCELLED' && result?.order) {
         const printOpened = printKotSlip(result.order, {
           variant: 'cancel',
@@ -686,6 +690,19 @@ export default function OwnerPage() {
     }
     showToast(`Bill print window opened for ${order.order_code}`);
     return true;
+  };
+
+  const handleAutoPrintKitchenAndCounter = async (order) => {
+    const result = await printOrderCopiesLocally(order);
+    if (result.ok) {
+      showToast(`KOT sent to kitchen and bill sent to counter for #${order.order_code}.`, 'success');
+      return true;
+    }
+
+    showToast('Automatic printer bridge is not running. Opening browser print windows instead.', 'error');
+    const kotOpened = await handlePrintKot(order);
+    const billOpened = await handlePrintBill(order, { showQr: false });
+    return kotOpened && billOpened;
   };
 
   const handleAssignDelivery = async (orderId, deliveryPersonId) => {
@@ -960,7 +977,7 @@ export default function OwnerPage() {
         items: draftItems,
       });
 
-      await handlePrintKot(response.order);
+      await handleAutoPrintKitchenAndCounter(response.order);
       showToast(serviceMode === 'TAKEAWAY' ? 'Takeaway KOT created.' : `KOT created for Table ${tableNumber}.`);
       resetDraft();
       await loadOrders();

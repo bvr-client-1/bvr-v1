@@ -697,6 +697,7 @@ export const updateOrderStatus = async (orderId, status, rejectionReason = null)
   }
 
   await updateOrderRecord(orderId, payload);
+  return getOrderById(orderId);
 };
 
 export const cancelOrderWithRefund = async (orderId, rejectionReason = null) => {

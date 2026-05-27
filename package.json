@@ -12,6 +12,7 @@
     "menu:sync": "node scripts/sync-menu-from-pdf.mjs",
     "test": "node --test",
     "deploy:check": "node scripts/deploy-check.mjs",
+    "print:bridge": "node scripts/local-print-bridge.mjs",
     "preview": "next start",
     "start": "next start",
     "backend": "node backend/server.js"

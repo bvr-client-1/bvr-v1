@@ -302,8 +302,8 @@ export const patchOrderStatus = async (req, res) => {
     });
   }
 
-  await updateOrderStatus(req.params.orderId, req.body.status, req.body.rejectionReason);
-  return res.json({ success: true });
+  const order = await updateOrderStatus(req.params.orderId, req.body.status, req.body.rejectionReason);
+  return res.json({ success: true, order });
 };
 
 export const patchDeliveryAssignment = async (req, res) => {
