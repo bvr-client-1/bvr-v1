@@ -28,6 +28,7 @@ export default function CartPage() {
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [deliveryFor, setDeliveryFor] = useState('self');
+  const [locationChoiceOpen, setLocationChoiceOpen] = useState(false);
   const [deliveryLocation, setDeliveryLocation] = useState(null);
   const [error, setError] = useState('');
   const [paying, setPaying] = useState(false);
@@ -56,7 +57,7 @@ export default function CartPage() {
     return '';
   };
 
-  const handlePay = async () => {
+  const startPayment = async (selectedDeliveryFor = deliveryFor) => {
     const nextError = validateForm();
     setError(nextError);
     if (nextError || !open || paying) {
@@ -64,10 +65,11 @@ export default function CartPage() {
     }
 
     setPaying(true);
+    setLocationChoiceOpen(false);
 
     try {
       let currentDeliveryLocation = null;
-      if (deliveryFor === 'self') {
+      if (selectedDeliveryFor === 'self') {
         if (!hasDeliveryZoneConfig()) {
           throw new Error('Delivery zone is not configured right now');
         }
@@ -89,7 +91,7 @@ export default function CartPage() {
         customerName: customerName.trim(),
         customerPhone: customerPhone.trim(),
         tableNumber: null,
-        deliveryAddress: `${deliveryFor === 'other' ? 'Booking for someone else: ' : ''}${deliveryAddress.trim()}${landmark.trim() ? `, ${landmark.trim()}` : ''}`,
+        deliveryAddress: `${selectedDeliveryFor === 'other' ? 'Booking for someone else: ' : ''}${deliveryAddress.trim()}${landmark.trim() ? `, ${landmark.trim()}` : ''}`,
         deliveryLatitude: currentDeliveryLocation?.latitude ?? null,
         deliveryLongitude: currentDeliveryLocation?.longitude ?? null,
         subtotal,
@@ -163,6 +165,16 @@ export default function CartPage() {
     }
   };
 
+  const handlePay = () => {
+    const nextError = validateForm();
+    setError(nextError);
+    if (nextError || !open || paying) {
+      return;
+    }
+
+    setLocationChoiceOpen(true);
+  };
+
   return (
     <div>
       <nav className="navbar">
@@ -230,6 +242,15 @@ export default function CartPage() {
               <div className="stacked-fields">
                 <div className="delivery-zone-note">
                   Delivery is available only within {deliveryRadiusKm} km of the restaurant. Choose whether this delivery is for your current location or for another person/address.
+                </div>
+                <div className="delivery-location-card">
+                  <div>
+                    <div className="status-control-label">Delivery for</div>
+                    <div className="muted-small">{deliveryFor === 'self' ? 'Your current location' : 'Another person or address'}</div>
+                  </div>
+                  <button className="order-map-link" onClick={() => setLocationChoiceOpen(true)} type="button">
+                    Change
+                  </button>
                 </div>
                 <div className="filter-wrap" style={{ margin: 0 }}>
                   <button className={`filter-btn ${deliveryFor === 'self' ? 'active' : ''}`} onClick={() => setDeliveryFor('self')} type="button">
@@ -299,6 +320,37 @@ export default function CartPage() {
           </div>
         )}
       </main>
+      {locationChoiceOpen && (
+        <div className="location-choice-overlay">
+          <div className="location-choice-sheet">
+            <button aria-label="Close location choice" className="location-choice-close" onClick={() => setLocationChoiceOpen(false)} type="button">
+              ×
+            </button>
+            <h3>Booking for someone else?</h3>
+            <p>Choose how this delivery location should be confirmed before payment.</p>
+            <button
+              className="btn-gold"
+              onClick={() => {
+                setDeliveryFor('other');
+                startPayment('other');
+              }}
+              type="button"
+            >
+              Yes, for someone else
+            </button>
+            <button
+              className="location-choice-secondary"
+              onClick={() => {
+                setDeliveryFor('self');
+                startPayment('self');
+              }}
+              type="button"
+            >
+              No, booking for me
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

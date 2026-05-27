@@ -1768,7 +1768,7 @@ export default function OwnerPage() {
                           Print KOT
                         </button>
                         <button className="act-btn act-secondary" onClick={() => handlePrintBill(order)} type="button">
-                          Print Bill
+                          Print Counter Bill
                         </button>
                         <button className="act-btn act-danger" onClick={() => setRejectingOrderId(order.id)} type="button">
                           Cancel Order
@@ -1782,6 +1782,9 @@ export default function OwnerPage() {
                         </button>
                         <button className="act-btn act-secondary" onClick={() => handlePrintKot(order)} type="button">
                           Reprint KOT
+                        </button>
+                        <button className="act-btn act-secondary" onClick={() => handlePrintBill(order)} type="button">
+                          Print Counter Bill
                         </button>
                         <button className="act-btn act-danger" onClick={() => setRejectingOrderId(order.id)} type="button">
                           Cancel Order
@@ -1801,12 +1804,20 @@ export default function OwnerPage() {
                         <button className="act-btn act-confirm" onClick={() => handleAssignDelivery(order.id, document.getElementById(`delivery-person-${order.id}`)?.value)} type="button">
                           Assign
                         </button>
+                        <button className="act-btn act-secondary" onClick={() => handlePrintBill(order)} type="button">
+                          Print Counter Bill
+                        </button>
                       </div>
                     )}
                     {order.status === 'OUT_FOR_DELIVERY' && (
-                      <button className="act-btn act-confirm" onClick={() => handleStatusUpdate(order.id, 'COMPLETED')} type="button">
-                        Mark Delivered
-                      </button>
+                      <div className="action-row">
+                        <button className="act-btn act-confirm" onClick={() => handleStatusUpdate(order.id, 'COMPLETED')} type="button">
+                          Mark Delivered
+                        </button>
+                        <button className="act-btn act-secondary" onClick={() => handlePrintBill(order)} type="button">
+                          Print Counter Bill
+                        </button>
+                      </div>
                     )}
                   </div>
                 );

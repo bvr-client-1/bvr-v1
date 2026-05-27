@@ -107,6 +107,7 @@ h1, h2, h3, h4 { font-family: 'Playfair Display', serif; margin: 0; }
 .feedback-textarea::placeholder { color: rgba(245,230,200,.38); }
 .feedback-actions { display: flex; gap: 12px; flex-wrap: wrap; }
 .delivery-zone-note { padding: 12px 14px; border-radius: 14px; background: rgba(212,160,23,.1); border: 1px solid rgba(212,160,23,.18); color: #e5c89a; font-size: .92rem; line-height: 1.6; }
+.delivery-location-card { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 14px 16px; border-radius: 16px; background: rgba(255,255,255,.04); border: 1px solid rgba(212,160,23,.18); }
 .delivery-info-block { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 10px 0 12px; flex-wrap: wrap; }
 .order-map-link { display: inline-flex; align-items: center; justify-content: center; min-height: 36px; padding: 0 14px; border-radius: 999px; border: 1px solid rgba(212,160,23,.28); color: var(--bright-gold); text-decoration: none; font-size: .82rem; font-weight: 600; }
 .status-control-card { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 20px 22px; margin-bottom: 16px; border-radius: 20px; background: linear-gradient(180deg, rgba(33,17,1,.96), rgba(23,11,0,.96)); border: 1px solid rgba(212,160,23,.24); box-shadow: 0 18px 45px rgba(0,0,0,.22); }
@@ -353,6 +354,12 @@ h1, h2, h3, h4 { font-family: 'Playfair Display', serif; margin: 0; }
 .reject-overlay { background: rgba(0,0,0,.75); }
 .login-box, .password-box, .reject-box { max-width: 360px; width: 100%; padding: 32px; }
 .reject-box { max-height: min(88vh, 760px); overflow: auto; }
+.location-choice-overlay { position: fixed; inset: 0; z-index: 250; background: rgba(0,0,0,.72); display: flex; align-items: flex-end; justify-content: center; padding: 20px; }
+.location-choice-sheet { width: min(620px, 100%); padding: 32px; border-radius: 28px 28px 18px 18px; background: #fff; color: #101827; position: relative; display: grid; gap: 18px; box-shadow: 0 -18px 60px rgba(0,0,0,.35); }
+.location-choice-sheet h3 { margin: 0; color: #101827; font-size: 1.6rem; }
+.location-choice-sheet p { margin: 0; color: #4b5563; line-height: 1.45; }
+.location-choice-close { position: absolute; right: 22px; top: -58px; width: 48px; height: 48px; border: 0; border-radius: 50%; background: #fff; color: #111827; font-size: 2rem; cursor: pointer; }
+.location-choice-secondary { min-height: 54px; border-radius: 999px; border: 1px solid #4b5563; background: #fff; color: #111827; font-weight: 800; cursor: pointer; }
 .reason-option, .reject-cancel-btn, .reject-confirm-btn { width: 100%; min-height: 44px; border-radius: 12px; }
 .reason-option { background: transparent; color: var(--text); border: 1px solid var(--border); margin-bottom: 8px; }
 .reason-option.selected { border-color: var(--red); }
