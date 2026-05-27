@@ -14,11 +14,11 @@ export function FloatingCart({ cart }) {
   return (
     <div className="float-cart visible">
       <Link className="float-cart-btn" href="/cart">
-        <span>🛒</span>
-        <span>View Cart</span>
+        <span className="float-cart-icon">Cart</span>
+        <span className="float-cart-label">View Cart</span>
         <div className="float-cart-divider" />
-        <span>
-          {total} item{total !== 1 ? 's' : ''} · {formatPrice(price)}
+        <span className="float-cart-total">
+          {total} item{total !== 1 ? 's' : ''} | {formatPrice(price)}
         </span>
       </Link>
     </div>
