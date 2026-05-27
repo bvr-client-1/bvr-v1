@@ -232,11 +232,6 @@ export const fetchAdminOrders = async (_req, res) => {
 };
 
 export const createCounterTableOrder = async (req, res) => {
-  const runtimeState = await getRuntimeState();
-  if (req.body.serviceMode === 'TABLE' && Number(req.body.tableNumber) > (Number(runtimeState.tableCount) || 16)) {
-    return res.status(400).json({ message: `Table ${req.body.tableNumber} is outside the configured table count` });
-  }
-
   const subtotal = Number(req.body.subtotal || 0);
   const total = Number(req.body.total || subtotal);
 
@@ -260,11 +255,6 @@ export const createCounterTableOrder = async (req, res) => {
 };
 
 export const settleTableBill = async (req, res) => {
-  const runtimeState = await getRuntimeState();
-  if (req.body.serviceMode === 'TABLE' && Number(req.body.tableNumber) > (Number(runtimeState.tableCount) || 16)) {
-    return res.status(400).json({ message: `Table ${req.body.tableNumber} is outside the configured table count` });
-  }
-
   const result = await closeActiveTableOrders({
     serviceMode: req.body.serviceMode,
     tableNumber: req.body.tableNumber,
