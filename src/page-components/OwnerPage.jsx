@@ -1692,11 +1692,11 @@ export default function OwnerPage() {
               </div>
               <div className="history-nav">
                 <button className="history-nav-btn" onClick={() => shiftHistoryDate(-1)} type="button">
-                  ‹
+                  {'<'}
                 </button>
                 <div className="history-date-label">{formatHistoryDate(historyDateObject)}</div>
                 <button className="history-nav-btn" onClick={() => shiftHistoryDate(1)} type="button">
-                  ›
+                  {'>'}
                 </button>
               </div>
               <div className="history-stats-grid">

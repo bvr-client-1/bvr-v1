@@ -90,11 +90,11 @@ export default function DeliveryDashboardPage() {
       <main className="dashboard-main">
         <div className="history-nav delivery-date-nav">
           <button className="history-nav-btn" onClick={() => shiftDeliveryDate(-1)} type="button">
-            Prev
+            {'<'}
           </button>
           <div className="history-date-label">{formatDateLabel(deliveryDateObject)}</div>
           <button className="history-nav-btn" onClick={() => shiftDeliveryDate(1)} type="button">
-            Next
+            {'>'}
           </button>
         </div>
         <div className="history-action-group delivery-date-actions">
