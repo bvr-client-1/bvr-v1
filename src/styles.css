@@ -343,6 +343,9 @@ h1, h2, h3, h4 { font-family: 'Playfair Display', serif; margin: 0; }
 .owner-section-tabs .owner-tab { border-radius: 999px; background: transparent; color: #e5c89a; font-weight: 700; white-space: nowrap; }
 .owner-section-tabs .owner-tab.active { background: linear-gradient(135deg, #d4a017, #f5c842); color: #130900; }
 .delivery-section-tabs { margin-top: 4px; margin-bottom: 16px; }
+.builder-category-tabs { margin: 16px 0 12px; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+.builder-category-tabs::-webkit-scrollbar { display: none; }
+.builder-category-tabs .owner-tab { flex: 0 0 auto; height: 36px; min-width: max-content; padding: 0 14px; font-size: .78rem; }
 .table-board-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 14px 0 16px; }
 .takeaway-board-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 0 0 16px; }
 .table-board-card { min-height: 88px; padding: 12px; border-radius: 16px; border: 1px solid rgba(212,160,23,.18); background: rgba(255,255,255,.03); color: #f5e6c8; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 4px; cursor: pointer; text-align: left; }

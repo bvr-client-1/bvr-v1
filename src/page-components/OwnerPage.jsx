@@ -91,6 +91,20 @@ const getTakeawayToken = (order) => {
   const marker = String(order.delivery_address || '');
   return marker.startsWith('TAKEAWAY::') ? marker.slice('TAKEAWAY::'.length) || 'Walk-In' : '';
 };
+const isPlaceholderCustomerName = (value) => {
+  const normalized = String(value || '').trim().toLowerCase();
+  return (
+    !normalized ||
+    normalized.startsWith('walk-in table') ||
+    normalized.startsWith('walk-in-table') ||
+    normalized.startsWith('takeaway token') ||
+    normalized === 'walk-in'
+  );
+};
+const cleanCustomerPhone = (value) => {
+  const phone = String(value || '').replace(/\D/g, '').slice(0, 10);
+  return phone && phone !== '0000000000' ? phone : '';
+};
 const parseSettlementMeta = (reason) => {
   const prefix = 'SETTLEMENT_META::';
   if (!String(reason || '').startsWith(prefix)) {
@@ -149,8 +163,8 @@ const groupTableOrders = (orders) => {
         total: 0,
         itemCount: 0,
         latestCreatedAt: order.created_at,
-        customerName: order.customer_name || '',
-        customerPhone: order.customer_phone || '',
+        customerName: isPlaceholderCustomerName(order.customer_name) ? '' : order.customer_name || '',
+        customerPhone: cleanCustomerPhone(order.customer_phone),
       });
     }
 
@@ -161,11 +175,12 @@ const groupTableOrders = (orders) => {
     if (new Date(order.created_at) > new Date(group.latestCreatedAt)) {
       group.latestCreatedAt = order.created_at;
     }
-    if (order.customer_name && !String(order.customer_name).startsWith('Walk-in Table')) {
+    if (!isPlaceholderCustomerName(order.customer_name)) {
       group.customerName = order.customer_name;
     }
-    if (order.customer_phone && order.customer_phone !== '0000000000') {
-      group.customerPhone = order.customer_phone;
+    const nextCustomerPhone = cleanCustomerPhone(order.customer_phone);
+    if (nextCustomerPhone) {
+      group.customerPhone = nextCustomerPhone;
     }
   }
 
@@ -1036,8 +1051,8 @@ export default function OwnerPage() {
     setServiceMode(group.serviceMode);
     setTableNumber(group.serviceMode === 'TABLE' ? group.tableNumber : '');
     setTakeawayToken(group.serviceMode === 'TAKEAWAY' ? group.takeawayToken : '');
-    setCustomerName(group.customerName || '');
-    setCustomerPhone(group.customerPhone || '');
+    setCustomerName(isPlaceholderCustomerName(group.customerName) ? '' : group.customerName || '');
+    setCustomerPhone(cleanCustomerPhone(group.customerPhone));
     setBillingGroupKey('');
     setCurrentTab('counter');
     resetDraft();
@@ -1410,12 +1425,12 @@ export default function OwnerPage() {
                 <input className="input-field" inputMode="numeric" maxLength={10} onChange={(event) => setCustomerPhone(event.target.value.replace(/\D/g, '').slice(0, 10))} placeholder="Customer phone (optional)" type="tel" value={customerPhone} />
               </div>
 
-              <div className="filter-wrap" style={{ marginTop: 16 }}>
-                <button className={`filter-btn ${builderCategory === 'all' ? 'active' : ''}`} onClick={() => setBuilderCategory('all')} type="button">
+              <div className="owner-tabs owner-section-tabs builder-category-tabs">
+                <button className={`owner-tab ${builderCategory === 'all' ? 'active' : ''}`} onClick={() => setBuilderCategory('all')} type="button">
                   All Items
                 </button>
                 {menuCategories.map((category) => (
-                  <button className={`filter-btn ${builderCategory === category ? 'active' : ''}`} key={category} onClick={() => setBuilderCategory(category)} type="button">
+                  <button className={`owner-tab ${builderCategory === category ? 'active' : ''}`} key={category} onClick={() => setBuilderCategory(category)} type="button">
                     {category}
                   </button>
                 ))}

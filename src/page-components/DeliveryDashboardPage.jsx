@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
 import { useAppContext } from '../context/AppContext.jsx';
 import { useToast } from '../context/ToastContext.jsx';
 import { useInterval } from '../hooks/useInterval.js';
@@ -57,12 +56,9 @@ export default function DeliveryDashboardPage() {
       <div>
         <nav className="navbar">
           <div className="nav-inner">
-            <Link className="back-link" href="/owner">
-              <span>&larr;</span>
-              <span>Owner Login</span>
-            </Link>
+            <div style={{ width: 96 }} />
             <h1 className="page-title">Delivery Dashboard</h1>
-            <div style={{ width: 56 }} />
+            <div style={{ width: 96 }} />
           </div>
         </nav>
         <main className="dashboard-main">
@@ -79,10 +75,7 @@ export default function DeliveryDashboardPage() {
     <div>
       <nav className="navbar">
         <div className="nav-inner">
-          <Link className="back-link" href="/owner">
-            <span>&larr;</span>
-            <span>Owner</span>
-          </Link>
+          <div style={{ width: 96 }} />
           <h1 className="page-title">Delivery Dashboard</h1>
           <button className="logout-link button-reset" onClick={() => loadOrders()} type="button">
             Refresh
