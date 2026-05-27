@@ -10,6 +10,8 @@ const runtimeStatePath = path.resolve(__dirname, '../data/runtime-state.json');
 const defaultState = {
   kitchenPaused: false,
   maintenanceMode: false,
+  tableCount: 16,
+  deliveryRadiusKm: 4,
   updatedAt: null,
   updatedByRole: null,
 };
@@ -37,12 +39,14 @@ export const getRestaurantStatus = async () => buildRestaurantStatus(await readR
 
 export const getRuntimeState = async () => readRuntimeState();
 
-export const updateRestaurantRuntimeState = async ({ kitchenPaused, maintenanceMode, updatedByRole }) => {
+export const updateRestaurantRuntimeState = async ({ kitchenPaused, maintenanceMode, tableCount, deliveryRadiusKm, updatedByRole }) => {
   const currentState = await readRuntimeState();
   const nextState = {
     ...currentState,
     kitchenPaused: typeof kitchenPaused === 'boolean' ? kitchenPaused : currentState.kitchenPaused,
     maintenanceMode: typeof maintenanceMode === 'boolean' ? maintenanceMode : currentState.maintenanceMode,
+    tableCount: Number.isFinite(Number(tableCount)) ? Number(tableCount) : currentState.tableCount,
+    deliveryRadiusKm: Number.isFinite(Number(deliveryRadiusKm)) ? Number(deliveryRadiusKm) : currentState.deliveryRadiusKm,
     updatedAt: new Date().toISOString(),
     updatedByRole,
   };

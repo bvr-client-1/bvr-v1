@@ -39,7 +39,6 @@ const removalConsentOptions = [
   { value: 'WITH_CONSENT', label: 'With customer consent' },
   { value: 'WITHOUT_CONSENT', label: 'Without customer consent' },
 ];
-const tableOptions = Array.from({ length: 16 }, (_, index) => String(index + 1));
 const ownerSections = [
   { value: 'counter', label: 'Counter' },
   { value: 'active', label: 'Active Tables' },
@@ -332,7 +331,7 @@ const openDaySalesPrintWindow = ({ dateLabel, report }) => {
 };
 
 export default function OwnerPage() {
-  const { ownerToken, setOwnerToken, restaurantStatus, setKitchenPaused, setMaintenanceMode } = useAppContext();
+  const { ownerToken, setOwnerToken, restaurantStatus, setKitchenPaused, setMaintenanceMode, updateRestaurantSettings } = useAppContext();
   const { showToast } = useToast();
   const [orders, setOrders] = useState([]);
   const [deliveryPeople, setDeliveryPeople] = useState([]);
@@ -373,8 +372,14 @@ export default function OwnerPage() {
   const [removalNote, setRemovalNote] = useState('');
   const [historyDate, setHistoryDate] = useState(getTodayDateKey());
   const [selectedActiveGroupKey, setSelectedActiveGroupKey] = useState('');
+  const [restaurantSettingsDraft, setRestaurantSettingsDraft] = useState({ tableCount: '16', deliveryRadiusKm: '4' });
+  const [savingRestaurantSettings, setSavingRestaurantSettings] = useState(false);
   const knownOrderIdsRef = useRef(new Set());
   const orderEntryRef = useRef(null);
+  const tableOptions = useMemo(
+    () => Array.from({ length: Math.max(1, Number(restaurantStatus.tableCount) || 16) }, (_, index) => String(index + 1)),
+    [restaurantStatus.tableCount],
+  );
 
   const handleAuthFailure = (error) => {
     if (error?.response?.status === 401) {
@@ -433,6 +438,13 @@ export default function OwnerPage() {
       loadMenu();
     }
   }, [ownerToken]);
+
+  useEffect(() => {
+    setRestaurantSettingsDraft({
+      tableCount: String(Number(restaurantStatus.tableCount) || 16),
+      deliveryRadiusKm: String(Number(restaurantStatus.deliveryRadiusKm) || 4),
+    });
+  }, [restaurantStatus.tableCount, restaurantStatus.deliveryRadiusKm]);
 
   useEffect(() => {
     if (!ownerToken) return;
@@ -826,6 +838,40 @@ export default function OwnerPage() {
     }
   };
 
+  const handleRestaurantSettingsChange = (field, value) => {
+    setRestaurantSettingsDraft((current) => ({
+      ...current,
+      [field]: value.replace(field === 'tableCount' ? /\D/g : /[^0-9.]/g, ''),
+    }));
+  };
+
+  const handleSaveRestaurantSettings = async () => {
+    const tableCount = Number(restaurantSettingsDraft.tableCount);
+    const deliveryRadiusKm = Number(restaurantSettingsDraft.deliveryRadiusKm);
+
+    if (!Number.isInteger(tableCount) || tableCount < 1 || tableCount > 100) {
+      showToast('Table count must be between 1 and 100.', 'error');
+      return;
+    }
+
+    if (!Number.isFinite(deliveryRadiusKm) || deliveryRadiusKm < 0.5 || deliveryRadiusKm > 50) {
+      showToast('Delivery radius must be between 0.5 km and 50 km.', 'error');
+      return;
+    }
+
+    try {
+      setSavingRestaurantSettings(true);
+      await updateRestaurantSettings({ tableCount, deliveryRadiusKm });
+      showToast('Restaurant settings updated.', 'success');
+    } catch (error) {
+      if (!handleAuthFailure(error)) {
+        showToast(getUserFacingErrorMessage(error, 'Could not update restaurant settings.'), 'error');
+      }
+    } finally {
+      setSavingRestaurantSettings(false);
+    }
+  };
+
   const changeDraftItem = (menuItem, delta) => {
     setDraftItems((current) => {
       const existing = current.find((item) => item.id === menuItem.id);
@@ -919,8 +965,10 @@ export default function OwnerPage() {
     setTakeawayToken(group.serviceMode === 'TAKEAWAY' ? group.takeawayToken : '');
     setCustomerName(group.customerName || '');
     setCustomerPhone(group.customerPhone || '');
+    setBillingGroupKey('');
+    setCurrentTab('counter');
     resetDraft();
-    orderEntryRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    window.setTimeout(() => orderEntryRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0);
     showToast(`Ready to add more items for ${group.displayLabel}.`, 'info');
   };
 
@@ -1135,6 +1183,40 @@ export default function OwnerPage() {
           <button className={`status-toggle-btn ${restaurantStatus.maintenanceMode ? 'resume' : 'pause'}`} onClick={handleMaintenanceToggle} type="button">
             {restaurantStatus.maintenanceMode ? 'Turn Website On' : 'Enable Maintenance'}
           </button>
+        </div>
+
+        <div className="status-control-card staff-control-card">
+          <div className="staff-control-copy">
+            <div className="status-control-label">Restaurant Setup</div>
+            <p className="muted-small">
+              Set how many table buttons appear on the counter board and how far delivery checkout is allowed.
+            </p>
+            <div className="staff-list-row">
+              <span className="tiny-badge">{Number(restaurantStatus.tableCount) || 16} tables</span>
+              <span className="tiny-badge">{Number(restaurantStatus.deliveryRadiusKm) || 4} km delivery radius</span>
+            </div>
+          </div>
+          <div className="staff-form-card">
+            <input
+              className="input-field"
+              inputMode="numeric"
+              onChange={(event) => handleRestaurantSettingsChange('tableCount', event.target.value)}
+              placeholder="Number of tables"
+              type="text"
+              value={restaurantSettingsDraft.tableCount}
+            />
+            <input
+              className="input-field"
+              inputMode="decimal"
+              onChange={(event) => handleRestaurantSettingsChange('deliveryRadiusKm', event.target.value)}
+              placeholder="Delivery radius in km"
+              type="text"
+              value={restaurantSettingsDraft.deliveryRadiusKm}
+            />
+            <button className="status-toggle-btn resume" disabled={savingRestaurantSettings} onClick={handleSaveRestaurantSettings} type="button">
+              {savingRestaurantSettings ? 'Saving...' : 'Save Settings'}
+            </button>
+          </div>
         </div>
 
         <div className="status-control-card staff-control-card">

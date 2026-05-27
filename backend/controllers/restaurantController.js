@@ -6,13 +6,16 @@ export const fetchRestaurantStatus = async (_req, res) => {
 };
 
 export const patchKitchenPausedState = async (req, res) => {
-  if (typeof req.body.maintenanceMode === 'boolean' && req.user?.role !== 'owner') {
-    return res.status(403).json({ message: 'Only the owner can change maintenance mode' });
+  const ownerOnlyFields = ['maintenanceMode', 'tableCount', 'deliveryRadiusKm'];
+  if (ownerOnlyFields.some((field) => Object.prototype.hasOwnProperty.call(req.body, field)) && req.user?.role !== 'owner') {
+    return res.status(403).json({ message: 'Only the owner can change restaurant settings' });
   }
 
   const status = await updateRestaurantRuntimeState({
     kitchenPaused: req.body.kitchenPaused,
     maintenanceMode: req.body.maintenanceMode,
+    tableCount: req.body.tableCount,
+    deliveryRadiusKm: req.body.deliveryRadiusKm,
     updatedByRole: req.user?.role || 'unknown',
   });
   res.json(status);

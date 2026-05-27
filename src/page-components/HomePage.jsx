@@ -76,7 +76,17 @@ export default function HomePage() {
     phone: '',
     message: '',
   });
+  const { restaurantStatus } = useAppContext();
   const { showToast } = useToast();
+  const deliveryRadiusKm = Number(restaurantStatus.deliveryRadiusKm) || 4;
+  const displayFaqItems = faqItems.map((item) =>
+    item.question === 'What is the delivery radius?'
+      ? {
+          ...item,
+          answer: `Delivery is available within ${deliveryRadiusKm} km of the restaurant. Orders outside that radius are automatically blocked during checkout.`,
+        }
+      : item,
+  );
 
   useEffect(() => {
     const handleResize = () => setDesktop(window.innerWidth >= 1100);
@@ -348,7 +358,7 @@ export default function HomePage() {
             </div>
 
             <div className="faq-list">
-              {faqItems.map((item, index) => {
+              {displayFaqItems.map((item, index) => {
                 const isOpen = openFaq === index;
                 return (
                   <article className={`faq-item ${isOpen ? 'open' : ''}`} key={item.question}>

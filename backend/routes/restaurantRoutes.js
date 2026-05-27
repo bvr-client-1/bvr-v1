@@ -14,7 +14,9 @@ router.patch(
     Joi.object({
       kitchenPaused: Joi.boolean(),
       maintenanceMode: Joi.boolean(),
-    }).or('kitchenPaused', 'maintenanceMode'),
+      tableCount: Joi.number().integer().min(1).max(100),
+      deliveryRadiusKm: Joi.number().min(0.5).max(50),
+    }).or('kitchenPaused', 'maintenanceMode', 'tableCount', 'deliveryRadiusKm'),
   ),
   patchKitchenPausedState,
 );

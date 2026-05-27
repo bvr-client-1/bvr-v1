@@ -85,7 +85,7 @@ router.post(
       serviceMode: Joi.string().valid('TABLE', 'TAKEAWAY').default('TABLE'),
       customerName: Joi.string().allow('', null),
       customerPhone: Joi.string().allow('', null),
-      tableNumber: Joi.number().integer().min(1).max(16).allow(null),
+      tableNumber: Joi.number().integer().min(1).max(100).allow(null),
       takeawayToken: Joi.string().trim().max(40).allow('', null),
       subtotal: Joi.number().required(),
       total: Joi.number().required(),
@@ -110,7 +110,7 @@ router.patch(
   validate(
     Joi.object({
       serviceMode: Joi.string().valid('TABLE', 'TAKEAWAY').default('TABLE'),
-      tableNumber: Joi.number().integer().min(1).max(16).allow(null),
+      tableNumber: Joi.number().integer().min(1).max(100).allow(null),
       takeawayToken: Joi.string().trim().max(40).allow('', null),
       paymentMethod: Joi.string().valid('CASH', 'CARD', 'UPI').required(),
       tipAmount: Joi.number().min(0).default(0),

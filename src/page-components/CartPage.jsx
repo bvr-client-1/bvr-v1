@@ -37,6 +37,7 @@ export default function CartPage() {
   const couponDiscount = FREE_DELIVERY_ENABLED ? baseDeliveryCharge : 0;
   const deliveryCharge = Math.max(baseDeliveryCharge - couponDiscount, 0);
   const total = subtotal + deliveryCharge;
+  const deliveryRadiusKm = Number(restaurantStatus.deliveryRadiusKm) || DELIVERY_RADIUS_KM;
 
   const updateQuantity = (id, delta) => {
     setCart((previous) =>
@@ -70,8 +71,8 @@ export default function CartPage() {
 
       const currentDeliveryLocation = await getCurrentPosition();
       const distanceKm = calculateDistanceKm(currentDeliveryLocation, RESTAURANT_LOCATION);
-      if (distanceKm > DELIVERY_RADIUS_KM) {
-        throw new Error(`Delivery is available only within ${DELIVERY_RADIUS_KM} km of the restaurant`);
+      if (distanceKm > deliveryRadiusKm) {
+        throw new Error(`Delivery is available only within ${deliveryRadiusKm} km of the restaurant`);
       }
       setDeliveryLocation(currentDeliveryLocation);
 
@@ -222,7 +223,7 @@ export default function CartPage() {
               <h2 className="card-title">Delivery Details</h2>
               <div className="stacked-fields">
                 <div className="delivery-zone-note">
-                  Delivery is available only within {DELIVERY_RADIUS_KM} km of the restaurant. We use your current location at checkout to confirm eligibility.
+                  Delivery is available only within {deliveryRadiusKm} km of the restaurant. We use your current location at checkout to confirm eligibility.
                 </div>
                 <div>
                   <label className="label">Delivery Address</label>

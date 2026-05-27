@@ -28,6 +28,8 @@ export const buildRestaurantStatus = (runtimeState) => {
   return {
     kitchenPaused,
     maintenanceMode,
+    tableCount: Number(runtimeState?.tableCount) || 16,
+    deliveryRadiusKm: Number(runtimeState?.deliveryRadiusKm) || 4,
     updatedAt: runtimeState?.updatedAt || null,
     updatedByRole: runtimeState?.updatedByRole || null,
     ...schedule,

@@ -18,6 +18,8 @@ export function AppProvider({ children }) {
   const [restaurantStatus, setRestaurantStatus] = useState({
     kitchenPaused: false,
     maintenanceMode: false,
+    tableCount: 16,
+    deliveryRadiusKm: 4,
     isWithinSchedule: true,
     isAcceptingOrders: true,
     opensAt: '11:00 AM',
@@ -49,6 +51,7 @@ export function AppProvider({ children }) {
 
   const setKitchenPaused = async (kitchenPaused) => updateRestaurantRuntime({ kitchenPaused });
   const setMaintenanceMode = async (maintenanceMode) => updateRestaurantRuntime({ maintenanceMode });
+  const updateRestaurantSettings = async (settings) => updateRestaurantRuntime(settings);
 
   const rememberOrder = (orderRef) => {
     if (!orderRef?.id || !orderRef?.trackingToken) {
@@ -111,6 +114,7 @@ export function AppProvider({ children }) {
       refreshRestaurantStatus,
       setKitchenPaused,
       setMaintenanceMode,
+      updateRestaurantSettings,
     }),
     [cart, kitchenToken, orderCode, orderHistory, orderId, orderTrackingToken, ownerToken, restaurantStatus, searchState, setCart],
   );
