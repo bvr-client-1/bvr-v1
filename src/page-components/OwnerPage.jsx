@@ -103,6 +103,9 @@ const getAuditConsentLabel = (value) => {
   return 'Consent not recorded';
 };
 
+const countsAsRevenue = (order) =>
+  order.status !== 'CANCELLED' && (order.payment_status === 'PAID' || order.status === 'COMPLETED');
+
 const groupTableOrders = (orders) => {
   const groups = new Map();
 
@@ -201,8 +204,10 @@ const buildDaySalesReport = (ordersForDay) => {
   let cancelledCount = 0;
 
   for (const order of ordersForDay) {
-    if (order.status === 'CANCELLED') {
-      cancelledCount += 1;
+    if (!countsAsRevenue(order)) {
+      if (order.status === 'CANCELLED') {
+        cancelledCount += 1;
+      }
       continue;
     }
 
@@ -232,7 +237,7 @@ const buildDaySalesReport = (ordersForDay) => {
     foodRevenue,
     itemCount: Array.from(itemMap.values()).reduce((sum, item) => sum + item.quantity, 0),
     items: Array.from(itemMap.values()).sort((a, b) => a.name.localeCompare(b.name)),
-    orderCount: ordersForDay.length,
+    orderCount: ordersForDay.filter(countsAsRevenue).length,
     tipTotal,
     totalRevenue: foodRevenue + tipTotal,
   };
@@ -545,7 +550,8 @@ export default function OwnerPage() {
   const stats = useMemo(() => {
     const today = new Date().toDateString();
     const todayOrders = orders.filter((order) => new Date(order.created_at).toDateString() === today);
-    const todayTips = todayOrders.reduce((sum, order) => {
+    const revenueOrders = todayOrders.filter(countsAsRevenue);
+    const todayTips = revenueOrders.reduce((sum, order) => {
       const settlementMeta = parseSettlementMeta(order.rejection_reason);
       return sum + Number(settlementMeta?.primary ? settlementMeta.tipAmount || 0 : 0);
     }, 0);
@@ -554,13 +560,13 @@ export default function OwnerPage() {
       pending: deliveryOrders.filter((order) => order.status === 'NEW').length + activeTableGroups.length,
       active: orders.filter((order) => !['COMPLETED', 'CANCELLED'].includes(order.status)).length,
       today: todayOrders.length,
-      revenue:
-        todayOrders.filter((order) => order.status !== 'CANCELLED').reduce((sum, order) => sum + (order.total || 0), 0) + todayTips,
+      revenue: revenueOrders.reduce((sum, order) => sum + Number(order.total || 0), 0) + todayTips,
     };
   }, [activeTableGroups.length, deliveryOrders, orders]);
 
   const historySummary = useMemo(() => {
-    const tipTotal = historyOrders.reduce((sum, order) => {
+    const revenueOrders = historyOrders.filter(countsAsRevenue);
+    const tipTotal = revenueOrders.reduce((sum, order) => {
       const settlementMeta = parseSettlementMeta(order.rejection_reason);
       return sum + Number(settlementMeta?.primary ? settlementMeta.tipAmount || 0 : 0);
     }, 0);
@@ -570,7 +576,7 @@ export default function OwnerPage() {
       deliveryCount: historyOrders.filter((order) => order.type === 'delivery').length,
       dineInCount: historyOrders.filter((order) => order.type === 'dine-in').length,
       cancelledCount: historyOrders.filter((order) => order.status === 'CANCELLED').length,
-      revenue: historyOrders.filter((order) => order.status !== 'CANCELLED').reduce((sum, order) => sum + Number(order.total || 0), 0) + tipTotal,
+      revenue: revenueOrders.reduce((sum, order) => sum + Number(order.total || 0), 0) + tipTotal,
       tipTotal,
     };
   }, [historyOrders]);
@@ -1953,7 +1959,7 @@ export default function OwnerPage() {
         </div>
       )}
 
-      {!!selectedBillingGroup && (
+      {!!selectedBillingGroup && !pendingRemoval && (
         <div className="reject-overlay open">
           <div className="reject-box">
             <h3>Close {selectedBillingGroup.displayLabel}</h3>
