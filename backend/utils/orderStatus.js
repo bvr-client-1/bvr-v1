@@ -1,11 +1,11 @@
 const DELIVERY_STATUSES = new Set(['READY', 'OUT_FOR_DELIVERY', 'COMPLETED']);
-const DINE_IN_STATUSES = new Set(['READY', 'SERVED', 'COMPLETED']);
+const DINE_IN_STATUSES = new Set(['READY', 'SERVED', 'COMPLETED', 'CANCELLED']);
 
 const allowedTransitions = {
   NEW: new Set(['CONFIRMED', 'IN_KITCHEN', 'CANCELLED']),
   CONFIRMED: new Set(['IN_KITCHEN', 'CANCELLED']),
   IN_KITCHEN: new Set(['READY', 'CANCELLED']),
-  READY: new Set(['OUT_FOR_DELIVERY', 'SERVED', 'COMPLETED']),
+  READY: new Set(['OUT_FOR_DELIVERY', 'SERVED', 'COMPLETED', 'CANCELLED']),
   OUT_FOR_DELIVERY: new Set(['COMPLETED']),
   SERVED: new Set(['COMPLETED']),
   COMPLETED: new Set(),

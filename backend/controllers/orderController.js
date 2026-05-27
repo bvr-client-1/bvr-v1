@@ -114,6 +114,7 @@ const buildCanonicalOrderDraft = async (payload) => {
 
 const assertDeliveryEligibility = (payload, runtimeState) => {
   if (payload.orderType !== 'delivery') return;
+  if (payload.deliveryLatitude == null || payload.deliveryLongitude == null) return;
 
   assertWithinDeliveryZone({
     customerLocation: {

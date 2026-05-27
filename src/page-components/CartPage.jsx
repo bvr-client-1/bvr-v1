@@ -27,6 +27,7 @@ export default function CartPage() {
   const [landmark, setLandmark] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
+  const [deliveryFor, setDeliveryFor] = useState('self');
   const [deliveryLocation, setDeliveryLocation] = useState(null);
   const [error, setError] = useState('');
   const [paying, setPaying] = useState(false);
@@ -65,16 +66,21 @@ export default function CartPage() {
     setPaying(true);
 
     try {
-      if (!hasDeliveryZoneConfig()) {
-        throw new Error('Delivery zone is not configured right now');
-      }
+      let currentDeliveryLocation = null;
+      if (deliveryFor === 'self') {
+        if (!hasDeliveryZoneConfig()) {
+          throw new Error('Delivery zone is not configured right now');
+        }
 
-      const currentDeliveryLocation = await getCurrentPosition();
-      const distanceKm = calculateDistanceKm(currentDeliveryLocation, RESTAURANT_LOCATION);
-      if (distanceKm > deliveryRadiusKm) {
-        throw new Error(`Delivery is available only within ${deliveryRadiusKm} km of the restaurant`);
+        currentDeliveryLocation = await getCurrentPosition();
+        const distanceKm = calculateDistanceKm(currentDeliveryLocation, RESTAURANT_LOCATION);
+        if (distanceKm > deliveryRadiusKm) {
+          throw new Error(`Delivery is available only within ${deliveryRadiusKm} km of the restaurant`);
+        }
+        setDeliveryLocation(currentDeliveryLocation);
+      } else {
+        setDeliveryLocation(null);
       }
-      setDeliveryLocation(currentDeliveryLocation);
 
       const paymentDraft = {
         receipt: '',
@@ -83,9 +89,9 @@ export default function CartPage() {
         customerName: customerName.trim(),
         customerPhone: customerPhone.trim(),
         tableNumber: null,
-        deliveryAddress: `${deliveryAddress.trim()}${landmark.trim() ? `, ${landmark.trim()}` : ''}`,
-        deliveryLatitude: currentDeliveryLocation.latitude,
-        deliveryLongitude: currentDeliveryLocation.longitude,
+        deliveryAddress: `${deliveryFor === 'other' ? 'Booking for someone else: ' : ''}${deliveryAddress.trim()}${landmark.trim() ? `, ${landmark.trim()}` : ''}`,
+        deliveryLatitude: currentDeliveryLocation?.latitude ?? null,
+        deliveryLongitude: currentDeliveryLocation?.longitude ?? null,
         subtotal,
         deliveryCharge,
         total,
@@ -223,8 +229,21 @@ export default function CartPage() {
               <h2 className="card-title">Delivery Details</h2>
               <div className="stacked-fields">
                 <div className="delivery-zone-note">
-                  Delivery is available only within {deliveryRadiusKm} km of the restaurant. We use your current location at checkout to confirm eligibility.
+                  Delivery is available only within {deliveryRadiusKm} km of the restaurant. Choose whether this delivery is for your current location or for another person/address.
                 </div>
+                <div className="filter-wrap" style={{ margin: 0 }}>
+                  <button className={`filter-btn ${deliveryFor === 'self' ? 'active' : ''}`} onClick={() => setDeliveryFor('self')} type="button">
+                    For me
+                  </button>
+                  <button className={`filter-btn ${deliveryFor === 'other' ? 'active' : ''}`} onClick={() => setDeliveryFor('other')} type="button">
+                    Someone else
+                  </button>
+                </div>
+                {deliveryFor === 'self' ? (
+                  <div className="muted-small">We will confirm your current GPS location before payment.</div>
+                ) : (
+                  <div className="reason-note">Location will not be fetched. Please enter the recipient's complete delivery address.</div>
+                )}
                 <div>
                   <label className="label">Delivery Address</label>
                   <textarea className="input-field" onChange={(event) => setDeliveryAddress(event.target.value)} placeholder="Enter your full address" value={deliveryAddress} />

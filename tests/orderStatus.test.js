@@ -34,6 +34,17 @@ test('dine-in orders cannot go out for delivery', () => {
   );
 });
 
+test('ready dine-in KOTs can still be cancelled before billing', () => {
+  assert.equal(
+    canTransitionStatus({
+      currentStatus: 'READY',
+      nextStatus: 'CANCELLED',
+      orderType: 'dine-in',
+    }),
+    true,
+  );
+});
+
 test('completed orders are terminal', () => {
   assert.equal(
     canTransitionStatus({

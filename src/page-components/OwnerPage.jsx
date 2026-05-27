@@ -402,7 +402,7 @@ export default function OwnerPage() {
       const data = await fetchAdminOrders(ownerToken);
       const nextOrderIds = new Set(data.orders.map((order) => order.id));
       const incomingOrders = data.orders.filter((order) => !knownOrderIdsRef.current.has(order.id) && order.type === 'delivery');
-      if (knownOrderIdsRef.current.size && incomingOrders.length) {
+      if (knownOrderIdsRef.current.size && incomingOrders.length && currentTab !== 'delivery') {
         const latestOrder = incomingOrders[0];
         showToast(`New order received: #${latestOrder.order_code}`);
         startNewOrderAlertLoop();
@@ -471,6 +471,12 @@ export default function OwnerPage() {
       loadOrders({ silent: true });
     }
   }, ownerToken ? 10000 : null);
+
+  useEffect(() => {
+    if (currentTab === 'delivery') {
+      stopNewOrderAlertLoop();
+    }
+  }, [currentTab]);
 
   const deliveryOrders = useMemo(() => orders.filter((order) => order.type === 'delivery'), [orders]);
   const activeTableGroups = useMemo(
@@ -644,7 +650,6 @@ export default function OwnerPage() {
 
   const handleStatusUpdate = async (orderId, status, rejectionReason = null) => {
     try {
-      stopNewOrderAlertLoop();
       const result = await updateAdminOrderStatus(ownerToken, orderId, status, rejectionReason);
       if (status === 'IN_KITCHEN' && result?.order) {
         await handleAutoPrintKitchenAndCounter(result.order);
@@ -718,7 +723,6 @@ export default function OwnerPage() {
     }
 
     try {
-      stopNewOrderAlertLoop();
       await assignDeliveryPartner(ownerToken, orderId, deliveryPersonId);
       showToast('Delivery partner assigned.');
       await loadOrders();
@@ -752,7 +756,6 @@ export default function OwnerPage() {
     }
 
     try {
-      stopNewOrderAlertLoop();
       setAddingDeliveryStaff(true);
       const person = await addDeliveryPerson(ownerToken, { name, phone });
       setDeliveryPeople((current) => [person, ...current.filter((existing) => existing.id !== person.id)]);
@@ -772,7 +775,6 @@ export default function OwnerPage() {
     if (!confirmed) return;
 
     try {
-      stopNewOrderAlertLoop();
       setRemovingDeliveryStaffId(person.id);
       await removeDeliveryPerson(ownerToken, person.id);
       setDeliveryPeople((current) => current.filter((existing) => existing.id !== person.id));
@@ -788,7 +790,6 @@ export default function OwnerPage() {
 
   const handleToggleMenu = async (itemId, isAvailable) => {
     try {
-      stopNewOrderAlertLoop();
       await updateMenuAvailability(ownerToken, itemId, isAvailable);
       setManagedItems((previous) => previous.map((item) => (item.id === itemId ? { ...item, is_available: isAvailable } : item)));
       showToast(isAvailable ? 'Marked available.' : 'Marked unavailable.', isAvailable ? 'success' : 'info');
@@ -844,7 +845,6 @@ export default function OwnerPage() {
 
   const handleKitchenToggle = async () => {
     try {
-      stopNewOrderAlertLoop();
       await setKitchenPaused(!restaurantStatus.kitchenPaused);
       showToast(restaurantStatus.kitchenPaused ? 'Kitchen is back on and orders are open.' : 'Kitchen paused. New orders are blocked.');
     } catch (error) {
@@ -856,7 +856,6 @@ export default function OwnerPage() {
 
   const handleMaintenanceToggle = async () => {
     try {
-      stopNewOrderAlertLoop();
       await setMaintenanceMode(!restaurantStatus.maintenanceMode);
       showToast(restaurantStatus.maintenanceMode ? 'Website is back online.' : 'Maintenance mode is now live for customers.');
     } catch (error) {
