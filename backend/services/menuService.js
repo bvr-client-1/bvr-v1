@@ -58,7 +58,17 @@ const resolveFoodType = (item) => {
   return 'veg';
 };
 
-export const getPublicMenu = async () => {
+export const getDeliveryPrice = (item) => {
+  const explicitDeliveryPrice = Number(item.delivery_price);
+  if (Number.isFinite(explicitDeliveryPrice) && explicitDeliveryPrice > 0) {
+    return explicitDeliveryPrice;
+  }
+
+  return Math.round(Number(item.price || 0) * 1.2 * 100) / 100;
+};
+
+export const getPublicMenu = async ({ priceMode = 'delivery' } = {}) => {
+  const useDeliveryPrice = priceMode === 'delivery';
   const [{ data: categories, error: categoryError }, { data: items, error: itemError }] =
     await Promise.all([
       supabase.from('menu_categories').select('*').order('sort_order'),
@@ -75,7 +85,9 @@ export const getPublicMenu = async () => {
         id: item.id,
         name: item.name,
         description: item.description || '',
-        price: item.price,
+        price: useDeliveryPrice ? getDeliveryPrice(item) : item.price,
+        restaurantPrice: item.price,
+        deliveryPrice: getDeliveryPrice(item),
         imageUrl: item.image_url || null,
         category: item.menu_categories?.name || 'Other',
         foodType: resolveFoodType(item),
@@ -104,6 +116,10 @@ export const updateMenuItemDetails = async (itemId, updates) => {
     payload.price = updates.price;
   }
 
+  if (typeof updates.deliveryPrice === 'number') {
+    payload.delivery_price = updates.deliveryPrice;
+  }
+
   if (!Object.keys(payload).length) {
     return;
   }
@@ -120,7 +136,7 @@ export const getMenuItemsByIds = async (itemIds) => {
 
   const { data, error } = await supabase
     .from('menu_items')
-    .select('id, name, price, is_available')
+    .select('id, name, price, delivery_price, is_available')
     .in('id', itemIds);
 
   throwSupabaseError(error);

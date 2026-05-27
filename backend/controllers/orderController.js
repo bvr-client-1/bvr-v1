@@ -1,6 +1,6 @@
 import jwt from 'jsonwebtoken';
 import { env } from '../config/env.js';
-import { getMenuItemsByIds } from '../services/menuService.js';
+import { getDeliveryPrice, getMenuItemsByIds } from '../services/menuService.js';
 import { getRuntimeState } from '../services/restaurantService.js';
 import { findPendingOrderDraft, savePendingOrderDraft } from '../services/pendingOrderService.js';
 import { assertWithinDeliveryZone } from '../utils/deliveryZone.js';
@@ -74,7 +74,7 @@ const buildCanonicalOrderDraft = async (payload) => {
     return {
       id: String(menuItem.id),
       name: menuItem.name,
-      price: Number(menuItem.price),
+      price: payload.orderType === 'delivery' ? getDeliveryPrice(menuItem) : Number(menuItem.price),
       quantity: Number(item.quantity),
     };
   });

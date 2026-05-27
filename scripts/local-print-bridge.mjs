@@ -14,6 +14,13 @@ const command = (...bytes) => Buffer.from(bytes);
 const text = (value = '') => Buffer.from(String(value), 'ascii');
 const line = (value = '') => Buffer.concat([text(value), command(LF)]);
 const money = (value) => `Rs.${Number(value || 0).toFixed(2)}`;
+const shouldApplyRestaurantGst = (order) => order?.type !== 'delivery';
+const getRestaurantTaxBreakup = (amount) => {
+  const subtotal = Number(amount || 0);
+  const cgst = Math.round(subtotal * 0.025 * 100) / 100;
+  const sgst = Math.round(subtotal * 0.025 * 100) / 100;
+  return { cgst, sgst, grandTotal: Math.round((subtotal + cgst + sgst) * 100) / 100 };
+};
 const clean = (value = '') =>
   String(value ?? '')
     .replace(/[^\x20-\x7E]/g, ' ')
@@ -112,6 +119,9 @@ const buildKotBytes = (order) =>
 const buildBillBytes = (order) => {
   const items = order.order_items || [];
   const total = Number(order.total || items.reduce((sum, item) => sum + Number(item.quantity || 0) * Number(item.price_at_purchase ?? item.price ?? 0), 0));
+  const restaurantSubtotal = Number(order.subtotal || total);
+  const tax = getRestaurantTaxBreakup(restaurantSubtotal);
+  const payableTotal = shouldApplyRestaurantGst(order) ? tax.grandTotal : total;
 
   return Buffer.concat([
     header(),
@@ -126,8 +136,10 @@ const buildBillBytes = (order) => {
     line(divider),
     ...itemRows(items).map(line),
     line(divider),
+    line(pair('SUBTOTAL', money(shouldApplyRestaurantGst(order) ? restaurantSubtotal : total))),
+    ...(shouldApplyRestaurantGst(order) ? [line(pair('CGST 2.5%', money(tax.cgst))), line(pair('SGST 2.5%', money(tax.sgst)))] : []),
     command(ESC, 0x21, 0x20),
-    line(pair('TOTAL', money(total))),
+    line(pair('TOTAL', money(payableTotal))),
     command(ESC, 0x21, 0x00),
     finish(),
   ]);

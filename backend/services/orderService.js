@@ -9,12 +9,15 @@ import {
   upsertPaymentRecord,
 } from './paymentRecordService.js';
 import { getOrderAuditEventsByOrderIds, logOrderAuditEvent } from './orderAuditService.js';
-import { getMenuItemsByIds } from './menuService.js';
+import { getDeliveryPrice, getMenuItemsByIds } from './menuService.js';
 import { serializeDeliveryAddress } from '../utils/deliveryAddress.js';
 import { assertValidStatusTransition } from '../utils/orderStatus.js';
 
 const TAKEAWAY_PREFIX = 'TAKEAWAY::';
 const SETTLEMENT_PREFIX = 'SETTLEMENT_META::';
+const RESTAURANT_GST_RATE = 0.05;
+
+const addRestaurantGst = (amount) => Math.round(Number(amount || 0) * (1 + RESTAURANT_GST_RATE) * 100) / 100;
 
 const attachAuditEventsToOrders = async (orders) => {
   const list = Array.isArray(orders) ? orders : orders ? [orders] : [];
@@ -548,7 +551,7 @@ export const closeActiveTableOrders = async ({
   const normalizedTakeawayToken = String(takeawayToken || '').trim();
   let ordersQuery = supabase
     .from('orders')
-    .select('id, status, payment_status, type, table_number')
+    .select('id, status, payment_status, type, table_number, total')
     .eq('type', 'dine-in')
     .neq('status', 'CANCELLED')
     .neq('payment_status', 'PAID');
@@ -581,6 +584,7 @@ export const closeActiveTableOrders = async ({
     await updateOrderRecord(order.id, {
       status: 'COMPLETED',
       payment_status: 'PAID',
+      total: addRestaurantGst(order.total),
       rejection_reason: settlementReason,
     });
   }

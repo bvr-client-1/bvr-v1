@@ -19,7 +19,8 @@ router.patch(
     Joi.object({
       isAvailable: Joi.boolean(),
       price: Joi.number().min(0),
-    }).or('isAvailable', 'price'),
+      deliveryPrice: Joi.number().min(0),
+    }).or('isAvailable', 'price', 'deliveryPrice'),
   ),
   patchMenuItemAvailability,
 );

@@ -45,6 +45,18 @@ const getLineTotal = (item) => {
   return unitPrice * Number(item.quantity || 0);
 };
 
+const shouldApplyRestaurantGst = (order) => order?.type !== 'delivery';
+const getRestaurantTaxBreakup = (amount) => {
+  const taxableAmount = Number(amount || 0);
+  const cgst = Math.round(taxableAmount * 0.025 * 100) / 100;
+  const sgst = Math.round(taxableAmount * 0.025 * 100) / 100;
+  return {
+    cgst,
+    sgst,
+    grandTotal: Math.round((taxableAmount + cgst + sgst) * 100) / 100,
+  };
+};
+
 const getBillCopyLabel = (orderCode) => {
   if (typeof window === 'undefined') {
     return 'ORIGINAL COPY';
@@ -99,7 +111,11 @@ export const buildBillMarkup = (order, qrUrl = '', options = {}) => {
   const takeawayToken = getTakeawayToken(order);
   const numericTip = Number(tipAmount || 0);
   const orderTotal = Number(order.total || 0);
-  const counterGrandTotal = orderTotal + numericTip;
+  const applyRestaurantGst = shouldApplyRestaurantGst(order);
+  const restaurantSubtotal = Number(order.subtotal || orderTotal);
+  const taxBreakup = getRestaurantTaxBreakup(restaurantSubtotal);
+  const payableTotal = applyRestaurantGst ? taxBreakup.grandTotal : orderTotal;
+  const counterGrandTotal = payableTotal + numericTip;
   const itemsMarkup = (order.order_items || [])
     .map((item) => {
       const unitPrice = Number(item.price_at_purchase ?? item.price ?? 0);
@@ -272,7 +288,16 @@ export const buildBillMarkup = (order, qrUrl = '', options = {}) => {
         </table>
         <div class="summary">
           <div class="summary-line"><span>ITM</span><span>${escapeHtml(String((order.order_items || []).reduce((sum, item) => sum + Number(item.quantity || 0), 0)))}</span></div>
-          <div class="summary-line total"><span>TOTAL</span><span>${escapeHtml(formatPrice(orderTotal))}</span></div>
+          <div class="summary-line"><span>SUBTOTAL</span><span>${escapeHtml(formatPrice(applyRestaurantGst ? restaurantSubtotal : orderTotal))}</span></div>
+          ${
+            applyRestaurantGst
+              ? `
+                <div class="summary-line"><span>CGST 2.5%</span><span>${escapeHtml(formatPrice(taxBreakup.cgst))}</span></div>
+                <div class="summary-line"><span>SGST 2.5%</span><span>${escapeHtml(formatPrice(taxBreakup.sgst))}</span></div>
+              `
+              : ''
+          }
+          <div class="summary-line total"><span>TOTAL</span><span>${escapeHtml(formatPrice(payableTotal))}</span></div>
           ${variant === 'counter' ? `<div class="summary-line"><span>TIP</span><span>${escapeHtml(formatPrice(numericTip))}</span></div>` : ''}
           ${variant === 'counter' ? `<div class="summary-line total"><span>COUNTER TOTAL</span><span>${escapeHtml(formatPrice(counterGrandTotal))}</span></div>` : ''}
           <div class="summary-line"><span>PAYMENT</span><span>${escapeHtml(paymentMethod)}</span></div>

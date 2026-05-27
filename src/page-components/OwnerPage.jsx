@@ -48,7 +48,22 @@ const ownerSections = [
   { value: 'controls', label: 'Controls' },
   { value: 'menu', label: 'Menu' },
 ];
-const buildPriceDrafts = (items) => Object.fromEntries(items.map((item) => [item.id, String(item.price ?? '')]));
+const getDeliveryPrice = (item) => {
+  const explicitDeliveryPrice = Number(item.delivery_price);
+  if (Number.isFinite(explicitDeliveryPrice) && explicitDeliveryPrice > 0) {
+    return explicitDeliveryPrice;
+  }
+
+  return Math.round(Number(item.price || 0) * 1.2 * 100) / 100;
+};
+const buildPriceDrafts = (items, priceType = 'restaurant') =>
+  Object.fromEntries(items.map((item) => [item.id, String(priceType === 'delivery' ? getDeliveryPrice(item) : item.price ?? '')]));
+const getRestaurantTaxBreakup = (amount) => {
+  const subtotal = Number(amount || 0);
+  const cgst = Math.round(subtotal * 0.025 * 100) / 100;
+  const sgst = Math.round(subtotal * 0.025 * 100) / 100;
+  return { cgst, sgst, grandTotal: Math.round((subtotal + cgst + sgst) * 100) / 100 };
+};
 const formatHistoryDate = (date) =>
   new Intl.DateTimeFormat('en-IN', {
     weekday: 'long',
@@ -190,6 +205,7 @@ const buildAggregatedBillOrder = (group, options = {}) => {
       (group.serviceMode === 'TAKEAWAY' ? `Takeaway ${group.takeawayToken}` : `Walk-in Table ${group.tableNumber}`),
     customer_phone: group.customerPhone || '',
     created_at: group.latestCreatedAt,
+    subtotal: group.total,
     total: group.total,
     payment_method: paymentMethod,
     tip_amount: Number(tipAmount || 0),
@@ -345,8 +361,10 @@ export default function OwnerPage() {
   const [currentTab, setCurrentTab] = useState('counter');
   const [currentFilter, setCurrentFilter] = useState('all');
   const [menuFilter, setMenuFilter] = useState('all');
+  const [menuAdminSection, setMenuAdminSection] = useState('restaurant');
   const [menuSearchQuery, setMenuSearchQuery] = useState('');
-  const [priceDrafts, setPriceDrafts] = useState({});
+  const [restaurantPriceDrafts, setRestaurantPriceDrafts] = useState({});
+  const [deliveryPriceDrafts, setDeliveryPriceDrafts] = useState({});
   const [savingMenuItemId, setSavingMenuItemId] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -424,7 +442,8 @@ export default function OwnerPage() {
       setLoadingMenu(true);
       const items = await fetchAdminMenuItems(ownerToken);
       setManagedItems(items);
-      setPriceDrafts(buildPriceDrafts(items));
+      setRestaurantPriceDrafts(buildPriceDrafts(items, 'restaurant'));
+      setDeliveryPriceDrafts(buildPriceDrafts(items, 'delivery'));
     } catch (error) {
       if (!handleAuthFailure(error)) {
         showToast(getUserFacingErrorMessage(error, 'Menu could not be loaded right now.'), 'error');
@@ -800,40 +819,50 @@ export default function OwnerPage() {
     }
   };
 
-  const handlePriceDraftChange = (itemId, value) => {
+  const handlePriceDraftChange = (itemId, value, priceType = 'restaurant') => {
     if (/^\d*(\.\d{0,2})?$/.test(value)) {
-      setPriceDrafts((previous) => ({
+      const setter = priceType === 'delivery' ? setDeliveryPriceDrafts : setRestaurantPriceDrafts;
+      setter((previous) => ({
         ...previous,
         [itemId]: value,
       }));
     }
   };
 
-  const handleSavePrice = async (item) => {
-    const draftValue = String(priceDrafts[item.id] ?? '').trim();
+  const handleSavePrice = async (item, priceType = 'restaurant') => {
+    const drafts = priceType === 'delivery' ? deliveryPriceDrafts : restaurantPriceDrafts;
+    const draftValue = String(drafts[item.id] ?? '').trim();
     const nextPrice = Number(draftValue);
+    const currentPrice = priceType === 'delivery' ? getDeliveryPrice(item) : Number(item.price);
 
     if (!draftValue || Number.isNaN(nextPrice) || nextPrice < 0) {
       showToast('Enter a valid price before saving.', 'error');
       return;
     }
 
-    if (Number(item.price) === nextPrice) {
+    if (currentPrice === nextPrice) {
       showToast('Price is already up to date.', 'info');
       return;
     }
 
     try {
       setSavingMenuItemId(item.id);
-      await updateMenuItemPrice(ownerToken, item.id, nextPrice);
+      await updateMenuItemPrice(ownerToken, item.id, nextPrice, priceType);
       setManagedItems((previous) =>
-        previous.map((menuItem) => (menuItem.id === item.id ? { ...menuItem, price: nextPrice } : menuItem)),
+        previous.map((menuItem) =>
+          menuItem.id === item.id
+            ? priceType === 'delivery'
+              ? { ...menuItem, delivery_price: nextPrice }
+              : { ...menuItem, price: nextPrice }
+            : menuItem,
+        ),
       );
-      setPriceDrafts((previous) => ({
+      const setter = priceType === 'delivery' ? setDeliveryPriceDrafts : setRestaurantPriceDrafts;
+      setter((previous) => ({
         ...previous,
         [item.id]: String(nextPrice),
       }));
-      showToast(`Updated price for ${item.name}.`, 'success');
+      showToast(`Updated ${priceType === 'delivery' ? 'delivery' : 'restaurant'} price for ${item.name}.`, 'success');
     } catch (error) {
       if (!handleAuthFailure(error)) {
         showToast(getUserFacingErrorMessage(error, 'Could not update the menu price right now.'), 'error');
@@ -1017,6 +1046,10 @@ export default function OwnerPage() {
   const selectedBillingGroup = useMemo(
     () => activeTableGroups.find((group) => group.groupKey === billingGroupKey) || null,
     [activeTableGroups, billingGroupKey],
+  );
+  const selectedBillingTax = useMemo(
+    () => getRestaurantTaxBreakup(selectedBillingGroup?.total || 0),
+    [selectedBillingGroup],
   );
 
   const handleSettleCurrentTable = async () => {
@@ -1786,14 +1819,31 @@ export default function OwnerPage() {
           <>
             <div className="availability-bar">
               <span>
-                Available: <strong>{managedItems.filter((item) => item.is_available).length}</strong>
+                Menu Items: <strong>{managedItems.length}</strong>
               </span>
               <span>
-                Unavailable: <strong>{managedItems.filter((item) => !item.is_available).length}</strong>
+                Available: <strong>{managedItems.filter((item) => item.is_available).length}</strong>
               </span>
               <span>
                 Showing: <strong>{visibleMenuItems.length}</strong>
               </span>
+            </div>
+
+            <div className="owner-tabs owner-section-tabs">
+              {[
+                { value: 'restaurant', label: 'Restaurant Menu' },
+                { value: 'delivery', label: 'Delivery Menu' },
+                { value: 'stock', label: 'Stock Update' },
+              ].map((section) => (
+                <button
+                  className={`owner-tab ${menuAdminSection === section.value ? 'active' : ''}`}
+                  key={section.value}
+                  onClick={() => setMenuAdminSection(section.value)}
+                  type="button"
+                >
+                  {section.label}
+                </button>
+              ))}
             </div>
 
             <div className="menu-admin-tools">
@@ -1840,33 +1890,37 @@ export default function OwnerPage() {
                       <div className={item.is_available ? 'available-text' : 'unavailable-text'}>● {item.is_available ? 'Available' : 'Unavailable'}</div>
                     </div>
                     <div className="menu-item-side menu-item-side-admin">
+                      {menuAdminSection !== 'stock' && (
                       <div className="menu-price-editor">
-                        <label className="menu-price-label" htmlFor={`menu-price-${item.id}`}>
-                          Price
+                        <label className="menu-price-label" htmlFor={`menu-price-${menuAdminSection}-${item.id}`}>
+                          {menuAdminSection === 'delivery' ? 'Delivery Price' : 'Restaurant Price'}
                         </label>
                         <div className="menu-price-input-row">
                           <span className="menu-price-currency">₹</span>
                           <input
                             className="menu-price-input"
-                            id={`menu-price-${item.id}`}
-                            onChange={(event) => handlePriceDraftChange(item.id, event.target.value)}
+                            id={`menu-price-${menuAdminSection}-${item.id}`}
+                            onChange={(event) => handlePriceDraftChange(item.id, event.target.value, menuAdminSection)}
                             type="text"
-                            value={priceDrafts[item.id] ?? ''}
+                            value={(menuAdminSection === 'delivery' ? deliveryPriceDrafts : restaurantPriceDrafts)[item.id] ?? ''}
                           />
                         </div>
                         <button
                           className="menu-price-save-btn"
                           disabled={savingMenuItemId === item.id}
-                          onClick={() => handleSavePrice(item)}
+                          onClick={() => handleSavePrice(item, menuAdminSection)}
                           type="button"
                         >
-                          {savingMenuItemId === item.id ? 'Saving...' : 'Save Price'}
+                          {savingMenuItemId === item.id ? 'Saving...' : `Save ${menuAdminSection === 'delivery' ? 'Delivery' : 'Restaurant'} Price`}
                         </button>
                       </div>
+                      )}
+                      {menuAdminSection === 'stock' && (
                       <label className="toggle-switch">
                         <input checked={item.is_available} onChange={(event) => handleToggleMenu(item.id, event.target.checked)} type="checkbox" />
                         <span className="toggle-slider" />
                       </label>
+                      )}
                     </div>
                   </div>
                 ))
@@ -1970,7 +2024,7 @@ export default function OwnerPage() {
                 {method}
               </button>
             ))}
-            <div className="reason-note">Bill Total: {formatPrice(selectedBillingGroup.total)}</div>
+            <div className="reason-note">Bill Total with GST: {formatPrice(selectedBillingTax.grandTotal)}</div>
             <div className="billing-review-list">
               {selectedBillingGroup.orders.map((order) => (
                 <div className="billing-review-order" key={order.id}>
@@ -2006,8 +2060,16 @@ export default function OwnerPage() {
             </div>
             <div className="billing-amount-grid">
               <div className="billing-amount-line">
-                <span>Bill Total</span>
+                <span>Subtotal</span>
                 <strong>{formatPrice(selectedBillingGroup.total)}</strong>
+              </div>
+              <div className="billing-amount-line">
+                <span>CGST 2.5%</span>
+                <strong>{formatPrice(selectedBillingTax.cgst)}</strong>
+              </div>
+              <div className="billing-amount-line">
+                <span>SGST 2.5%</span>
+                <strong>{formatPrice(selectedBillingTax.sgst)}</strong>
               </div>
               <div className="billing-amount-line">
                 <span>Tip</span>
@@ -2015,7 +2077,7 @@ export default function OwnerPage() {
               </div>
               <div className="billing-amount-line total">
                 <span>Counter Total</span>
-                <strong>{formatPrice(Number(selectedBillingGroup.total) + Number(selectedTipAmount || 0))}</strong>
+                <strong>{formatPrice(Number(selectedBillingTax.grandTotal) + Number(selectedTipAmount || 0))}</strong>
               </div>
             </div>
             <div className="reject-actions" style={{ flexWrap: 'wrap' }}>

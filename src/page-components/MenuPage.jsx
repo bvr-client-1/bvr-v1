@@ -33,7 +33,7 @@ export default function MenuPage() {
   const loadMenu = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await fetchPublicMenu();
+      const data = await fetchPublicMenu(inRestaurantMode ? 'restaurant' : 'delivery');
       setCategories(data.categories);
       setMenuItems(data.items);
       setError('');
@@ -42,7 +42,7 @@ export default function MenuPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [inRestaurantMode]);
 
   useEffect(() => {
     loadMenu();

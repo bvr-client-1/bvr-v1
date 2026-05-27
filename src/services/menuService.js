@@ -2,8 +2,8 @@
 
 import { api, authApi } from './api.js';
 
-export const fetchPublicMenu = async () => {
-  const { data } = await api.get('/menu/public');
+export const fetchPublicMenu = async (mode = 'delivery') => {
+  const { data } = await api.get('/menu/public', { params: { mode } });
   return data;
 };
 
@@ -16,6 +16,6 @@ export const updateMenuAvailability = async (token, itemId, isAvailable) => {
   await authApi(token).patch(`/menu/admin/items/${itemId}`, { isAvailable });
 };
 
-export const updateMenuItemPrice = async (token, itemId, price) => {
-  await authApi(token).patch(`/menu/admin/items/${itemId}`, { price });
+export const updateMenuItemPrice = async (token, itemId, price, priceType = 'restaurant') => {
+  await authApi(token).patch(`/menu/admin/items/${itemId}`, priceType === 'delivery' ? { deliveryPrice: price } : { price });
 };
