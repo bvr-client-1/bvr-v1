@@ -185,8 +185,19 @@ export const printKotSlip = (order, options = {}) => {
   printWindow.document.close();
   printWindow.focus();
 
+  let afterPrintHandled = false;
+  const handleAfterPrint = () => {
+    if (afterPrintHandled) return;
+    afterPrintHandled = true;
+    if (typeof options.onAfterPrint === 'function') {
+      options.onAfterPrint(printWindow);
+    }
+  };
+
+  printWindow.addEventListener?.('afterprint', handleAfterPrint, { once: true });
   window.setTimeout(() => {
     printWindow.print();
+    window.setTimeout(handleAfterPrint, Number(options.afterPrintFallbackMs ?? 7000));
   }, Number(options.printDelayMs ?? 300));
 
   return true;

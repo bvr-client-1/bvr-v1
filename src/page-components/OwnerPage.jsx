@@ -825,20 +825,36 @@ export default function OwnerPage() {
     }
 
     showToast('Automatic printer bridge is not running. Opening browser print windows instead.', 'error');
-    const kotOpened = printKotSlip(order, { printDelayMs: 150 });
-    const billPrintTask = printBillSlip(order, { showQr: false, printDelayMs: 1400 });
-    const billOpened = await billPrintTask;
+    const billWindow = typeof window !== 'undefined' ? window.open('', '_blank', 'width=420,height=820') : null;
+    if (billWindow) {
+      billWindow.document.open();
+      billWindow.document.write('<!doctype html><html><head><title>Counter Bill Waiting</title></head><body style="font-family:Arial,sans-serif;padding:20px;font-weight:700">Counter bill will print after KOT.</body></html>');
+      billWindow.document.close();
+    }
+
+    let billOpened = !!billWindow;
+    const kotOpened = printKotSlip(order, {
+      printDelayMs: 150,
+      afterPrintFallbackMs: 9000,
+      onAfterPrint: async () => {
+        billOpened = await printBillSlip(order, {
+          showQr: false,
+          printDelayMs: 250,
+          preopenedWindow: billWindow,
+        });
+      },
+    });
 
     if (!kotOpened) {
       showToast('Could not open KOT print window. Please check pop-up permission.', 'error');
     }
 
-    if (!billOpened) {
+    if (!billWindow) {
       showToast('Could not open bill print window. Please check pop-up permission.', 'error');
     }
 
-    if (kotOpened && billOpened) {
-      showToast(`KOT and counter bill print windows opened for #${order.order_code}.`, 'success');
+    if (kotOpened && billWindow) {
+      showToast(`KOT will print first, then counter bill for #${order.order_code}.`, 'success');
     }
 
     return kotOpened && billOpened;

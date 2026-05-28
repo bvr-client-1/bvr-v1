@@ -389,12 +389,16 @@ export const printBillSlip = async (order, options = {}) => {
     return false;
   }
 
-  const qrUrl = options.showQr === false ? '' : await loadQrAsDataUrl();
-  const printWindow = window.open('', '_blank', 'width=420,height=820');
+  const printWindow = options.preopenedWindow || window.open('', '_blank', 'width=420,height=820');
   if (!printWindow) {
     return false;
   }
 
+  printWindow.document.open();
+  printWindow.document.write('<!doctype html><html><head><title>Preparing Bill</title></head><body style="font-family:Arial,sans-serif;padding:20px">Preparing counter bill...</body></html>');
+  printWindow.document.close();
+
+  const qrUrl = options.showQr === false ? '' : await loadQrAsDataUrl();
   printWindow.document.open();
   printWindow.document.write(buildBillMarkup(order, qrUrl, options));
   printWindow.document.close();
