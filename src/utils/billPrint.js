@@ -54,8 +54,8 @@ const getRestaurantTaxBreakup = (amount) => {
   return {
     cgst,
     sgst,
-    grandTotal: Math.round(exactTotal),
-    roundOff: Math.round(exactTotal) - exactTotal,
+    grandTotal: Math.ceil(exactTotal),
+    roundOff: Math.ceil(exactTotal) - exactTotal,
   };
 };
 
@@ -296,7 +296,7 @@ export const buildBillMarkup = (order, qrUrl = '', options = {}) => {
               ? `
                 <div class="summary-line"><span>CGST 2.5%</span><span>${escapeHtml(formatPrice(taxBreakup.cgst))}</span></div>
                 <div class="summary-line"><span>SGST 2.5%</span><span>${escapeHtml(formatPrice(taxBreakup.sgst))}</span></div>
-                ${taxBreakup.roundOff ? `<div class="summary-line"><span>ROUND OFF</span><span>${escapeHtml(formatPrice(taxBreakup.roundOff))}</span></div>` : ''}
+                ${taxBreakup.roundOff ? `<div class="summary-line"><span>ROUNDED UP</span><span>${escapeHtml(formatPrice(taxBreakup.roundOff))}</span></div>` : ''}
               `
             : ''
         }

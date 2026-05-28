@@ -2,9 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { getRestaurantSettlementTotal } from '../backend/utils/tax.js';
 
-test('restaurant settlement adds 5% GST and stores whole rupees', () => {
+test('restaurant settlement adds 5% GST and rounds up to whole rupees', () => {
   assert.equal(getRestaurantSettlementTotal(100), 105);
   assert.equal(getRestaurantSettlementTotal(1470), 1544);
+  assert.equal(getRestaurantSettlementTotal(1463.08), 1537);
 });
 
 test('restaurant settlement handles empty or invalid amounts safely', () => {

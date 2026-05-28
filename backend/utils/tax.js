@@ -6,5 +6,5 @@ export const getRestaurantSettlementTotal = (amount) => {
     return 0;
   }
 
-  return Math.round(subtotal * (1 + RESTAURANT_GST_RATE));
+  return Math.ceil(subtotal * (1 + RESTAURANT_GST_RATE));
 };

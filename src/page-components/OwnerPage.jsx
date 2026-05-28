@@ -71,7 +71,7 @@ const getRestaurantTaxBreakup = (amount) => {
   const cgst = Math.round(subtotal * 0.025 * 100) / 100;
   const sgst = Math.round(subtotal * 0.025 * 100) / 100;
   const exactTotal = Math.round((subtotal + cgst + sgst) * 100) / 100;
-  return { cgst, sgst, grandTotal: Math.round(exactTotal), roundOff: Math.round(exactTotal) - exactTotal };
+  return { cgst, sgst, grandTotal: Math.ceil(exactTotal), roundOff: Math.ceil(exactTotal) - exactTotal };
 };
 const formatHistoryDate = (date) =>
   new Intl.DateTimeFormat('en-IN', {
@@ -2301,7 +2301,7 @@ export default function OwnerPage() {
               </div>
               {!!selectedBillingTax.roundOff && (
                 <div className="billing-amount-line">
-                  <span>Round off</span>
+                  <span>Rounded up</span>
                   <strong>{formatPrice(selectedBillingTax.roundOff)}</strong>
                 </div>
               )}
