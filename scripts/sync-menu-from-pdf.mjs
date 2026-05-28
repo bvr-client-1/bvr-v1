@@ -20,18 +20,26 @@ const canonicalCategories = catalog.map((category, index) => ({
   sortOrder: index + 1,
 }));
 
-const roundRaisedPrice = (basePrice) => Math.ceil((Number(basePrice) * 1.2) / 5) * 5;
+const roundDeliveryPrice = (basePrice) => Math.ceil((Number(basePrice) * 1.2) / 10) * 10;
 
 const canonicalItems = catalog.flatMap((category) =>
   category.items.map(([name, basePrice]) => ({
     name,
     categoryName: category.name,
     basePrice: Number(basePrice),
-    finalPrice: roundRaisedPrice(basePrice),
+    deliveryPrice: roundDeliveryPrice(basePrice),
   })),
 );
 
 const normalize = (value) => String(value || '').trim().toLowerCase();
+const isMissingDeliveryPriceColumn = (error) => {
+  const message = String(error?.message || '');
+  return (
+    String(error?.code || '') === '42703' ||
+    message.includes('delivery_price') ||
+    message.includes('menu_items.delivery_price')
+  );
+};
 
 const printPreview = () => {
   console.log(`Categories: ${canonicalCategories.length}`);
@@ -41,7 +49,7 @@ const printPreview = () => {
     console.log(
       `${item.categoryName.padEnd(26)} | ${item.name.padEnd(36)} | ${item.basePrice
         .toString()
-        .padStart(4)} -> ${item.finalPrice}`,
+        .padStart(4)} -> delivery ${item.deliveryPrice}`,
     );
   });
 };
@@ -56,7 +64,7 @@ const buildSql = () => {
   const itemRows = canonicalItems
     .map(
       (item) =>
-        `  (${sqlQuote(item.name)}, ${sqlQuote(item.categoryName)}, ${item.basePrice}, ${item.finalPrice})`,
+        `  (${sqlQuote(item.name)}, ${sqlQuote(item.categoryName)}, ${item.basePrice}, ${item.deliveryPrice})`,
     )
     .join(',\n');
 
@@ -75,10 +83,10 @@ create temp table canonical_menu (
   name text not null,
   category_name text not null,
   base_price numeric(10,2) not null,
-  final_price numeric(10,2) not null
+  delivery_price numeric(10,2) not null
 );
 
-insert into canonical_menu (name, category_name, base_price, final_price)
+insert into canonical_menu (name, category_name, base_price, delivery_price)
 values
 ${itemRows};
 
@@ -99,14 +107,15 @@ where lower(mc.name) = lower(cc.name);
 update menu_items mi
 set
   category_id = mc.id,
-  price = cm.final_price,
+  price = cm.base_price,
+  delivery_price = cm.delivery_price,
   is_available = true
 from canonical_menu cm
 join menu_categories mc on lower(mc.name) = lower(cm.category_name)
 where lower(mi.name) = lower(cm.name);
 
-insert into menu_items (name, description, price, category_id, is_available)
-select cm.name, '', cm.final_price, mc.id, true
+insert into menu_items (name, description, price, delivery_price, category_id, is_available)
+select cm.name, '', cm.base_price, cm.delivery_price, mc.id, true
 from canonical_menu cm
 join menu_categories mc on lower(mc.name) = lower(cm.category_name)
 where not exists (
@@ -183,12 +192,24 @@ const syncCategories = async (supabase) => {
 };
 
 const syncItems = async (supabase, categoryMap) => {
-  const { data: existingItems, error: readError } = await supabase
+  let hasDeliveryPriceColumn = true;
+  let { data: existingItems, error: readError } = await supabase
     .from('menu_items')
-    .select('id, name, category_id, price, is_available, image_url, description');
+    .select('id, name, category_id, price, delivery_price, is_available, image_url, description');
 
   if (readError) {
-    throw readError;
+    if (!isMissingDeliveryPriceColumn(readError)) {
+      throw readError;
+    }
+
+    hasDeliveryPriceColumn = false;
+    const fallbackRead = await supabase
+      .from('menu_items')
+      .select('id, name, category_id, price, is_available, image_url, description');
+    if (fallbackRead.error) {
+      throw fallbackRead.error;
+    }
+    existingItems = fallbackRead.data;
   }
 
   const existingByName = new Map((existingItems || []).map((item) => [normalize(item.name), item]));
@@ -206,20 +227,26 @@ const syncItems = async (supabase, categoryMap) => {
 
     const existing = existingByName.get(normalize(item.name));
     if (!existing) {
-      const { error } = await supabase.from('menu_items').insert({
+      const insertPayload = {
         name: item.name,
         description: '',
-        price: item.finalPrice,
+        price: item.basePrice,
         category_id: category.id,
         is_available: true,
-      });
+      };
+      if (hasDeliveryPriceColumn) {
+        insertPayload.delivery_price = item.deliveryPrice;
+      }
+
+      const { error } = await supabase.from('menu_items').insert(insertPayload);
       if (error) throw error;
       inserted += 1;
       continue;
     }
 
     const needsUpdate =
-      Number(existing.price) !== item.finalPrice ||
+      Number(existing.price) !== item.basePrice ||
+      (hasDeliveryPriceColumn && Number(existing.delivery_price || 0) !== item.deliveryPrice) ||
       existing.category_id !== category.id ||
       existing.is_available !== true;
 
@@ -227,14 +254,16 @@ const syncItems = async (supabase, categoryMap) => {
       continue;
     }
 
-    const { error } = await supabase
-      .from('menu_items')
-      .update({
-        price: item.finalPrice,
-        category_id: category.id,
-        is_available: true,
-      })
-      .eq('id', existing.id);
+    const updatePayload = {
+      price: item.basePrice,
+      category_id: category.id,
+      is_available: true,
+    };
+    if (hasDeliveryPriceColumn) {
+      updatePayload.delivery_price = item.deliveryPrice;
+    }
+
+    const { error } = await supabase.from('menu_items').update(updatePayload).eq('id', existing.id);
 
     if (error) throw error;
     updated += 1;
@@ -273,7 +302,7 @@ const syncItems = async (supabase, categoryMap) => {
   }
 
   const canonicalPriceByName = new Map(
-    canonicalItems.map((item) => [normalize(item.name), Number(item.finalPrice)]),
+    canonicalItems.map((item) => [normalize(item.name), Number(item.basePrice)]),
   );
 
   for (const [key, list] of activeByName.entries()) {
@@ -307,7 +336,7 @@ const syncItems = async (supabase, categoryMap) => {
     }
   }
 
-  return { inserted, updated, disabled };
+  return { inserted, updated, disabled, hasDeliveryPriceColumn };
 };
 
 const main = async () => {
@@ -338,6 +367,9 @@ const main = async () => {
   console.log(`Inserted: ${result.inserted}`);
   console.log(`Updated: ${result.updated}`);
   console.log(`Marked unavailable: ${result.disabled}`);
+  if (!result.hasDeliveryPriceColumn) {
+    console.log('Warning: delivery_price column is missing, so only restaurant/KOT prices were synced.');
+  }
 };
 
 main().catch((error) => {
