@@ -149,6 +149,11 @@ const getAuditEventDateKey = (event, fallbackDate) => toDateKey(event.createdAt 
 const countsAsRevenue = (order) =>
   order.status !== 'CANCELLED' && (order.payment_status === 'PAID' || order.status === 'COMPLETED');
 
+const getReportDateKey = (order) => {
+  const settlementMeta = parseSettlementMeta(order.rejection_reason);
+  return toDateKey(settlementMeta?.settledAt || order.created_at);
+};
+
 const groupTableOrders = (orders) => {
   const groups = new Map();
 
@@ -586,7 +591,7 @@ export default function OwnerPage() {
   }, [activeTableGroups, selectedActiveGroupKey]);
 
   const historyOrders = useMemo(
-    () => orders.filter((order) => toDateKey(order.created_at) === historyDate),
+    () => orders.filter((order) => getReportDateKey(order) === historyDate),
     [historyDate, orders],
   );
   const historyAdjustmentOrders = useMemo(
@@ -659,8 +664,8 @@ export default function OwnerPage() {
   }, [currentFilter, deliveryOrders]);
 
   const stats = useMemo(() => {
-    const today = new Date().toDateString();
-    const todayOrders = orders.filter((order) => new Date(order.created_at).toDateString() === today);
+    const today = getTodayDateKey();
+    const todayOrders = orders.filter((order) => getReportDateKey(order) === today);
     const revenueOrders = todayOrders.filter(countsAsRevenue);
     const todayTips = revenueOrders.reduce((sum, order) => {
       const settlementMeta = parseSettlementMeta(order.rejection_reason);
@@ -2335,9 +2340,14 @@ export default function OwnerPage() {
               <button
                 className="act-btn act-secondary"
                 onClick={() =>
-                  handlePrintBill(buildAggregatedBillOrder(selectedBillingGroup, { paymentMethod: 'Pending' }), {
+                  handlePrintBill(buildAggregatedBillOrder(selectedBillingGroup, {
+                    paymentMethod: selectedPaymentMethod,
+                    tipAmount: Number(selectedTipAmount || 0),
+                  }), {
                     variant: 'customer',
                     copyLabel: 'FINAL CUSTOMER BILL',
+                    tipAmount: Number(selectedTipAmount || 0),
+                    paymentMethod: selectedPaymentMethod,
                   })
                 }
                 type="button"

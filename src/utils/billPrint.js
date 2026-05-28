@@ -118,6 +118,7 @@ export const buildBillMarkup = (order, qrUrl = '', options = {}) => {
   const taxBreakup = getRestaurantTaxBreakup(restaurantSubtotal);
   const payableTotal = applyRestaurantGst ? taxBreakup.grandTotal : orderTotal;
   const counterGrandTotal = payableTotal + numericTip;
+  const showTipLine = numericTip > 0 || variant === 'counter';
   const itemsMarkup = (order.order_items || [])
     .map((item) => {
       const unitPrice = Number(item.price_at_purchase ?? item.price ?? 0);
@@ -300,9 +301,9 @@ export const buildBillMarkup = (order, qrUrl = '', options = {}) => {
               `
             : ''
         }
-          <div class="summary-line total"><span>TOTAL</span><span>${escapeHtml(formatPrice(payableTotal))}</span></div>
-          ${variant === 'counter' ? `<div class="summary-line"><span>TIP</span><span>${escapeHtml(formatPrice(numericTip))}</span></div>` : ''}
-          ${variant === 'counter' ? `<div class="summary-line total"><span>COUNTER TOTAL</span><span>${escapeHtml(formatPrice(counterGrandTotal))}</span></div>` : ''}
+          <div class="summary-line total"><span>${showTipLine ? 'FOOD TOTAL' : 'TOTAL'}</span><span>${escapeHtml(formatPrice(payableTotal))}</span></div>
+          ${showTipLine ? `<div class="summary-line"><span>TIP</span><span>${escapeHtml(formatPrice(numericTip))}</span></div>` : ''}
+          ${showTipLine ? `<div class="summary-line total"><span>${variant === 'counter' ? 'COUNTER TOTAL' : 'TOTAL'}</span><span>${escapeHtml(formatPrice(counterGrandTotal))}</span></div>` : ''}
           <div class="summary-line"><span>PAYMENT</span><span>${escapeHtml(paymentMethod)}</span></div>
           <div class="summary-line"><span>TIME</span><span>${escapeHtml(formatTime(order.created_at))}</span></div>
         </div>
