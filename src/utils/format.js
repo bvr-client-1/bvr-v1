@@ -2,7 +2,14 @@
 
 import { CAT_EMOJI } from './constants.js';
 
-export const formatPrice = (amount) => `₹${amount}`;
+export const formatPrice = (amount) => {
+  const value = Number(amount || 0);
+  const formatted = Number.isInteger(value)
+    ? value.toLocaleString('en-IN')
+    : value.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  return `₹${formatted}`;
+};
 
 export const formatTime = (isoString) => {
   try {

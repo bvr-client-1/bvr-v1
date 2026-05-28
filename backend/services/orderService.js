@@ -12,12 +12,10 @@ import { getOrderAuditEventsByOrderIds, logOrderAuditEvent } from './orderAuditS
 import { getDeliveryPrice, getMenuItemsByIds } from './menuService.js';
 import { serializeDeliveryAddress } from '../utils/deliveryAddress.js';
 import { assertValidStatusTransition } from '../utils/orderStatus.js';
+import { getRestaurantSettlementTotal } from '../utils/tax.js';
 
 const TAKEAWAY_PREFIX = 'TAKEAWAY::';
 const SETTLEMENT_PREFIX = 'SETTLEMENT_META::';
-const RESTAURANT_GST_RATE = 0.05;
-
-const addRestaurantGst = (amount) => Math.round(Number(amount || 0) * (1 + RESTAURANT_GST_RATE) * 100) / 100;
 
 const attachAuditEventsToOrders = async (orders) => {
   const list = Array.isArray(orders) ? orders : orders ? [orders] : [];
@@ -579,6 +577,12 @@ export const closeActiveTableOrders = async ({
 
   raise(ordersError);
 
+  if (!tableOrders?.length) {
+    const error = new Error('No active unpaid KOT found for this table or takeaway.');
+    error.statusCode = 404;
+    throw error;
+  }
+
   const settlementGroupId = `${String(serviceMode).toUpperCase()}-${normalizedTable || normalizedTakeawayToken || 'GROUP'}-${Date.now()}`;
   const primaryOrderId = tableOrders?.[tableOrders.length - 1]?.id || null;
 
@@ -597,7 +601,7 @@ export const closeActiveTableOrders = async ({
     await updateOrderRecord(order.id, {
       status: 'COMPLETED',
       payment_status: 'PAID',
-      total: addRestaurantGst(order.total),
+      total: getRestaurantSettlementTotal(order.total),
       rejection_reason: settlementReason,
     });
   }

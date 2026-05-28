@@ -134,7 +134,7 @@ export const createOrder = async (req, res) => {
   assertDeliveryEligibility(canonicalDraft, runtimeState);
 
   const order = await createRazorpayOrder({
-    amount: canonicalDraft.total * 100,
+    amount: Math.round(canonicalDraft.total * 100),
     receipt: canonicalDraft.receipt,
   });
 
@@ -172,7 +172,8 @@ export const verifyPayment = async (req, res) => {
   }
 
   const canonicalOrder = draftRecord.draft;
-  assertDeliveryEligibility(canonicalOrder);
+  const runtimeState = await getRuntimeState();
+  assertDeliveryEligibility(canonicalOrder, runtimeState);
 
   const payment = await fetchRazorpayPayment(req.body.razorpayPaymentId);
   if (payment.order_id !== req.body.razorpayOrderId) {

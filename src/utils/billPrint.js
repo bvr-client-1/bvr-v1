@@ -50,10 +50,12 @@ const getRestaurantTaxBreakup = (amount) => {
   const taxableAmount = Number(amount || 0);
   const cgst = Math.round(taxableAmount * 0.025 * 100) / 100;
   const sgst = Math.round(taxableAmount * 0.025 * 100) / 100;
+  const exactTotal = Math.round((taxableAmount + cgst + sgst) * 100) / 100;
   return {
     cgst,
     sgst,
-    grandTotal: Math.round((taxableAmount + cgst + sgst) * 100) / 100,
+    grandTotal: Math.round(exactTotal),
+    roundOff: Math.round(exactTotal) - exactTotal,
   };
 };
 
@@ -294,9 +296,10 @@ export const buildBillMarkup = (order, qrUrl = '', options = {}) => {
               ? `
                 <div class="summary-line"><span>CGST 2.5%</span><span>${escapeHtml(formatPrice(taxBreakup.cgst))}</span></div>
                 <div class="summary-line"><span>SGST 2.5%</span><span>${escapeHtml(formatPrice(taxBreakup.sgst))}</span></div>
+                ${taxBreakup.roundOff ? `<div class="summary-line"><span>ROUND OFF</span><span>${escapeHtml(formatPrice(taxBreakup.roundOff))}</span></div>` : ''}
               `
-              : ''
-          }
+            : ''
+        }
           <div class="summary-line total"><span>TOTAL</span><span>${escapeHtml(formatPrice(payableTotal))}</span></div>
           ${variant === 'counter' ? `<div class="summary-line"><span>TIP</span><span>${escapeHtml(formatPrice(numericTip))}</span></div>` : ''}
           ${variant === 'counter' ? `<div class="summary-line total"><span>COUNTER TOTAL</span><span>${escapeHtml(formatPrice(counterGrandTotal))}</span></div>` : ''}
