@@ -562,7 +562,7 @@ export const closeActiveTableOrders = async ({
   const normalizedTakeawayToken = String(takeawayToken || '').trim();
   let ordersQuery = supabase
     .from('orders')
-    .select('id, status, payment_status, type, table_number, total')
+    .select('id, order_code, status, payment_status, type, table_number, total')
     .eq('type', 'dine-in')
     .neq('status', 'CANCELLED')
     .neq('payment_status', 'PAID');
@@ -603,6 +603,14 @@ export const closeActiveTableOrders = async ({
       payment_status: 'PAID',
       total: getRestaurantSettlementTotal(order.total),
       rejection_reason: settlementReason,
+    });
+
+    await upsertPaymentRecord({
+      orderId: order.id,
+      orderCode: order.order_code,
+      amount: Math.round(Number(order.id === primaryOrderId ? tipAmount || 0 : 0) * 100),
+      paymentStatus: 'SETTLED',
+      refundFailureReason: settlementReason,
     });
   }
 

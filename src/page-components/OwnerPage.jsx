@@ -122,6 +122,8 @@ const parseSettlementMeta = (reason) => {
     return null;
   }
 };
+const getSettlementMeta = (order) =>
+  parseSettlementMeta(order?.rejection_reason) || parseSettlementMeta(order?.payment_record?.refundFailureReason);
 
 const getRefundNote = (order) => {
   if (order.payment_status === 'REFUNDED' || order.refund_status === 'processed') {
@@ -150,7 +152,7 @@ const countsAsRevenue = (order) =>
   order.status !== 'CANCELLED' && (order.payment_status === 'PAID' || order.status === 'COMPLETED');
 
 const getReportDateKey = (order) => {
-  const settlementMeta = parseSettlementMeta(order.rejection_reason);
+  const settlementMeta = getSettlementMeta(order);
   return toDateKey(settlementMeta?.settledAt || order.created_at);
 };
 
@@ -261,7 +263,7 @@ const buildDaySalesReport = (ordersForDay) => {
       continue;
     }
 
-    const settlementMeta = parseSettlementMeta(order.rejection_reason);
+    const settlementMeta = getSettlementMeta(order);
     tipTotal += Number(settlementMeta?.primary ? settlementMeta.tipAmount || 0 : 0);
     foodRevenue += Number(order.total || 0);
 
@@ -668,7 +670,7 @@ export default function OwnerPage() {
     const todayOrders = orders.filter((order) => getReportDateKey(order) === today);
     const revenueOrders = todayOrders.filter(countsAsRevenue);
     const todayTips = revenueOrders.reduce((sum, order) => {
-      const settlementMeta = parseSettlementMeta(order.rejection_reason);
+      const settlementMeta = getSettlementMeta(order);
       return sum + Number(settlementMeta?.primary ? settlementMeta.tipAmount || 0 : 0);
     }, 0);
 
@@ -683,7 +685,7 @@ export default function OwnerPage() {
   const historySummary = useMemo(() => {
     const revenueOrders = historyOrders.filter(countsAsRevenue);
     const tipTotal = revenueOrders.reduce((sum, order) => {
-      const settlementMeta = parseSettlementMeta(order.rejection_reason);
+      const settlementMeta = getSettlementMeta(order);
       return sum + Number(settlementMeta?.primary ? settlementMeta.tipAmount || 0 : 0);
     }, 0);
 
@@ -701,7 +703,7 @@ export default function OwnerPage() {
   const historyEntries = useMemo(
     () =>
       historyOrders.map((order) => {
-        const settlementMeta = parseSettlementMeta(order.rejection_reason);
+        const settlementMeta = getSettlementMeta(order);
         const takeawayOrder = !!getTakeawayToken(order);
         return {
           id: order.id,
