@@ -818,8 +818,22 @@ export default function OwnerPage() {
     }
 
     showToast('Automatic printer bridge is not running. Opening browser print windows instead.', 'error');
-    const kotOpened = await handlePrintKot(order);
-    const billOpened = await handlePrintBill(order, { showQr: false });
+    const kotOpened = printKotSlip(order);
+    const billPrintTask = printBillSlip(order, { showQr: false });
+    const billOpened = await billPrintTask;
+
+    if (!kotOpened) {
+      showToast('Could not open KOT print window. Please check pop-up permission.', 'error');
+    }
+
+    if (!billOpened) {
+      showToast('Could not open bill print window. Please check pop-up permission.', 'error');
+    }
+
+    if (kotOpened && billOpened) {
+      showToast(`KOT and counter bill print windows opened for #${order.order_code}.`, 'success');
+    }
+
     return kotOpened && billOpened;
   };
 

@@ -19,7 +19,8 @@ const getRestaurantTaxBreakup = (amount) => {
   const subtotal = Number(amount || 0);
   const cgst = Math.round(subtotal * 0.025 * 100) / 100;
   const sgst = Math.round(subtotal * 0.025 * 100) / 100;
-  return { cgst, sgst, grandTotal: Math.round((subtotal + cgst + sgst) * 100) / 100 };
+  const exactTotal = Math.round((subtotal + cgst + sgst) * 100) / 100;
+  return { cgst, sgst, grandTotal: Math.ceil(exactTotal), roundOff: Math.ceil(exactTotal) - exactTotal };
 };
 const clean = (value = '') =>
   String(value ?? '')
@@ -137,7 +138,13 @@ const buildBillBytes = (order) => {
     ...itemRows(items).map(line),
     line(divider),
     line(pair('SUBTOTAL', money(shouldApplyRestaurantGst(order) ? restaurantSubtotal : total))),
-    ...(shouldApplyRestaurantGst(order) ? [line(pair('CGST 2.5%', money(tax.cgst))), line(pair('SGST 2.5%', money(tax.sgst)))] : []),
+    ...(shouldApplyRestaurantGst(order)
+      ? [
+          line(pair('CGST 2.5%', money(tax.cgst))),
+          line(pair('SGST 2.5%', money(tax.sgst))),
+          ...(tax.roundOff ? [line(pair('ROUNDED UP', money(tax.roundOff)))] : []),
+        ]
+      : []),
     command(ESC, 0x21, 0x20),
     line(pair('TOTAL', money(payableTotal))),
     command(ESC, 0x21, 0x00),
