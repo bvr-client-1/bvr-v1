@@ -102,12 +102,14 @@ const buildKotBytes = (order) =>
   Buffer.concat([
     header(),
     command(ESC, 0x61, 0x01),
-    command(ESC, 0x21, 0x20),
+    command(ESC, 0x21, 0x30),
     line('KOT'),
     command(ESC, 0x21, 0x00),
     command(ESC, 0x61, 0x00),
+    command(ESC, 0x21, 0x08),
     line(pair('Order', `#${order.order_code || '-'}`)),
     line(pair('Type', getModeLabel(order))),
+    command(ESC, 0x21, 0x00),
     line(pair('Time', new Date(order.created_at || Date.now()).toLocaleTimeString('en-IN'))),
     ...wrap(getOrderMeta(order)).map(line),
     line(divider),
@@ -127,11 +129,13 @@ const buildBillBytes = (order) => {
   return Buffer.concat([
     header(),
     command(ESC, 0x61, 0x01),
-    command(ESC, 0x21, 0x20),
+    command(ESC, 0x21, 0x30),
     line('COUNTER BILL'),
     command(ESC, 0x21, 0x00),
     command(ESC, 0x61, 0x00),
+    command(ESC, 0x21, 0x08),
     line(pair(getModeLabel(order), `#${order.order_code || '-'}`)),
+    command(ESC, 0x21, 0x00),
     line(pair('Date', new Date(order.created_at || Date.now()).toLocaleString('en-IN'))),
     ...wrap(getOrderMeta(order)).map(line),
     line(divider),
@@ -214,10 +218,8 @@ const server = http.createServer(async (req, res) => {
         return;
       }
 
-      await Promise.all([
-        sendToPrinter({ host: COUNTER_PRINTER_HOST, port: PRINTER_PORT, payload: buildBillBytes(body.order) }),
-        sendToPrinter({ host: KITCHEN_PRINTER_HOST, port: PRINTER_PORT, payload: buildKotBytes(body.order) }),
-      ]);
+      await sendToPrinter({ host: KITCHEN_PRINTER_HOST, port: PRINTER_PORT, payload: buildKotBytes(body.order) });
+      await sendToPrinter({ host: COUNTER_PRINTER_HOST, port: PRINTER_PORT, payload: buildBillBytes(body.order) });
 
       sendJson(res, 200, { ok: true });
     } catch (error) {

@@ -69,11 +69,11 @@ export const buildKotMarkup = (order, options = {}) => {
             font-family: Arial, Helvetica, sans-serif;
             width: 80mm;
           }
-          body { padding: 8px 8px 12px; }
+          body { padding: 8px 8px 12px; font-weight: 800; }
           .center { text-align: center; }
           .title {
-            font-size: 18px;
-            font-weight: 800;
+            font-size: 24px;
+            font-weight: 900;
             letter-spacing: 1px;
           }
           .title.cancel {
@@ -81,8 +81,8 @@ export const buildKotMarkup = (order, options = {}) => {
           }
           .brand {
             margin-top: 4px;
-            font-size: 13px;
-            font-weight: 700;
+            font-size: 16px;
+            font-weight: 900;
           }
           .divider {
             border-top: 1px dashed #000;
@@ -92,18 +92,25 @@ export const buildKotMarkup = (order, options = {}) => {
             display: flex;
             justify-content: space-between;
             gap: 8px;
-            font-size: 12px;
-            line-height: 1.45;
+            font-size: 15px;
+            line-height: 1.5;
+            font-weight: 800;
+          }
+          .important-row {
+            font-size: 18px;
+            font-weight: 900;
+            text-transform: uppercase;
           }
           .meta {
-            font-size: 12px;
+            font-size: 14px;
             line-height: 1.45;
             word-break: break-word;
+            font-weight: 800;
           }
           .section-label {
             margin-top: 4px;
-            font-size: 11px;
-            font-weight: 700;
+            font-size: 13px;
+            font-weight: 900;
             text-transform: uppercase;
             letter-spacing: .6px;
           }
@@ -111,33 +118,35 @@ export const buildKotMarkup = (order, options = {}) => {
             display: flex;
             justify-content: space-between;
             gap: 8px;
-            padding: 4px 0;
-            font-size: 13px;
+            padding: 6px 0;
+            font-size: 17px;
             line-height: 1.35;
             border-bottom: 1px dotted #aaa;
           }
           .item-name {
             flex: 1;
-            font-weight: 700;
+            font-weight: 900;
             word-break: break-word;
           }
           .item-qty {
             min-width: 34px;
             text-align: right;
-            font-weight: 700;
+            font-size: 18px;
+            font-weight: 900;
           }
           .footer {
             margin-top: 8px;
-            font-size: 11px;
+            font-size: 13px;
             text-align: center;
+            font-weight: 800;
           }
           .reason-box {
             margin-top: 6px;
             border: 1px solid #000;
             padding: 6px;
-            font-size: 12px;
+            font-size: 15px;
             line-height: 1.35;
-            font-weight: 700;
+            font-weight: 900;
           }
         </style>
       </head>
@@ -147,7 +156,7 @@ export const buildKotMarkup = (order, options = {}) => {
         <div class="divider"></div>
         <div class="row"><strong>Order</strong><strong>#${escapeHtml(order.order_code)}</strong></div>
         <div class="row"><span>Time</span><span>${escapeHtml(formatTime(order.created_at))}</span></div>
-        <div class="row"><span>Type</span><span>${escapeHtml(getOrderModeLabel(order))}</span></div>
+        <div class="row important-row"><span>Type</span><span>${escapeHtml(getOrderModeLabel(order))}</span></div>
         <div class="section-label">Order Details</div>
         <div class="meta">${escapeHtml(getOrderMetaLine(order))}</div>
         ${reason ? `<div class="reason-box">Reason: ${escapeHtml(reason)}</div>` : ''}
@@ -178,7 +187,7 @@ export const printKotSlip = (order, options = {}) => {
 
   window.setTimeout(() => {
     printWindow.print();
-  }, 300);
+  }, Number(options.printDelayMs ?? 300));
 
   return true;
 };

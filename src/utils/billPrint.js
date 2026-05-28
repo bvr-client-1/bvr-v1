@@ -156,21 +156,21 @@ export const buildBillMarkup = (order, qrUrl = '', options = {}) => {
           body { padding: 8px 8px 12px; }
           .center { text-align: center; }
           .title {
-            font-size: 18px;
+            font-size: 22px;
             font-weight: 900;
             letter-spacing: .8px;
             text-transform: uppercase;
           }
           .brand {
             margin-top: 2px;
-            font-size: 12px;
-            font-weight: 700;
+            font-size: 15px;
+            font-weight: 900;
             text-transform: uppercase;
           }
           .subhead {
             margin-top: 2px;
-            font-size: 11px;
-            font-weight: 700;
+            font-size: 13px;
+            font-weight: 800;
             text-transform: uppercase;
           }
           .divider {
@@ -181,34 +181,39 @@ export const buildBillMarkup = (order, qrUrl = '', options = {}) => {
             display: flex;
             justify-content: space-between;
             gap: 8px;
-            font-size: 11px;
-            line-height: 1.35;
-            font-weight: 700;
+            font-size: 14px;
+            line-height: 1.45;
+            font-weight: 900;
+          }
+          .important-row {
+            font-size: 17px;
+            font-weight: 900;
+            text-transform: uppercase;
           }
           .meta {
-            font-size: 11px;
-            line-height: 1.35;
+            font-size: 13px;
+            line-height: 1.4;
             word-break: break-word;
-            font-weight: 700;
+            font-weight: 800;
           }
           table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 11px;
-            font-weight: 700;
+            font-size: 13px;
+            font-weight: 800;
           }
           th, td {
-            padding: 4px 0;
+            padding: 5px 0;
             border-bottom: 1px dotted #999;
             vertical-align: top;
-            font-weight: 700;
+            font-weight: 800;
           }
           th { text-align: left; }
           .num { text-align: right; white-space: nowrap; }
           .summary {
             margin-top: 6px;
-            font-size: 11px;
-            font-weight: 700;
+            font-size: 13px;
+            font-weight: 800;
           }
           .summary-line {
             display: flex;
@@ -217,7 +222,7 @@ export const buildBillMarkup = (order, qrUrl = '', options = {}) => {
             font-weight: 700;
           }
           .total {
-            font-size: 15px;
+            font-size: 18px;
             font-weight: 900;
           }
           .qr-block {
@@ -225,14 +230,14 @@ export const buildBillMarkup = (order, qrUrl = '', options = {}) => {
             text-align: center;
           }
           .qr-copy {
-            font-size: 11px;
-            font-weight: 700;
+            font-size: 13px;
+            font-weight: 900;
             margin-bottom: 4px;
           }
           .qr-subcopy {
-            font-size: 10px;
+            font-size: 12px;
             margin-bottom: 6px;
-            font-weight: 700;
+            font-weight: 800;
           }
           .qr-image {
             width: 128px;
@@ -242,9 +247,9 @@ export const buildBillMarkup = (order, qrUrl = '', options = {}) => {
           }
           .footer {
             margin-top: 8px;
-            font-size: 11px;
+            font-size: 13px;
             text-align: center;
-            font-weight: 700;
+            font-weight: 900;
             text-transform: uppercase;
           }
         </style>
@@ -258,7 +263,7 @@ export const buildBillMarkup = (order, qrUrl = '', options = {}) => {
         <div class="divider"></div>
         <div class="center title">${escapeHtml(getBillHeading(variant))}</div>
         <div class="divider"></div>
-        <div class="row">
+        <div class="row important-row">
           <span>${
             order.type === 'delivery'
               ? 'DELIVERY'
@@ -396,7 +401,9 @@ export const printBillSlip = async (order, options = {}) => {
   printWindow.focus();
 
   await waitForPrintAssets(printWindow);
-  printWindow.print();
+  window.setTimeout(() => {
+    printWindow.print();
+  }, Number(options.printDelayMs ?? 0));
 
   return true;
 };

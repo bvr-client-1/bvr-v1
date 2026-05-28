@@ -825,8 +825,8 @@ export default function OwnerPage() {
     }
 
     showToast('Automatic printer bridge is not running. Opening browser print windows instead.', 'error');
-    const kotOpened = printKotSlip(order);
-    const billPrintTask = printBillSlip(order, { showQr: false });
+    const kotOpened = printKotSlip(order, { printDelayMs: 150 });
+    const billPrintTask = printBillSlip(order, { showQr: false, printDelayMs: 1400 });
     const billOpened = await billPrintTask;
 
     if (!kotOpened) {
@@ -1067,13 +1067,20 @@ export default function OwnerPage() {
     () => draftItems.reduce((sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 0), 0),
     [draftItems],
   );
-  const counterTargetValue = serviceMode === 'TAKEAWAY' ? 'TAKEAWAY' : tableNumber ? `TABLE:${tableNumber}` : '';
+  const counterTargetValue = serviceMode === 'TAKEAWAY' ? (takeawayToken ? `TAKEAWAY:${takeawayToken}` : 'TAKEAWAY_NEW') : tableNumber ? `TABLE:${tableNumber}` : '';
 
   const handleCounterTargetChange = (value) => {
-    if (value === 'TAKEAWAY') {
+    if (value === 'TAKEAWAY_NEW') {
       setServiceMode('TAKEAWAY');
       setTableNumber('');
       setTakeawayToken('');
+      return;
+    }
+
+    if (value.startsWith('TAKEAWAY:')) {
+      setServiceMode('TAKEAWAY');
+      setTableNumber('');
+      setTakeawayToken(value.slice('TAKEAWAY:'.length));
       return;
     }
 
@@ -1105,7 +1112,7 @@ export default function OwnerPage() {
       return;
     }
 
-    const generatedTakeawayToken = takeawayToken.trim() || `Walk-In-${Date.now().toString().slice(-5)}`;
+    const generatedTakeawayToken = takeawayToken.trim() || `TK-${Date.now().toString().slice(-6)}`;
 
     try {
       setSubmittingTableOrder(true);
@@ -1123,6 +1130,9 @@ export default function OwnerPage() {
       await handleAutoPrintKitchenAndCounter(response.order);
       showToast(serviceMode === 'TAKEAWAY' ? 'Takeaway KOT created.' : `KOT created for Table ${tableNumber}.`);
       resetDraft();
+      if (serviceMode === 'TAKEAWAY' && !takeawayToken.trim()) {
+        setTakeawayToken('');
+      }
       await loadOrders();
     } catch (error) {
       if (!handleAuthFailure(error)) {
@@ -1505,8 +1515,18 @@ export default function OwnerPage() {
                       Table {option}
                     </option>
                   ))}
-                  <option value="TAKEAWAY">Takeaway</option>
+                  <option value="TAKEAWAY_NEW">New Takeaway</option>
+                  {activeTakeawayGroups.map((group) => (
+                    <option key={group.groupKey} value={`TAKEAWAY:${group.takeawayToken}`}>
+                      Add to {group.displayLabel}
+                    </option>
+                  ))}
                 </select>
+                {serviceMode === 'TAKEAWAY' && (
+                  <div className="reason-note" style={{ margin: 0 }}>
+                    {takeawayToken ? `Adding items to Takeaway ${takeawayToken}` : 'Creating a separate new takeaway order.'}
+                  </div>
+                )}
                 <input className="input-field" onChange={(event) => setCustomerName(event.target.value)} placeholder="Customer name (optional)" type="text" value={customerName} />
                 <input className="input-field" inputMode="numeric" maxLength={10} onChange={(event) => setCustomerPhone(event.target.value.replace(/\D/g, '').slice(0, 10))} placeholder="Customer phone (optional)" type="tel" value={customerPhone} />
               </div>
