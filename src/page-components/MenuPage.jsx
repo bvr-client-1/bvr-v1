@@ -99,6 +99,7 @@ export default function MenuPage() {
 
   const renderCard = (item) => {
     const qty = getQty(item.id);
+    const foodTypeLabel = item.foodType === 'non-veg' ? 'Non-Veg' : 'Veg';
     return (
       <div className="menu-card" key={item.id}>
         <div className="card-img-wrap">
@@ -108,6 +109,7 @@ export default function MenuPage() {
             <div className="card-img-placeholder">{getCatEmoji(item.category)}</div>
           )}
           <span className="card-cat-badge">{item.category}</span>
+          <span className={`food-mark card-food-mark ${item.foodType === 'non-veg' ? 'nonveg' : 'veg'}`} title={foodTypeLabel} />
         </div>
         <div className="card-body">
           <div className="card-name">{item.name}</div>

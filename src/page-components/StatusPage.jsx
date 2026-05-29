@@ -156,15 +156,19 @@ export default function StatusPage() {
     const currentIndex = steps.indexOf(order.status);
 
     return steps.map((step, index) => {
-      const className = index < currentIndex ? 'completed' : index === currentIndex ? 'active' : 'pending';
-      const icon = index < currentIndex ? 'OK' : index === currentIndex ? '...' : 'O';
+      const safeCurrentIndex = currentIndex < 0 ? 0 : currentIndex;
+      const className = index < safeCurrentIndex ? 'completed' : index === safeCurrentIndex ? 'active' : 'pending';
+      const stateLabel = index < safeCurrentIndex ? 'Done' : index === safeCurrentIndex ? 'Now' : 'Waiting';
 
       return (
         <div className={`step ${className}`} key={step}>
           {index !== steps.length - 1 && <div className="step-line" />}
-          <div className="step-dot">{icon}</div>
+          <div className="step-dot">{index + 1}</div>
           <div className="step-info">
-            <div className="step-label">{STATUS_LABELS[step]}</div>
+            <div className="step-label">
+              <span>{STATUS_LABELS[step]}</span>
+              <span className="step-state">{stateLabel}</span>
+            </div>
             <div className="step-time">{index === 0 ? formatTime(order.created_at) : index === currentIndex ? 'In progress' : '-'}</div>
           </div>
         </div>
@@ -246,8 +250,9 @@ export default function StatusPage() {
                 <div className="status-header-right">
                   <div className="muted-small">{formatTime(order.created_at)}</div>
                   <div className={isCancelledPresentation(order) ? 'order-total cancelled' : 'order-total'}>
-                    {formatPrice(order.total)} {isCancelledPresentation(order) ? 'X' : 'OK'}
+                    {formatPrice(order.total)}
                   </div>
+                  <span className="tiny-badge">{STATUS_LABELS[order.status] || order.status}</span>
                 </div>
               </div>
               <div className="muted-small">{order.type === 'delivery' ? `${addressLabel} · Paid via UPI` : `Table ${order.table_number || '?'} · Paid via UPI`}</div>

@@ -1,4 +1,5 @@
 import {
+  createMenuItem,
   getMenuManagementItems,
   getPublicMenu,
   updateMenuItemDetails,
@@ -21,4 +22,16 @@ export const patchMenuItemAvailability = async (req, res) => {
     deliveryPrice: req.body.deliveryPrice,
   });
   res.json({ success: true });
+};
+
+export const createAdminMenuItem = async (req, res) => {
+  const item = await createMenuItem({
+    name: req.body.name,
+    categoryName: req.body.categoryName,
+    price: req.body.price,
+    deliveryPrice: req.body.deliveryPrice,
+    foodType: req.body.foodType,
+  });
+
+  res.status(201).json({ item });
 };

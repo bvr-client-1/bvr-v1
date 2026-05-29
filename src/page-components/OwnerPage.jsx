@@ -6,7 +6,7 @@ import { useToast } from '../context/ToastContext.jsx';
 import { useInterval } from '../hooks/useInterval.js';
 import { ownerLogin } from '../services/authService.js';
 import { printOrderCopiesLocally } from '../services/localPrintService.js';
-import { fetchAdminMenuItems, updateMenuAvailability, updateMenuItemPrice } from '../services/menuService.js';
+import { createAdminMenuItem, fetchAdminMenuItems, updateMenuAvailability, updateMenuItemPrice } from '../services/menuService.js';
 import {
   addDeliveryPerson,
   assignDeliveryPartner,
@@ -62,8 +62,14 @@ const getDeliveryPrice = (item) => {
     return roundUpToTen(explicitDeliveryPrice);
   }
 
+  const descriptionDeliveryPrice = String(item.description || '').match(/\s*\[\[BVR_DELIVERY_PRICE:([0-9]+(?:\.[0-9]+)?)\]\]\s*$/);
+  if (descriptionDeliveryPrice) {
+    return roundUpToTen(Number(descriptionDeliveryPrice[1]));
+  }
+
   return roundUpToTen(Number(item.price || 0) * 1.2);
 };
+const foodMarkLabel = (foodType) => (foodType === 'non-veg' ? 'Non-Veg' : 'Veg');
 const buildPriceDrafts = (items, priceType = 'restaurant') =>
   Object.fromEntries(items.map((item) => [item.id, String(priceType === 'delivery' ? getDeliveryPrice(item) : item.price ?? '')]));
 const getRestaurantTaxBreakup = (amount) => {
@@ -403,6 +409,14 @@ export default function OwnerPage() {
   const [restaurantPriceDrafts, setRestaurantPriceDrafts] = useState({});
   const [deliveryPriceDrafts, setDeliveryPriceDrafts] = useState({});
   const [savingMenuItemId, setSavingMenuItemId] = useState('');
+  const [specialItemForm, setSpecialItemForm] = useState({
+    name: '',
+    categoryName: 'Daily Specials',
+    foodType: 'veg',
+    price: '',
+    deliveryPrice: '',
+  });
+  const [creatingSpecialItem, setCreatingSpecialItem] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -736,6 +750,7 @@ export default function OwnerPage() {
       const searchMatch =
         !normalizedQuery ||
         item.name.toLowerCase().includes(normalizedQuery) ||
+        item.display_name?.toLowerCase().includes(normalizedQuery) ||
         item.menu_categories?.name?.toLowerCase().includes(normalizedQuery);
       return categoryMatch && searchMatch;
     });
@@ -744,7 +759,8 @@ export default function OwnerPage() {
     const availableItems = managedItems.filter((item) => item.is_available);
     return availableItems.filter((item) => {
       const categoryMatch = builderCategory === 'all' || item.menu_categories?.name === builderCategory;
-      const queryMatch = !builderQuery.trim() || item.name.toLowerCase().includes(builderQuery.trim().toLowerCase());
+      const query = builderQuery.trim().toLowerCase();
+      const queryMatch = !query || item.name.toLowerCase().includes(query) || item.display_name?.toLowerCase().includes(query);
       return categoryMatch && queryMatch;
     });
   }, [builderCategory, builderQuery, managedItems]);
@@ -867,13 +883,69 @@ export default function OwnerPage() {
     }
 
     try {
-      await assignDeliveryPartner(ownerToken, orderId, deliveryPersonId);
-      showToast('Delivery partner assigned.');
-      await loadOrders();
+      const result = await assignDeliveryPartner(ownerToken, orderId, deliveryPersonId);
+      if (result?.order) {
+        setOrders((previous) => previous.map((order) => (order.id === orderId ? result.order : order)));
+      } else {
+        await loadOrders();
+      }
+      showToast('Delivery partner updated.');
     } catch (error) {
       if (!handleAuthFailure(error)) {
-        showToast('Assignment failed', 'error');
+        showToast(getUserFacingErrorMessage(error, 'Delivery partner update failed.'), 'error');
       }
+    }
+  };
+
+  const handleSpecialItemChange = (field, value) => {
+    setSpecialItemForm((current) => ({
+      ...current,
+      [field]: ['price', 'deliveryPrice'].includes(field) ? value.replace(/[^0-9.]/g, '') : value,
+    }));
+  };
+
+  const handleCreateSpecialItem = async () => {
+    const name = specialItemForm.name.trim();
+    const categoryName = specialItemForm.categoryName.trim() || 'Daily Specials';
+    const price = Number(specialItemForm.price);
+    const deliveryPrice = specialItemForm.deliveryPrice.trim() ? Number(specialItemForm.deliveryPrice) : null;
+
+    if (name.length < 2) {
+      showToast('Enter the special item name.', 'error');
+      return;
+    }
+
+    if (!Number.isFinite(price) || price <= 0) {
+      showToast('Enter a valid restaurant price.', 'error');
+      return;
+    }
+
+    if (specialItemForm.deliveryPrice.trim() && (!Number.isFinite(deliveryPrice) || deliveryPrice < 0)) {
+      showToast('Enter a valid delivery price.', 'error');
+      return;
+    }
+
+    try {
+      setCreatingSpecialItem(true);
+      const item = await createAdminMenuItem(ownerToken, {
+        name,
+        categoryName,
+        foodType: specialItemForm.foodType,
+        price,
+        deliveryPrice,
+      });
+      setManagedItems((previous) => [item, ...previous]);
+      setRestaurantPriceDrafts((previous) => ({ ...previous, [item.id]: String(item.price ?? price) }));
+      setDeliveryPriceDrafts((previous) => ({ ...previous, [item.id]: String(getDeliveryPrice(item)) }));
+      setSpecialItemForm({ name: '', categoryName: 'Daily Specials', foodType: 'veg', price: '', deliveryPrice: '' });
+      setMenuAdminSection('restaurant');
+      showToast(`${item.display_name || item.name} added for KOT creation.`, 'success');
+    } catch (error) {
+      if (!handleAuthFailure(error)) {
+        showToast(getUserFacingErrorMessage(error, 'Could not add this special item.'), 'error');
+      }
+    } finally {
+      setCreatingSpecialItem(false);
     }
   };
 
@@ -2065,10 +2137,10 @@ export default function OwnerPage() {
                         </button>
                       </div>
                     )}
-                    {order.status === 'READY' && (
+                    {['READY', 'OUT_FOR_DELIVERY'].includes(order.status) && (
                       <div className="action-row">
-                        <select className="input-field" defaultValue="" id={`delivery-person-${order.id}`}>
-                          <option value="">Select Rider</option>
+                        <select className="input-field" defaultValue={order.delivery_person_id || ''} id={`delivery-person-${order.id}`}>
+                          <option value="">{order.status === 'OUT_FOR_DELIVERY' ? 'Change rider' : 'Select rider'}</option>
                           {deliveryPeople.map((person) => (
                             <option key={person.id} value={person.id}>
                               {person.name}
@@ -2076,7 +2148,7 @@ export default function OwnerPage() {
                           ))}
                         </select>
                         <button className="act-btn act-confirm" onClick={() => handleAssignDelivery(order.id, document.getElementById(`delivery-person-${order.id}`)?.value)} type="button">
-                          Assign
+                          {order.status === 'OUT_FOR_DELIVERY' ? 'Change Rider' : 'Assign'}
                         </button>
                         <button className="act-btn act-secondary" onClick={() => handlePrintBill(order)} type="button">
                           Print Counter Bill
@@ -2087,9 +2159,6 @@ export default function OwnerPage() {
                       <div className="action-row">
                         <button className="act-btn act-confirm" onClick={() => handleStatusUpdate(order.id, 'COMPLETED')} type="button">
                           Mark Delivered
-                        </button>
-                        <button className="act-btn act-secondary" onClick={() => handlePrintBill(order)} type="button">
-                          Print Counter Bill
                         </button>
                       </div>
                     )}
@@ -2119,6 +2188,7 @@ export default function OwnerPage() {
                 { value: 'restaurant', label: 'Restaurant Menu' },
                 { value: 'delivery', label: 'Delivery Menu' },
                 { value: 'stock', label: 'Stock Update' },
+                { value: 'special', label: 'Add KOT Special' },
               ].map((section) => (
                 <button
                   className={`owner-tab ${menuAdminSection === section.value ? 'active' : ''}`}
@@ -2131,6 +2201,52 @@ export default function OwnerPage() {
               ))}
             </div>
 
+            {menuAdminSection === 'special' ? (
+              <div className="card special-item-card">
+                <div>
+                  <div className="status-control-label">Daily Special / KOT Item</div>
+                  <p className="muted-small">Add temporary restaurant items here. They become available immediately in counter KOT creation.</p>
+                </div>
+                <div className="special-item-grid">
+                  <input
+                    className="input-field"
+                    onChange={(event) => handleSpecialItemChange('name', event.target.value)}
+                    placeholder="Item name"
+                    type="text"
+                    value={specialItemForm.name}
+                  />
+                  <input
+                    className="input-field"
+                    onChange={(event) => handleSpecialItemChange('categoryName', event.target.value)}
+                    placeholder="Category"
+                    type="text"
+                    value={specialItemForm.categoryName}
+                  />
+                  <select className="input-field" onChange={(event) => handleSpecialItemChange('foodType', event.target.value)} value={specialItemForm.foodType}>
+                    <option value="veg">Veg</option>
+                    <option value="non-veg">Non-Veg</option>
+                  </select>
+                  <input
+                    className="input-field"
+                    onChange={(event) => handleSpecialItemChange('price', event.target.value)}
+                    placeholder="Restaurant price"
+                    type="text"
+                    value={specialItemForm.price}
+                  />
+                  <input
+                    className="input-field"
+                    onChange={(event) => handleSpecialItemChange('deliveryPrice', event.target.value)}
+                    placeholder="Delivery price optional"
+                    type="text"
+                    value={specialItemForm.deliveryPrice}
+                  />
+                </div>
+                <button className="status-toggle-btn resume full-width" disabled={creatingSpecialItem} onClick={handleCreateSpecialItem} type="button">
+                  {creatingSpecialItem ? 'Adding...' : 'Add Item For KOT'}
+                </button>
+              </div>
+            ) : (
+              <>
             <div className="menu-admin-tools">
               <div className="menu-admin-search">
                 <input
@@ -2213,6 +2329,8 @@ export default function OwnerPage() {
                 <div className="muted-small">No menu items match this category or search.</div>
               )}
             </div>
+              </>
+            )}
           </>
         )}
       </main>

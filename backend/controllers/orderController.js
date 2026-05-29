@@ -315,8 +315,8 @@ export const patchOrderStatus = async (req, res) => {
 };
 
 export const patchDeliveryAssignment = async (req, res) => {
-  await assignDeliveryPartner(req.params.orderId, req.body.deliveryPersonId);
-  res.json({ success: true });
+  const order = await assignDeliveryPartner(req.params.orderId, req.body.deliveryPersonId);
+  res.json({ success: true, order });
 };
 
 export const createAdminDeliveryPerson = async (req, res) => {

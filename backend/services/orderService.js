@@ -806,15 +806,22 @@ export const cancelOrderWithRefund = async (orderId, rejectionReason = null) => 
 
 export const assignDeliveryPartner = async (orderId, deliveryPersonId) => {
   const currentOrder = await getOrderSummary(orderId);
-  assertValidStatusTransition({
-    currentStatus: currentOrder.status,
-    nextStatus: 'OUT_FOR_DELIVERY',
-    orderType: currentOrder.type,
-  });
 
   if (currentOrder.type !== 'delivery') {
     const error = new Error('Only delivery orders can be assigned to a delivery partner');
     error.statusCode = 400;
+    throw error;
+  }
+
+  if (currentOrder.status === 'READY') {
+    assertValidStatusTransition({
+      currentStatus: currentOrder.status,
+      nextStatus: 'OUT_FOR_DELIVERY',
+      orderType: currentOrder.type,
+    });
+  } else if (currentOrder.status !== 'OUT_FOR_DELIVERY') {
+    const error = new Error('Delivery partner can be changed only after the order is ready or already out for delivery');
+    error.statusCode = 409;
     throw error;
   }
 
@@ -824,6 +831,7 @@ export const assignDeliveryPartner = async (orderId, deliveryPersonId) => {
     .eq('id', orderId);
 
   raise(error);
+  return getOrderById(orderId);
 };
 
 export const getKitchenOrders = async () => {

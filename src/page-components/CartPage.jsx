@@ -29,6 +29,7 @@ export default function CartPage() {
   const [customerPhone, setCustomerPhone] = useState('');
   const [deliveryFor, setDeliveryFor] = useState('self');
   const [locationChoiceOpen, setLocationChoiceOpen] = useState(false);
+  const [locationChoiceIntent, setLocationChoiceIntent] = useState('select');
   const [deliveryLocation, setDeliveryLocation] = useState(null);
   const [error, setError] = useState('');
   const [paying, setPaying] = useState(false);
@@ -172,7 +173,22 @@ export default function CartPage() {
       return;
     }
 
+    setLocationChoiceIntent('pay');
     setLocationChoiceOpen(true);
+  };
+
+  const chooseDeliveryFor = (nextDeliveryFor) => {
+    setDeliveryFor(nextDeliveryFor);
+    if (nextDeliveryFor !== 'self') {
+      setDeliveryLocation(null);
+    }
+
+    if (locationChoiceIntent === 'pay') {
+      startPayment(nextDeliveryFor);
+      return;
+    }
+
+    setLocationChoiceOpen(false);
   };
 
   return (
@@ -248,7 +264,14 @@ export default function CartPage() {
                     <div className="status-control-label">Delivery for</div>
                     <div className="muted-small">{deliveryFor === 'self' ? 'Your current location' : 'Another person or address'}</div>
                   </div>
-                  <button className="order-map-link" onClick={() => setLocationChoiceOpen(true)} type="button">
+                  <button
+                    className="order-map-link"
+                    onClick={() => {
+                      setLocationChoiceIntent('select');
+                      setLocationChoiceOpen(true);
+                    }}
+                    type="button"
+                  >
                     Change
                   </button>
                 </div>
@@ -330,20 +353,14 @@ export default function CartPage() {
             <p>Choose how this delivery location should be confirmed before payment.</p>
             <button
               className="btn-gold"
-              onClick={() => {
-                setDeliveryFor('other');
-                startPayment('other');
-              }}
+              onClick={() => chooseDeliveryFor('other')}
               type="button"
             >
               Yes, for someone else
             </button>
             <button
               className="location-choice-secondary"
-              onClick={() => {
-                setDeliveryFor('self');
-                startPayment('self');
-              }}
+              onClick={() => chooseDeliveryFor('self')}
               type="button"
             >
               No, booking for me

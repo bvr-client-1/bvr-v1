@@ -19,3 +19,8 @@ export const updateMenuAvailability = async (token, itemId, isAvailable) => {
 export const updateMenuItemPrice = async (token, itemId, price, priceType = 'restaurant') => {
   await authApi(token).patch(`/menu/admin/items/${itemId}`, priceType === 'delivery' ? { deliveryPrice: price } : { price });
 };
+
+export const createAdminMenuItem = async (token, payload) => {
+  const { data } = await authApi(token).post('/menu/admin/items', payload);
+  return data.item;
+};

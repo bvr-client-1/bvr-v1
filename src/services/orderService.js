@@ -28,7 +28,8 @@ export const updateAdminOrderStatus = async (token, orderId, status, rejectionRe
 };
 
 export const assignDeliveryPartner = async (token, orderId, deliveryPersonId) => {
-  await authApi(token).patch(`/orders/admin/${orderId}/assign-delivery`, { deliveryPersonId });
+  const { data } = await authApi(token).patch(`/orders/admin/${orderId}/assign-delivery`, { deliveryPersonId });
+  return data;
 };
 
 export const addDeliveryPerson = async (token, { name, phone }) => {

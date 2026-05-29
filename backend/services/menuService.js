@@ -36,6 +36,9 @@ const nonVegKeywords = [
 ];
 
 const vegKeywords = ['paneer', 'veg', 'vegetable', 'mushroom', 'gobi', 'aloo', 'dal'];
+const FOOD_SUFFIX_PATTERN = /\s*\((veg|non-veg|non veg)\s*\)\s*$/i;
+const DELIVERY_PRICE_MARKER = '[[BVR_DELIVERY_PRICE:';
+const DELIVERY_PRICE_PATTERN = /\s*\[\[BVR_DELIVERY_PRICE:([0-9]+(?:\.[0-9]+)?)\]\]\s*$/;
 
 const normalizeFoodType = (value) => {
   if (value === true) return 'veg';
@@ -70,14 +73,31 @@ const resolveFoodType = (item) => {
   return 'veg';
 };
 
+export const getFoodTypeLabel = (foodType) => (foodType === 'non-veg' ? 'Non-Veg' : 'Veg');
+
+export const withFoodTypeSuffix = (name, foodType) => {
+  const cleanName = String(name || '').replace(FOOD_SUFFIX_PATTERN, '').trim();
+  return `${cleanName} (${getFoodTypeLabel(foodType)} )`;
+};
+
 export const getDeliveryPrice = (item) => {
   const explicitDeliveryPrice = Number(item.delivery_price);
   if (Number.isFinite(explicitDeliveryPrice) && explicitDeliveryPrice > 0) {
     return roundUpToTen(explicitDeliveryPrice);
   }
 
+  const descriptionDeliveryPrice = String(item.description || '').match(DELIVERY_PRICE_PATTERN);
+  if (descriptionDeliveryPrice) {
+    return roundUpToTen(Number(descriptionDeliveryPrice[1]));
+  }
+
   return roundUpToTen(Number(item.price || 0) * 1.2);
 };
+
+const stripDeliveryPriceMarker = (description = '') => String(description || '').replace(DELIVERY_PRICE_PATTERN, '').trim();
+
+const withDeliveryPriceMarker = (description = '', deliveryPrice) =>
+  `${stripDeliveryPriceMarker(description)} ${DELIVERY_PRICE_MARKER}${Number(deliveryPrice)}]]`.trim();
 
 export const getPublicMenu = async ({ priceMode = 'delivery' } = {}) => {
   const useDeliveryPrice = priceMode === 'delivery';
@@ -93,17 +113,20 @@ export const getPublicMenu = async ({ priceMode = 'delivery' } = {}) => {
   return {
     categories: categories || [],
     items:
-      items?.map((item) => ({
+      items?.map((item) => {
+        const foodType = resolveFoodType(item);
+        return {
         id: item.id,
-        name: item.name,
-        description: item.description || '',
+        name: withFoodTypeSuffix(item.name, foodType),
+        description: stripDeliveryPriceMarker(item.description),
         price: useDeliveryPrice ? getDeliveryPrice(item) : item.price,
         restaurantPrice: item.price,
         deliveryPrice: getDeliveryPrice(item),
         imageUrl: item.image_url || null,
         category: item.menu_categories?.name || 'Other',
-        foodType: resolveFoodType(item),
-      })) || [],
+        foodType,
+        };
+      }) || [],
   };
 };
 
@@ -114,7 +137,12 @@ export const getMenuManagementItems = async () => {
     .order('category_id');
 
   throwSupabaseError(error);
-  return data || [];
+  return (data || []).map((item) => ({
+    ...item,
+    description: stripDeliveryPriceMarker(item.description),
+    foodType: resolveFoodType(item),
+    display_name: withFoodTypeSuffix(item.name, resolveFoodType(item)),
+  }));
 };
 
 export const updateMenuItemDetails = async (itemId, updates) => {
@@ -128,7 +156,9 @@ export const updateMenuItemDetails = async (itemId, updates) => {
     payload.price = updates.price;
   }
 
-  if (typeof updates.deliveryPrice === 'number') {
+  const hasDeliveryPriceUpdate = typeof updates.deliveryPrice === 'number';
+
+  if (hasDeliveryPriceUpdate) {
     payload.delivery_price = updates.deliveryPrice;
   }
 
@@ -139,6 +169,24 @@ export const updateMenuItemDetails = async (itemId, updates) => {
   const { error } = await supabase.from('menu_items').update(payload).eq('id', itemId);
 
   if (isMissingDeliveryPriceColumn(error)) {
+    if (hasDeliveryPriceUpdate) {
+      const { data: currentItem, error: fetchError } = await supabase
+        .from('menu_items')
+        .select('description')
+        .eq('id', itemId)
+        .single();
+
+      throwSupabaseError(fetchError);
+
+      const fallbackPayload = { ...payload };
+      delete fallbackPayload.delivery_price;
+      fallbackPayload.description = withDeliveryPriceMarker(currentItem?.description, updates.deliveryPrice);
+
+      const { error: fallbackError } = await supabase.from('menu_items').update(fallbackPayload).eq('id', itemId);
+      throwSupabaseError(fallbackError);
+      return;
+    }
+
     const wrapped = new Error('Delivery price setup is not installed on the database yet.');
     wrapped.statusCode = 409;
     throw wrapped;
@@ -160,13 +208,94 @@ export const getMenuItemsByIds = async (itemIds) => {
   if (isMissingDeliveryPriceColumn(error)) {
     const { data: fallbackData, error: fallbackError } = await supabase
       .from('menu_items')
-      .select('id, name, price, is_available')
+      .select('id, name, price, description, is_available')
       .in('id', itemIds);
 
     throwSupabaseError(fallbackError);
-    return fallbackData || [];
+    return (fallbackData || []).map((item) => ({
+      ...item,
+      description: stripDeliveryPriceMarker(item.description),
+      foodType: resolveFoodType(item),
+      display_name: withFoodTypeSuffix(item.name, resolveFoodType(item)),
+    }));
   }
 
   throwSupabaseError(error);
-  return data || [];
+  return (data || []).map((item) => ({
+    ...item,
+    description: stripDeliveryPriceMarker(item.description),
+    foodType: resolveFoodType(item),
+    display_name: withFoodTypeSuffix(item.name, resolveFoodType(item)),
+  }));
+};
+
+const findOrCreateCategory = async (categoryName) => {
+  const normalizedName = String(categoryName || 'Daily Specials').trim() || 'Daily Specials';
+  const { data: existing, error: existingError } = await supabase
+    .from('menu_categories')
+    .select('*')
+    .ilike('name', normalizedName)
+    .limit(1)
+    .maybeSingle();
+
+  throwSupabaseError(existingError);
+  if (existing) return existing;
+
+  const { data: lastCategory, error: lastError } = await supabase
+    .from('menu_categories')
+    .select('sort_order')
+    .order('sort_order', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  throwSupabaseError(lastError);
+
+  const { data, error } = await supabase
+    .from('menu_categories')
+    .insert({
+      name: normalizedName,
+      sort_order: Number(lastCategory?.sort_order || 0) + 1,
+    })
+    .select()
+    .single();
+
+  throwSupabaseError(error);
+  return data;
+};
+
+export const createMenuItem = async ({ name, categoryName, price, deliveryPrice, foodType = 'veg' }) => {
+  const category = await findOrCreateCategory(categoryName);
+  const normalizedFoodType = normalizeFoodType(foodType) || 'veg';
+  const restaurantPrice = Number(price);
+  const nextDeliveryPrice = Number.isFinite(Number(deliveryPrice)) && Number(deliveryPrice) > 0
+    ? Number(deliveryPrice)
+    : roundUpToTen(restaurantPrice * 1.2);
+  const payload = {
+    name: withFoodTypeSuffix(name, normalizedFoodType),
+    category_id: category.id,
+    price: restaurantPrice,
+    is_available: true,
+  };
+
+  const { data, error } = await supabase.from('menu_items').insert(payload).select('*, menu_categories(name)').single();
+  throwSupabaseError(error);
+
+  const item = {
+    ...data,
+    foodType: resolveFoodType(data),
+    display_name: withFoodTypeSuffix(data.name, resolveFoodType(data)),
+  };
+
+  if (Number.isFinite(nextDeliveryPrice) && nextDeliveryPrice > 0) {
+    try {
+      await updateMenuItemDetails(item.id, { deliveryPrice: nextDeliveryPrice });
+      item.delivery_price = nextDeliveryPrice;
+    } catch (deliveryError) {
+      if (!isMissingDeliveryPriceColumn(deliveryError)) {
+        throw deliveryError;
+      }
+    }
+  }
+
+  return item;
 };

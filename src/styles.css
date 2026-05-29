@@ -197,8 +197,13 @@ h1, h2, h3, h4 { font-family: 'Playfair Display', serif; margin: 0; }
 .card-img-wrap { position: relative; height: 160px; }
 .card-img, .menu-item-thumb img { width: 100%; height: 100%; object-fit: cover; }
 .card-img-placeholder, .menu-item-thumb { width: 100%; height: 100%; background: linear-gradient(135deg, #d4a017, #f5c842); display: flex; align-items: center; justify-content: center; }
-.menu-item-thumb { width: 60px; height: 60px; border-radius: 10px; overflow: hidden; }
+.menu-item-thumb { position: relative; width: 60px; height: 60px; border-radius: 10px; overflow: hidden; }
 .card-cat-badge { position: absolute; top: 8px; left: 8px; background: #0a050092; color: var(--bright-gold); font-size: 10px; padding: 3px 8px; border-radius: 999px; }
+.food-mark { width: 16px; height: 16px; border: 1.5px solid currentColor; background: #fff; display: inline-grid; place-items: center; flex: 0 0 auto; }
+.food-mark::after { content: ''; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.food-mark.veg { color: #22c55e; }
+.food-mark.nonveg { color: #ef4444; }
+.card-food-mark { position: absolute; right: 10px; top: 10px; border-radius: 3px; box-shadow: 0 6px 16px rgba(0,0,0,.22); }
 .card-body { padding: 14px 14px 14px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
 .card-name, .menu-item-name, .order-card-title { font-weight: 700; }
 .card-name { min-height: 3.4rem; line-height: 1.25; display: flex; align-items: flex-start; }
@@ -276,6 +281,7 @@ h1, h2, h3, h4 { font-family: 'Playfair Display', serif; margin: 0; }
 .delivery-card-row { display: flex; align-items: center; gap: 14px; }
 .delivery-avatar { width: 48px; height: 48px; border-radius: 50%; background: linear-gradient(135deg, #d4a017, #f5c842); display: grid; place-items: center; }
 .delivery-phone { color: var(--bright-gold); text-decoration: none; }
+.step-state { margin-left: 8px; padding: 2px 8px; border-radius: 999px; background: rgba(212,160,23,.12); color: var(--bright-gold); font-size: .72rem; font-weight: 700; white-space: nowrap; }
 .eta-card { text-align: center; }
 .eta-label { color: #e5c89a; font-size: .88rem; text-transform: uppercase; letter-spacing: .08em; font-weight: 700; }
 .eta-timer { margin-top: 10px; color: var(--bright-gold); font-size: clamp(1.8rem, 6vw, 2.8rem); font-weight: 700; font-family: 'Playfair Display', serif; }
@@ -317,6 +323,8 @@ h1, h2, h3, h4 { font-family: 'Playfair Display', serif; margin: 0; }
 .menu-price-input:focus { outline: none; }
 .menu-price-save-btn { min-height: 34px; border: 1px solid rgba(212,160,23,.22); border-radius: 999px; background: rgba(212,160,23,.1); color: var(--bright-gold); font-size: .76rem; font-weight: 700; cursor: pointer; }
 .menu-price-save-btn:disabled { opacity: .7; cursor: wait; }
+.special-item-card { display: grid; gap: 16px; }
+.special-item-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .service-mode-switch { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
 .table-item-list { display: grid; gap: 8px; margin-top: 12px; }
 .table-item-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border-radius: 14px; background: rgba(255,255,255,.03); border: 1px solid rgba(212,160,23,.12); }
@@ -444,6 +452,7 @@ h1, h2, h3, h4 { font-family: 'Playfair Display', serif; margin: 0; }
   .status-control-card { flex-direction: column; align-items: stretch; padding: 18px; }
   .status-control-card > .status-toggle-btn,
   .status-toggle-btn { width: 100%; max-width: none; }
+  .special-item-grid { grid-template-columns: 1fr; }
   .availability-bar { flex-direction: column; align-items: flex-start; }
   .terms-meta-row, .terms-action-row { flex-direction: column; align-items: flex-start; }
   .terms-action-row > * { width: 100%; }
