@@ -156,6 +156,44 @@ const buildBillBytes = (order) => {
   ]);
 };
 
+const buildDaySalesReportBytes = (dateLabel, report) => {
+  const items = report.items || [];
+  const reportRows = items.flatMap((item) => {
+    const qty = Number(item.quantity || 0);
+    const rate = Number(item.rate || 0);
+    const amount = Number(item.amount || 0);
+    const rows = wrap(item.name || 'Item', 26);
+    return [
+      pair(`${rows[0]} x${qty}`, money(amount)),
+      ...rows.slice(1).map((row) => `  ${row}`),
+    ];
+  });
+
+  return Buffer.concat([
+    header(),
+    command(ESC, 0x61, 0x01),
+    command(ESC, 0x21, 0x30),
+    line('DAY SALE REPORT'),
+    command(ESC, 0x21, 0x00),
+    command(ESC, 0x61, 0x00),
+    command(ESC, 0x21, 0x08),
+    line(pair('Date', dateLabel)),
+    line(divider),
+    ...reportRows.map(line),
+    line(divider),
+    line(pair('Orders', String(report.orderCount))),
+    line(pair('Items', String(report.itemCount))),
+    line(pair('Cancelled', String(report.cancelledCount))),
+    line(pair('Food Sale', money(report.foodRevenue))),
+    line(pair('Tips', money(report.tipTotal))),
+    line(divider),
+    command(ESC, 0x21, 0x20),
+    line(pair('TOTAL', money(report.totalRevenue))),
+    command(ESC, 0x21, 0x00),
+    finish(),
+  ]);
+};
+
 const sendToPrinter = ({ host, port, payload }) =>
   new Promise((resolve, reject) => {
     const socket = net.createConnection({ host, port, timeout: 5000 }, () => {
@@ -210,6 +248,56 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  if (req.method === 'POST' && req.url === '/print/test-connection') {
+    try {
+      const body = await readJsonBody(req);
+      const host = body.host;
+      const port = Number(body.port || 9100);
+      if (!host) {
+        sendJson(res, 400, { ok: false, message: 'Missing host' });
+        return;
+      }
+
+      await new Promise((resolve, reject) => {
+        const socket = net.createConnection({ host, port, timeout: 2500 }, () => {
+          socket.end();
+          resolve();
+        });
+        socket.on('error', reject);
+        socket.on('timeout', () => {
+          socket.destroy();
+          reject(new Error('Timeout connecting to printer'));
+        });
+      });
+
+      sendJson(res, 200, { ok: true, message: 'Printer is online' });
+    } catch (error) {
+      sendJson(res, 500, { ok: false, message: error.message || 'Connection failed' });
+    }
+    return;
+  }
+
+  if (req.method === 'POST' && req.url === '/print/day-sales') {
+    try {
+      const body = await readJsonBody(req);
+      if (!body.report || !body.dateLabel) {
+        sendJson(res, 400, { ok: false, message: 'Missing report or dateLabel' });
+        return;
+      }
+
+      const counterHost = body.counterPrinterIp || COUNTER_PRINTER_HOST;
+      const counterPort = Number(body.counterPrinterPort || PRINTER_PORT);
+
+      const payload = buildDaySalesReportBytes(body.dateLabel, body.report);
+      await sendToPrinter({ host: counterHost, port: counterPort, payload });
+
+      sendJson(res, 200, { ok: true });
+    } catch (error) {
+      sendJson(res, 500, { ok: false, message: error.message || 'Print failed' });
+    }
+    return;
+  }
+
   if (req.method === 'POST' && req.url === '/print/order-copies') {
     try {
       const body = await readJsonBody(req);
@@ -218,8 +306,13 @@ const server = http.createServer(async (req, res) => {
         return;
       }
 
-      await sendToPrinter({ host: KITCHEN_PRINTER_HOST, port: PRINTER_PORT, payload: buildKotBytes(body.order) });
-      await sendToPrinter({ host: COUNTER_PRINTER_HOST, port: PRINTER_PORT, payload: buildBillBytes(body.order) });
+      const kitchenHost = body.kitchenPrinterIp || KITCHEN_PRINTER_HOST;
+      const kitchenPort = Number(body.kitchenPrinterPort || PRINTER_PORT);
+      const counterHost = body.counterPrinterIp || COUNTER_PRINTER_HOST;
+      const counterPort = Number(body.counterPrinterPort || PRINTER_PORT);
+
+      await sendToPrinter({ host: kitchenHost, port: kitchenPort, payload: buildKotBytes(body.order) });
+      await sendToPrinter({ host: counterHost, port: counterPort, payload: buildBillBytes(body.order) });
 
       sendJson(res, 200, { ok: true });
     } catch (error) {
@@ -231,8 +324,8 @@ const server = http.createServer(async (req, res) => {
   sendJson(res, 404, { ok: false, message: 'Not found' });
 });
 
-server.listen(PORT, '127.0.0.1', () => {
-  console.log(`BVR local print bridge running at http://127.0.0.1:${PORT}`);
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`BVR local print bridge running at http://0.0.0.0:${PORT}`);
   console.log(`Counter bill printer: ${COUNTER_PRINTER_HOST}:${PRINTER_PORT}`);
   console.log(`Kitchen KOT printer: ${KITCHEN_PRINTER_HOST}:${PRINTER_PORT}`);
 });

@@ -9,7 +9,10 @@ const throwSupabaseError = (error) => {
 };
 
 const isMissingDeliveryPriceColumn = (error) =>
-  !!error && String(`${error.code || ''} ${error.message || ''}`).toLowerCase().includes('delivery_price');
+  !!error &&
+  (String(error.code) === '42703' ||
+    (String(error.message || '').toLowerCase().includes('delivery_price') &&
+      String(error.message || '').toLowerCase().includes('does not exist')));
 
 const roundUpToTen = (value) => {
   const amount = Number(value || 0);

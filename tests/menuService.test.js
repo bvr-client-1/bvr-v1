@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 Object.assign(process.env, {
+  NODE_ENV: 'test',
   PORT: '4000',
   SUPABASE_URL: 'http://localhost:54321',
   SUPABASE_SERVICE_ROLE_KEY: 'test-service-role-key',

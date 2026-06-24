@@ -5,7 +5,14 @@ import { useAppContext } from '../context/AppContext.jsx';
 import { useToast } from '../context/ToastContext.jsx';
 import { useInterval } from '../hooks/useInterval.js';
 import { ownerLogin } from '../services/authService.js';
-import { printOrderCopiesLocally } from '../services/localPrintService.js';
+import {
+  printOrderCopiesLocally,
+  testPrinterConnection,
+  flushPrintQueue,
+  getPrintQueue,
+  clearPrintQueue,
+  printDaySalesReportLocally,
+} from '../services/localPrintService.js';
 import { createAdminMenuItem, fetchAdminMenuItems, updateMenuAvailability, updateMenuItemPrice } from '../services/menuService.js';
 import {
   addDeliveryPerson,
@@ -301,98 +308,6 @@ const buildDaySalesReport = (ordersForDay) => {
   };
 };
 
-const openDaySalesPrintWindow = ({ dateLabel, report }) => {
-  if (typeof window === 'undefined') {
-    return false;
-  }
-
-  const rows = report.items
-    .map(
-      (item) => `
-        <tr>
-          <td>${item.name}</td>
-          <td class="right">${item.quantity}</td>
-          <td class="right">${formatPrice(item.rate)}</td>
-          <td class="right">${formatPrice(item.amount)}</td>
-        </tr>
-      `,
-    )
-    .join('');
-
-  const printWindow = window.open('', `Day Sale ${dateLabel}`, 'width=420,height=720');
-  if (!printWindow) {
-    return false;
-  }
-
-  printWindow.document.write(`
-    <html>
-      <head>
-        <title>Day Sale ${dateLabel}</title>
-        <style>
-          @page { size: 80mm auto; margin: 4mm; }
-          * { box-sizing: border-box; }
-          body { margin: 0; font-family: "Courier New", monospace; color: #000; font-weight: 700; }
-          .receipt { width: 72mm; margin: 0 auto; }
-          h1, h2, p { margin: 0; text-align: center; }
-          h1 { font-size: 18px; letter-spacing: 1px; }
-          h2 { font-size: 15px; margin-top: 6px; }
-          p { font-size: 11px; line-height: 1.35; }
-          .line { border-top: 1px dashed #000; margin: 8px 0; }
-          table { width: 100%; border-collapse: collapse; font-size: 10px; }
-          th, td { padding: 3px 0; border-bottom: 1px dotted #777; vertical-align: top; }
-          th { text-align: left; }
-          .right { text-align: right; }
-          .summary { display: grid; gap: 4px; font-size: 12px; }
-          .summary div { display: flex; justify-content: space-between; gap: 10px; }
-          .total { font-size: 15px; }
-        </style>
-      </head>
-      <body>
-        <div class="receipt">
-          <h1>BANGARU VAKILI</h1>
-          <p>FAMILY RESTAURANT</p>
-          <p>SHIVAJI NAGAR, NALGONDA</p>
-          <p>GSTIN: 36ELLPP6523H1ZP</p>
-          <p>CELL: 7337334474 / 9701054013</p>
-          <div class="line"></div>
-          <h2>DAY SALE REPORT</h2>
-          <p>${dateLabel}</p>
-          <div class="line"></div>
-          <table>
-            <thead>
-              <tr>
-                <th>Item</th>
-                <th class="right">Qty</th>
-                <th class="right">Rate</th>
-                <th class="right">Amt</th>
-              </tr>
-            </thead>
-            <tbody>${rows || '<tr><td colspan="4">No items sold</td></tr>'}</tbody>
-          </table>
-          <div class="line"></div>
-          <div class="summary">
-            <div><span>Orders</span><strong>${report.orderCount}</strong></div>
-            <div><span>Items</span><strong>${report.itemCount}</strong></div>
-            <div><span>Cancelled</span><strong>${report.cancelledCount}</strong></div>
-            <div><span>Food Sale</span><strong>${formatPrice(report.foodRevenue)}</strong></div>
-            <div><span>Tips</span><strong>${formatPrice(report.tipTotal)}</strong></div>
-            <div class="total"><span>Total</span><strong>${formatPrice(report.totalRevenue)}</strong></div>
-          </div>
-          <div class="line"></div>
-          <p>END OF DAY COUNTER COPY</p>
-        </div>
-        <script>
-          window.onload = () => {
-            window.focus();
-            window.print();
-          };
-        </script>
-      </body>
-    </html>
-  `);
-  printWindow.document.close();
-  return true;
-};
 
 export default function OwnerPage() {
   const { ownerToken, setOwnerToken, restaurantStatus, setKitchenPaused, setMaintenanceMode, updateRestaurantSettings } = useAppContext();
@@ -451,6 +366,105 @@ export default function OwnerPage() {
   const [selectedActiveGroupKey, setSelectedActiveGroupKey] = useState('');
   const [restaurantSettingsDraft, setRestaurantSettingsDraft] = useState({ tableCount: '16', deliveryRadiusKm: '4' });
   const [savingRestaurantSettings, setSavingRestaurantSettings] = useState(false);
+  const [printBridgeUrl, setPrintBridgeUrl] = useState('http://127.0.0.1:9123');
+  const [kitchenPrinterIp, setKitchenPrinterIp] = useState('192.168.1.110');
+  const [kitchenPrinterPort, setKitchenPrinterPort] = useState('9100');
+  const [counterPrinterIp, setCounterPrinterIp] = useState('192.168.1.110');
+  const [counterPrinterPort, setCounterPrinterPort] = useState('9100');
+  const [printQueueCount, setPrintQueueCount] = useState(0);
+  const [printerOnlineStatus, setPrinterOnlineStatus] = useState('Offline');
+  const [testingConnection, setTestingConnection] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setPrintBridgeUrl(window.localStorage.getItem('bvr_print_bridge_url') || 'http://127.0.0.1:9123');
+      setKitchenPrinterIp(window.localStorage.getItem('bvr_kitchen_printer_ip') || '192.168.1.110');
+      setKitchenPrinterPort(window.localStorage.getItem('bvr_kitchen_printer_port') || '9100');
+      setCounterPrinterIp(window.localStorage.getItem('bvr_counter_printer_ip') || '192.168.1.110');
+      setCounterPrinterPort(window.localStorage.getItem('bvr_counter_printer_port') || '9100');
+      setPrintQueueCount(getPrintQueue().length);
+    }
+  }, []);
+
+  useInterval(() => {
+    if (typeof window === 'undefined') return;
+    const queue = getPrintQueue();
+    setPrintQueueCount(queue.length);
+
+    if (queue.length > 0) {
+      flushPrintQueue().then(({ processed }) => {
+        if (processed > 0) {
+          showToast(`Printed ${processed} queued jobs automatically.`, 'success');
+          setPrintQueueCount(getPrintQueue().length);
+        }
+      });
+    }
+
+    testPrinterConnection(kitchenPrinterIp, kitchenPrinterPort).then((res) => {
+      setPrinterOnlineStatus(res.ok ? 'Online' : 'Offline');
+    });
+  }, 15000);
+
+  const handleSavePrinterSettings = () => {
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('bvr_print_bridge_url', printBridgeUrl.trim());
+      window.localStorage.setItem('bvr_kitchen_printer_ip', kitchenPrinterIp.trim());
+      window.localStorage.setItem('bvr_kitchen_printer_port', kitchenPrinterPort.trim());
+      window.localStorage.setItem('bvr_counter_printer_ip', counterPrinterIp.trim());
+      window.localStorage.setItem('bvr_counter_printer_port', counterPrinterPort.trim());
+      showToast('Printer settings saved successfully.', 'success');
+
+      testPrinterConnection(kitchenPrinterIp.trim(), kitchenPrinterPort.trim()).then((res) => {
+        setPrinterOnlineStatus(res.ok ? 'Online' : 'Offline');
+      });
+    }
+  };
+
+  const handleResetPrinterSettings = () => {
+    setPrintBridgeUrl('http://127.0.0.1:9123');
+    setKitchenPrinterIp('192.168.1.110');
+    setKitchenPrinterPort('9100');
+    setCounterPrinterIp('192.168.1.110');
+    setCounterPrinterPort('9100');
+    showToast('Printer settings reset to defaults. Remember to click Save Config.', 'info');
+  };
+
+  const handleTestPrinterConnection = async () => {
+    setTestingConnection(true);
+    showToast('Testing printer connection...');
+    const res = await testPrinterConnection(kitchenPrinterIp.trim(), kitchenPrinterPort.trim());
+    setTestingConnection(false);
+    setPrinterOnlineStatus(res.ok ? 'Online' : 'Offline');
+    if (res.ok) {
+      showToast('Printer is online and connected!', 'success');
+    } else {
+      showToast(`Printer connection failed: ${res.message}`, 'error');
+    }
+  };
+
+  const handleManualFlushQueue = async () => {
+    const queue = getPrintQueue();
+    if (!queue.length) {
+      showToast('Print queue is empty.');
+      return;
+    }
+    showToast('Retrying queued print jobs...');
+    const { processed, failed } = await flushPrintQueue();
+    setPrintQueueCount(getPrintQueue().length);
+    if (processed > 0) {
+      showToast(`Successfully printed ${processed} queued orders!`, 'success');
+    }
+    if (failed > 0) {
+      showToast(`Failed to print ${failed} orders. Still in queue.`, 'error');
+    }
+  };
+
+  const handleClearPrintQueue = () => {
+    clearPrintQueue();
+    setPrintQueueCount(0);
+    showToast('Print queue cleared.');
+  };
+
   const knownOrderIdsRef = useRef(new Set());
   const orderEntryRef = useRef(null);
 
@@ -814,66 +828,50 @@ export default function OwnerPage() {
   };
 
   const handlePrintKot = async (order) => {
-    const printOpened = printKotSlip(order);
-    if (!printOpened) {
-      showToast('Could not open KOT print window. Please check pop-up permission.', 'error');
-      return false;
+    showToast('Sending KOT to printer...');
+    const result = await printOrderCopiesLocally(order);
+    if (result.ok) {
+      showToast(`KOT sent to printer for order #${order.order_code}`, 'success');
+      return true;
     }
-    showToast(`KOT print window opened for order #${order.order_code}`);
-    return true;
+    if (result.queued) {
+      showToast(`Printer offline. KOT queued for order #${order.order_code}`, 'warning');
+      setPrintQueueCount(getPrintQueue().length);
+      return true;
+    }
+    showToast(`Print failed: ${result.message}`, 'error');
+    return false;
   };
 
   const handlePrintBill = async (order, options = {}) => {
-    const printOpened = await printBillSlip(order, options);
-    if (!printOpened) {
-      showToast('Could not open bill print window. Please check pop-up permission.', 'error');
-      return false;
+    showToast('Sending Bill to printer...');
+    const result = await printOrderCopiesLocally(order);
+    if (result.ok) {
+      showToast(`Bill sent to printer for order #${order.order_code}`, 'success');
+      return true;
     }
-    showToast(`Bill print window opened for ${order.order_code}`);
-    return true;
+    if (result.queued) {
+      showToast(`Printer offline. Bill queued for order #${order.order_code}`, 'warning');
+      setPrintQueueCount(getPrintQueue().length);
+      return true;
+    }
+    showToast(`Print failed: ${result.message}`, 'error');
+    return false;
   };
 
   const handleAutoPrintKitchenAndCounter = async (order) => {
     const result = await printOrderCopiesLocally(order);
     if (result.ok) {
-      showToast(`KOT sent to kitchen and bill sent to counter for #${order.order_code}.`, 'success');
+      showToast(`KOT and Bill sent to printer for order #${order.order_code}`, 'success');
       return true;
     }
-
-    showToast('Automatic printer bridge is not running. Opening browser print windows instead.', 'error');
-    const billWindow = typeof window !== 'undefined' ? window.open('', '_blank', 'width=420,height=820') : null;
-    if (billWindow) {
-      billWindow.document.open();
-      billWindow.document.write('<!doctype html><html><head><title>Counter Bill Waiting</title></head><body style="font-family:Arial,sans-serif;padding:20px;font-weight:700">Counter bill will print after KOT.</body></html>');
-      billWindow.document.close();
+    if (result.queued) {
+      showToast(`Printer offline. KOT and Bill queued for order #${order.order_code}`, 'warning');
+      setPrintQueueCount(getPrintQueue().length);
+      return true;
     }
-
-    let billOpened = !!billWindow;
-    const kotOpened = printKotSlip(order, {
-      printDelayMs: 150,
-      afterPrintFallbackMs: 9000,
-      onAfterPrint: async () => {
-        billOpened = await printBillSlip(order, {
-          showQr: false,
-          printDelayMs: 250,
-          preopenedWindow: billWindow,
-        });
-      },
-    });
-
-    if (!kotOpened) {
-      showToast('Could not open KOT print window. Please check pop-up permission.', 'error');
-    }
-
-    if (!billWindow) {
-      showToast('Could not open bill print window. Please check pop-up permission.', 'error');
-    }
-
-    if (kotOpened && billWindow) {
-      showToast(`KOT will print first, then counter bill for #${order.order_code}.`, 'success');
-    }
-
-    return kotOpened && billOpened;
+    showToast(`Automatic printing failed: ${result.message}`, 'error');
+    return false;
   };
 
   const handleAssignDelivery = async (orderId, deliveryPersonId) => {
@@ -1349,19 +1347,15 @@ export default function OwnerPage() {
     return printOpened;
   };
 
-  const handlePrintDaySales = () => {
+  const handlePrintDaySales = async () => {
     const report = buildDaySalesReport(historyOrders);
-    const opened = openDaySalesPrintWindow({
-      dateLabel: formatHistoryDate(historyDateObject),
-      report,
-    });
-
-    if (!opened) {
-      showToast('Could not open day sale print window. Please check pop-up permission.', 'error');
-      return;
+    showToast('Sending day sale report to printer...');
+    const res = await printDaySalesReportLocally(formatHistoryDate(historyDateObject), report);
+    if (res.ok) {
+      showToast('Day sale report printed successfully.', 'success');
+    } else {
+      showToast(`Failed to print day sale report: ${res.message}`, 'error');
     }
-
-    showToast('Day sale report opened for printing.');
   };
 
   const shiftHistoryDate = (days) => {
@@ -1509,6 +1503,107 @@ export default function OwnerPage() {
             <button className="status-toggle-btn resume" disabled={savingRestaurantSettings} onClick={() => handleSaveRestaurantSettings('radius')} type="button">
               {savingRestaurantSettings ? 'Saving...' : 'Save Delivery Radius'}
             </button>
+          </div>
+        </div>
+
+        <div className="status-control-card staff-control-card" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '20px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px', borderBottom: '1px solid rgba(212,160,23,0.15)', paddingBottom: '16px' }}>
+            <div style={{ flex: 1, minWidth: '280px' }}>
+              <div className="status-control-label">Network Printer & Queue Setup</div>
+              <p className="muted-small" style={{ marginTop: '8px', lineHeight: '1.4' }}>
+                Configure the local print bridge and thermal printers for this device. These settings are stored locally in the browser.
+              </p>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '12px' }}>
+                <span className={`status-chip ${printerOnlineStatus === 'Online' ? 'live' : 'paused'}`} style={{ marginTop: 0 }}>
+                  Kitchen Printer: {printerOnlineStatus}
+                </span>
+                <span className="status-chip" style={{ marginTop: 0, background: printQueueCount > 0 ? 'rgba(239, 68, 68, 0.15)' : 'rgba(255, 255, 255, 0.05)', color: printQueueCount > 0 ? '#fca5a5' : 'var(--text)', border: printQueueCount > 0 ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(255, 255, 255, 0.1)' }}>
+                  Queue: {printQueueCount} pending
+                </span>
+              </div>
+            </div>
+            
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              <button className="status-toggle-btn resume" onClick={handleSavePrinterSettings} type="button">
+                Save Config
+              </button>
+              <button className="status-toggle-btn" onClick={handleTestPrinterConnection} disabled={testingConnection} type="button" style={{ background: 'rgba(212,160,23,0.1)', color: 'var(--bright-gold)', border: '1px solid rgba(212,160,23,0.25)' }}>
+                {testingConnection ? 'Testing...' : 'Test Printer'}
+              </button>
+              <button className="status-toggle-btn pause" onClick={handleResetPrinterSettings} type="button" style={{ background: 'rgba(239, 68, 68, 0.1)' }}>
+                Reset Defaults
+              </button>
+              {printQueueCount > 0 && (
+                <>
+                  <button className="status-toggle-btn resume" onClick={handleManualFlushQueue} type="button" style={{ background: 'linear-gradient(135deg, #22c55e, #4ade80)' }}>
+                    Retry Queue
+                  </button>
+                  <button className="status-toggle-btn pause" onClick={handleClearPrintQueue} type="button" style={{ background: '#ef4444' }}>
+                    Clear Queue
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: 'var(--bright-gold)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Local Print Bridge URL</label>
+              <input
+                className="input-field"
+                onChange={(event) => setPrintBridgeUrl(event.target.value)}
+                placeholder="http://192.168.1.50:9123"
+                type="text"
+                value={printBridgeUrl}
+              />
+              <span className="muted-small" style={{ fontSize: '0.72rem' }}>E.g. http://&lt;windows-pc-ip&gt;:9123</span>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: 'var(--bright-gold)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Kitchen Printer IP & Port</label>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <input
+                  className="input-field"
+                  onChange={(event) => setKitchenPrinterIp(event.target.value)}
+                  placeholder="192.168.1.110"
+                  type="text"
+                  value={kitchenPrinterIp}
+                  style={{ flex: 2 }}
+                />
+                <input
+                  className="input-field"
+                  onChange={(event) => setKitchenPrinterPort(event.target.value)}
+                  placeholder="9100"
+                  type="text"
+                  value={kitchenPrinterPort}
+                  style={{ flex: 1 }}
+                />
+              </div>
+              <span className="muted-small" style={{ fontSize: '0.72rem' }}>Kitchen printer (ESC/POS on Port 9100)</span>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: 'var(--bright-gold)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Counter Printer IP & Port</label>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <input
+                  className="input-field"
+                  onChange={(event) => setCounterPrinterIp(event.target.value)}
+                  placeholder="192.168.1.110"
+                  type="text"
+                  value={counterPrinterIp}
+                  style={{ flex: 2 }}
+                />
+                <input
+                  className="input-field"
+                  onChange={(event) => setCounterPrinterPort(event.target.value)}
+                  placeholder="9100"
+                  type="text"
+                  value={counterPrinterPort}
+                  style={{ flex: 1 }}
+                />
+              </div>
+              <span className="muted-small" style={{ fontSize: '0.72rem' }}>Billing printer (ESC/POS on Port 9100)</span>
+            </div>
           </div>
         </div>
 

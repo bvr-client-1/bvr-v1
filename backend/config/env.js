@@ -115,7 +115,7 @@ export const env = {
   freeDeliveryEnabled: parseBoolean(process.env.FREE_DELIVERY_ENABLED, true),
   freeDeliveryCouponCode: process.env.FREE_DELIVERY_COUPON_CODE || 'FREEDEL',
   razorpayWebhookSecret: process.env.RAZORPAY_WEBHOOK_SECRET || '',
-  supabaseKeepaliveIntervalMs: keepaliveIntervalHours * 60 * 60 * 1000,
+  supabaseKeepaliveIntervalMs: Math.min(2 * 60 * 1000, keepaliveIntervalHours * 60 * 60 * 1000),
   googlePlacesApiKey: process.env.GOOGLE_PLACES_API_KEY || '',
   googlePlaceId: process.env.GOOGLE_PLACE_ID || '',
   reviewSyncIntervalMs: reviewSyncHours * 60 * 60 * 1000,

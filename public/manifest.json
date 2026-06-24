@@ -1,0 +1,22 @@
+{
+  "name": "BVR Restaurant Tablet POS",
+  "short_name": "BVR POS",
+  "description": "Tablet-optimized POS interface for BVR Restaurant",
+  "start_url": "/owner",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#0a0500",
+  "theme_color": "#d4a017",
+  "icons": [
+    {
+      "src": "/bvr-logo.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/bvr-logo-1.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

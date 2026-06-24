@@ -5,6 +5,12 @@ export const metadata = {
   title: 'BVR Bangaru Vakili Family Restaurant - Nalgonda',
   description:
     'Authentic Telugu flavors at BVR Bangaru Vakili Family Restaurant, Nalgonda. Dine-in, delivery and catering. Order now!',
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'BVR POS',
+  },
   openGraph: {
     title: 'BVR Bangaru Vakili Family Restaurant',
     description: 'Order fresh Telugu food online from Bangaru Vakili Family Restaurant in Nalgonda.',
@@ -18,6 +24,13 @@ export const metadata = {
     description: 'Order fresh Telugu food online from Bangaru Vakili Family Restaurant in Nalgonda.',
     images: ['https://www.bangaruvakili.com/bvr-logo.png'],
   },
+};
+
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
 };
 
 export default function RootLayout({ children }) {
