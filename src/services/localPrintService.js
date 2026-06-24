@@ -44,7 +44,7 @@ export const clearPrintQueue = () => {
   savePrintQueue([]);
 };
 
-export const printOrderCopiesLocally = async (order) => {
+export const printOrderCopiesLocally = async (order, printType = 'both') => {
   if (typeof window === 'undefined' || !order) {
     return { ok: false, message: 'No order to print' };
   }
@@ -52,6 +52,7 @@ export const printOrderCopiesLocally = async (order) => {
   const printBridgeUrl = getPrintBridgeUrl();
   const payload = {
     order,
+    printType,
     kitchenPrinterIp: window.localStorage.getItem('bvr_kitchen_printer_ip') || '192.168.1.110',
     kitchenPrinterPort: Number(window.localStorage.getItem('bvr_kitchen_printer_port') || '9100'),
     counterPrinterIp: window.localStorage.getItem('bvr_counter_printer_ip') || '192.168.1.110',

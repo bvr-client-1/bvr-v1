@@ -796,7 +796,7 @@ export default function OwnerPage() {
     try {
       const result = await updateAdminOrderStatus(ownerToken, orderId, status, rejectionReason);
       if (status === 'IN_KITCHEN' && result?.order) {
-        await handleAutoPrintKitchenAndCounter(result.order);
+        await handleAutoPrintKitchenAndCounter(result.order, 'both');
       }
       if (status === 'CANCELLED' && result?.order) {
         const printOpened = printKotSlip(result.order, {
@@ -829,7 +829,7 @@ export default function OwnerPage() {
 
   const handlePrintKot = async (order) => {
     showToast('Sending KOT to printer...');
-    const result = await printOrderCopiesLocally(order);
+    const result = await printOrderCopiesLocally(order, 'kot');
     if (result.ok) {
       showToast(`KOT sent to printer for order #${order.order_code}`, 'success');
       return true;
@@ -845,7 +845,7 @@ export default function OwnerPage() {
 
   const handlePrintBill = async (order, options = {}) => {
     showToast('Sending Bill to printer...');
-    const result = await printOrderCopiesLocally(order);
+    const result = await printOrderCopiesLocally(order, 'bill');
     if (result.ok) {
       showToast(`Bill sent to printer for order #${order.order_code}`, 'success');
       return true;
@@ -859,14 +859,16 @@ export default function OwnerPage() {
     return false;
   };
 
-  const handleAutoPrintKitchenAndCounter = async (order) => {
-    const result = await printOrderCopiesLocally(order);
+  const handleAutoPrintKitchenAndCounter = async (order, printType = 'both') => {
+    const result = await printOrderCopiesLocally(order, printType);
     if (result.ok) {
-      showToast(`KOT and Bill sent to printer for order #${order.order_code}`, 'success');
+      const msg = printType === 'kot' ? 'KOT sent to kitchen' : printType === 'bill' ? 'Bill sent to counter' : 'KOT and Bill sent to printers';
+      showToast(`${msg} for order #${order.order_code}`, 'success');
       return true;
     }
     if (result.queued) {
-      showToast(`Printer offline. KOT and Bill queued for order #${order.order_code}`, 'warning');
+      const msg = printType === 'kot' ? 'KOT' : printType === 'bill' ? 'Bill' : 'KOT and Bill';
+      showToast(`Printer offline. ${msg} queued for order #${order.order_code}`, 'warning');
       setPrintQueueCount(getPrintQueue().length);
       return true;
     }
@@ -1213,7 +1215,7 @@ export default function OwnerPage() {
         items: draftItems,
       });
 
-      await handleAutoPrintKitchenAndCounter(response.order);
+      await handleAutoPrintKitchenAndCounter(response.order, serviceMode === 'TABLE' ? 'kot' : 'both');
       showToast(serviceMode === 'TAKEAWAY' ? 'Takeaway KOT created.' : `KOT created for Table ${tableNumber}.`);
       resetDraft();
       if (serviceMode === 'TAKEAWAY' && !takeawayToken.trim()) {

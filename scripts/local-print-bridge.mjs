@@ -310,9 +310,16 @@ const server = http.createServer(async (req, res) => {
       const kitchenPort = Number(body.kitchenPrinterPort || PRINTER_PORT);
       const counterHost = body.counterPrinterIp || COUNTER_PRINTER_HOST;
       const counterPort = Number(body.counterPrinterPort || PRINTER_PORT);
+      
+      const printType = body.printType || 'both'; // 'kot', 'bill', or 'both'
 
-      await sendToPrinter({ host: kitchenHost, port: kitchenPort, payload: buildKotBytes(body.order) });
-      await sendToPrinter({ host: counterHost, port: counterPort, payload: buildBillBytes(body.order) });
+      if (printType === 'kot' || printType === 'both') {
+        await sendToPrinter({ host: kitchenHost, port: kitchenPort, payload: buildKotBytes(body.order) });
+      }
+      
+      if (printType === 'bill' || printType === 'both') {
+        await sendToPrinter({ host: counterHost, port: counterPort, payload: buildBillBytes(body.order) });
+      }
 
       sendJson(res, 200, { ok: true });
     } catch (error) {
