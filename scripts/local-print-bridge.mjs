@@ -1,6 +1,13 @@
 import http from 'node:http';
 import net from 'node:net';
 
+process.on('uncaughtException', (error) => {
+  console.error('[CRITICAL] Uncaught Exception:', error);
+});
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[CRITICAL] Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
 const PORT = Number(process.env.PRINT_BRIDGE_PORT || 9123);
 const COUNTER_PRINTER_HOST = process.env.COUNTER_PRINTER_HOST || '192.168.1.110';
 const KITCHEN_PRINTER_HOST = process.env.KITCHEN_PRINTER_HOST || '192.168.1.100';
@@ -248,16 +255,39 @@ const buildDaySalesReportBytes = (dateLabel, report) => {
 
 const sendToPrinter = ({ host, port, payload }) =>
   new Promise((resolve, reject) => {
-    const socket = net.createConnection({ host, port, timeout: 5000 }, () => {
+    let resolved = false;
+    const socket = net.createConnection({ host, port, timeout: 5000 });
+
+    socket.on('connect', () => {
       socket.write(payload, () => socket.end());
     });
 
-    socket.on('close', resolve);
+    socket.on('close', (hadError) => {
+      if (!resolved) {
+        resolved = true;
+        if (hadError) {
+          reject(new Error(`Printer socket closed with transmission error: ${host}:${port}`));
+        } else {
+          resolve();
+        }
+      }
+    });
+
     socket.on('timeout', () => {
       socket.destroy();
-      reject(new Error(`Printer timed out: ${host}:${port}`));
+      if (!resolved) {
+        resolved = true;
+        reject(new Error(`Printer timed out: ${host}:${port}`));
+      }
     });
-    socket.on('error', reject);
+
+    socket.on('error', (err) => {
+      socket.destroy();
+      if (!resolved) {
+        resolved = true;
+        reject(err);
+      }
+    });
   });
 
 const readJsonBody = (req) =>
@@ -311,14 +341,38 @@ const server = http.createServer(async (req, res) => {
       }
 
       await new Promise((resolve, reject) => {
-        const socket = net.createConnection({ host, port, timeout: 2500 }, () => {
+        let resolved = false;
+        const socket = net.createConnection({ host, port, timeout: 2500 });
+        
+        socket.on('connect', () => {
           socket.end();
-          resolve();
+          if (!resolved) {
+            resolved = true;
+            resolve();
+          }
         });
-        socket.on('error', reject);
+        
+        socket.on('error', (err) => {
+          socket.destroy();
+          if (!resolved) {
+            resolved = true;
+            reject(err);
+          }
+        });
+        
         socket.on('timeout', () => {
           socket.destroy();
-          reject(new Error('Timeout connecting to printer'));
+          if (!resolved) {
+            resolved = true;
+            reject(new Error('Timeout connecting to printer'));
+          }
+        });
+
+        socket.on('close', () => {
+          if (!resolved) {
+            resolved = true;
+            resolve();
+          }
         });
       });
 
@@ -365,6 +419,8 @@ const server = http.createServer(async (req, res) => {
       
       const variant = body.variant || 'customer';
       const copyLabel = body.copyLabel || '';
+
+      const printType = body.printType || 'both';
 
       if (printType === 'kot' || printType === 'both') {
         await sendToPrinter({ host: kitchenHost, port: kitchenPort, payload: buildKotBytes(body.order) });

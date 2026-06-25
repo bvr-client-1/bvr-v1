@@ -367,7 +367,7 @@ export default function OwnerPage() {
   const [restaurantSettingsDraft, setRestaurantSettingsDraft] = useState({ tableCount: '16', deliveryRadiusKm: '4' });
   const [savingRestaurantSettings, setSavingRestaurantSettings] = useState(false);
   const [printBridgeUrl, setPrintBridgeUrl] = useState('http://127.0.0.1:9123');
-  const [kitchenPrinterIp, setKitchenPrinterIp] = useState('192.168.1.110');
+  const [kitchenPrinterIp, setKitchenPrinterIp] = useState('192.168.1.100');
   const [kitchenPrinterPort, setKitchenPrinterPort] = useState('9100');
   const [counterPrinterIp, setCounterPrinterIp] = useState('192.168.1.110');
   const [counterPrinterPort, setCounterPrinterPort] = useState('9100');
@@ -378,7 +378,7 @@ export default function OwnerPage() {
   useEffect(() => {
     if (typeof window !== 'undefined') {
       setPrintBridgeUrl(window.localStorage.getItem('bvr_print_bridge_url') || 'http://127.0.0.1:9123');
-      setKitchenPrinterIp(window.localStorage.getItem('bvr_kitchen_printer_ip') || '192.168.1.110');
+      setKitchenPrinterIp(window.localStorage.getItem('bvr_kitchen_printer_ip') || '192.168.1.100');
       setKitchenPrinterPort(window.localStorage.getItem('bvr_kitchen_printer_port') || '9100');
       setCounterPrinterIp(window.localStorage.getItem('bvr_counter_printer_ip') || '192.168.1.110');
       setCounterPrinterPort(window.localStorage.getItem('bvr_counter_printer_port') || '9100');
@@ -422,7 +422,7 @@ export default function OwnerPage() {
 
   const handleResetPrinterSettings = () => {
     setPrintBridgeUrl('http://127.0.0.1:9123');
-    setKitchenPrinterIp('192.168.1.110');
+    setKitchenPrinterIp('192.168.1.100');
     setKitchenPrinterPort('9100');
     setCounterPrinterIp('192.168.1.110');
     setCounterPrinterPort('9100');
@@ -1568,7 +1568,7 @@ export default function OwnerPage() {
                 <input
                   className="input-field"
                   onChange={(event) => setKitchenPrinterIp(event.target.value)}
-                  placeholder="192.168.1.110"
+                  placeholder="192.168.1.100"
                   type="text"
                   value={kitchenPrinterIp}
                   style={{ flex: 2 }}

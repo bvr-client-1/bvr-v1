@@ -78,7 +78,7 @@ export const printOrderCopiesLocally = async (order, printType = 'both', options
     printType,
     variant,
     copyLabel,
-    kitchenPrinterIp: window.localStorage.getItem('bvr_kitchen_printer_ip') || '192.168.1.110',
+    kitchenPrinterIp: window.localStorage.getItem('bvr_kitchen_printer_ip') || '192.168.1.100',
     kitchenPrinterPort: Number(window.localStorage.getItem('bvr_kitchen_printer_port') || '9100'),
     counterPrinterIp: window.localStorage.getItem('bvr_counter_printer_ip') || '192.168.1.110',
     counterPrinterPort: Number(window.localStorage.getItem('bvr_counter_printer_port') || '9100'),
