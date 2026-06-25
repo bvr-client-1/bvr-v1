@@ -845,7 +845,7 @@ export default function OwnerPage() {
 
   const handlePrintBill = async (order, options = {}) => {
     showToast('Sending Bill to printer...');
-    const result = await printOrderCopiesLocally(order, 'bill');
+    const result = await printOrderCopiesLocally(order, 'bill', options);
     if (result.ok) {
       showToast(`Bill sent to printer for order #${order.order_code}`, 'success');
       return true;
@@ -860,7 +860,8 @@ export default function OwnerPage() {
   };
 
   const handleAutoPrintKitchenAndCounter = async (order, printType = 'both') => {
-    const result = await printOrderCopiesLocally(order, printType);
+    const options = { variant: order.type === 'dine-in' ? 'counter' : 'customer' };
+    const result = await printOrderCopiesLocally(order, printType, options);
     if (result.ok) {
       const msg = printType === 'kot' ? 'KOT sent to kitchen' : printType === 'bill' ? 'Bill sent to counter' : 'KOT and Bill sent to printers';
       showToast(`${msg} for order #${order.order_code}`, 'success');

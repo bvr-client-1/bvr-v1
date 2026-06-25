@@ -119,20 +119,71 @@ const buildKotBytes = (order) =>
     finish(),
   ]);
 
-const buildBillBytes = (order) => {
+const buildQrCodeBytes = (dataText) => {
+  const storeLen = dataText.length + 3;
+  const pL = storeLen % 256;
+  const pH = Math.floor(storeLen / 256);
+
+  return Buffer.concat([
+    // 1. Select model: Model 2 (Hex: 1D 28 6B 04 00 31 41 32 00)
+    Buffer.from([0x1d, 0x28, 0x6b, 0x04, 0x00, 0x31, 0x41, 0x32, 0x00]),
+    // 2. Set module size: Size 4 (Hex: 1D 28 6B 03 00 31 43 04)
+    Buffer.from([0x1d, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x43, 0x04]),
+    // 3. Set error correction: Level L (Hex: 1D 28 6B 03 00 31 45 31)
+    Buffer.from([0x1d, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x45, 0x31]),
+    // 4. Store data: 1D 28 6B pL pH 31 50 30 + data
+    Buffer.from([0x1d, 0x28, 0x6b, pL, pH, 0x31, 0x50, 0x30]),
+    Buffer.from(dataText, 'ascii'),
+    // 5. Print: 1D 28 6B 03 00 31 51 30
+    Buffer.from([0x1d, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x51, 0x30]),
+  ]);
+};
+
+const buildBillBytes = (order, variant = 'customer', copyLabel = '') => {
   const items = order.order_items || [];
   const total = Number(order.total || items.reduce((sum, item) => sum + Number(item.quantity || 0) * Number(item.price_at_purchase ?? item.price ?? 0), 0));
   const restaurantSubtotal = Number(order.subtotal || total);
   const tax = getRestaurantTaxBreakup(restaurantSubtotal);
   const payableTotal = shouldApplyRestaurantGst(order) ? tax.grandTotal : total;
 
+  let heading = 'CASH / BILL';
+  if (variant === 'demo') heading = 'DEMO CHECK BILL';
+  else if (variant === 'counter') heading = 'COUNTER BILL';
+
+  let subHeadingBytes = Buffer.alloc(0);
+  if (copyLabel) {
+    subHeadingBytes = Buffer.concat([
+      command(ESC, 0x61, 0x01), // Center
+      command(ESC, 0x21, 0x08), // Bold
+      line(copyLabel.toUpperCase()),
+      command(ESC, 0x21, 0x00), // Normal
+      command(ESC, 0x61, 0x00), // Left
+    ]);
+  }
+
+  let qrCodeBytes = Buffer.alloc(0);
+  // Show QR code on final customer bill only (not counter record copy and not demo bill)
+  if (variant === 'customer') {
+    qrCodeBytes = Buffer.concat([
+      line(''),
+      command(ESC, 0x61, 0x01), // Center
+      line('Scan to view menu & order online:'),
+      line('bangaruvakili.com'),
+      line(''),
+      buildQrCodeBytes('https://bangaruvakili.com'),
+      line(''),
+    ]);
+  }
+
   return Buffer.concat([
     header(),
-    command(ESC, 0x61, 0x01),
-    command(ESC, 0x21, 0x30),
-    line('COUNTER BILL'),
-    command(ESC, 0x21, 0x00),
-    command(ESC, 0x61, 0x00),
+    command(ESC, 0x61, 0x01), // Center
+    command(ESC, 0x21, 0x30), // Double height + double width
+    line(heading),
+    command(ESC, 0x21, 0x00), // Normal
+    command(ESC, 0x61, 0x00), // Left
+    subHeadingBytes,
+    line(divider),
     command(ESC, 0x21, 0x08),
     line(pair(getModeLabel(order), `#${order.order_code || '-'}`)),
     command(ESC, 0x21, 0x00),
@@ -152,6 +203,7 @@ const buildBillBytes = (order) => {
     command(ESC, 0x21, 0x20),
     line(pair('TOTAL', money(payableTotal))),
     command(ESC, 0x21, 0x00),
+    qrCodeBytes,
     finish(),
   ]);
 };
@@ -311,14 +363,15 @@ const server = http.createServer(async (req, res) => {
       const counterHost = body.counterPrinterIp || COUNTER_PRINTER_HOST;
       const counterPort = Number(body.counterPrinterPort || PRINTER_PORT);
       
-      const printType = body.printType || 'both'; // 'kot', 'bill', or 'both'
+      const variant = body.variant || 'customer';
+      const copyLabel = body.copyLabel || '';
 
       if (printType === 'kot' || printType === 'both') {
         await sendToPrinter({ host: kitchenHost, port: kitchenPort, payload: buildKotBytes(body.order) });
       }
       
       if (printType === 'bill' || printType === 'both') {
-        await sendToPrinter({ host: counterHost, port: counterPort, payload: buildBillBytes(body.order) });
+        await sendToPrinter({ host: counterHost, port: counterPort, payload: buildBillBytes(body.order, variant, copyLabel) });
       }
 
       sendJson(res, 200, { ok: true });

@@ -44,15 +44,40 @@ export const clearPrintQueue = () => {
   savePrintQueue([]);
 };
 
-export const printOrderCopiesLocally = async (order, printType = 'both') => {
+export const printOrderCopiesLocally = async (order, printType = 'both', options = {}) => {
   if (typeof window === 'undefined' || !order) {
     return { ok: false, message: 'No order to print' };
+  }
+
+  const variant = options.variant || 'customer';
+  
+  const getBillCopyLabel = (orderCode) => {
+    const storageKey = 'bvr_bill_print_counts_v1';
+    let counts = {};
+    try {
+      counts = JSON.parse(window.localStorage.getItem(storageKey) || '{}');
+    } catch {
+      counts = {};
+    }
+    const nextCount = Number(counts[orderCode] || 0) + 1;
+    counts[orderCode] = nextCount;
+    window.localStorage.setItem(storageKey, JSON.stringify(counts));
+    return nextCount === 1 ? 'ORIGINAL COPY' : `DUPLICATE COPY #\${nextCount - 1}`;
+  };
+
+  let copyLabel = options.copyLabel || '';
+  if (!copyLabel) {
+    if (variant === 'demo') copyLabel = 'DEMO CHECK COPY';
+    else if (variant === 'counter') copyLabel = 'COUNTER RECORD COPY';
+    else copyLabel = getBillCopyLabel(order.order_code);
   }
 
   const printBridgeUrl = getPrintBridgeUrl();
   const payload = {
     order,
     printType,
+    variant,
+    copyLabel,
     kitchenPrinterIp: window.localStorage.getItem('bvr_kitchen_printer_ip') || '192.168.1.110',
     kitchenPrinterPort: Number(window.localStorage.getItem('bvr_kitchen_printer_port') || '9100'),
     counterPrinterIp: window.localStorage.getItem('bvr_counter_printer_ip') || '192.168.1.110',
