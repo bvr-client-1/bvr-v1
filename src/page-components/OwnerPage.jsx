@@ -61,21 +61,30 @@ const roundUpToTen = (value) => {
     return 0;
   }
 
+  // For small amounts (under ₹50), round to nearest ₹5 instead of ₹10
+  if (amount < 50) {
+    return Math.ceil(amount / 5) * 5;
+  }
+
   return Math.ceil(amount / 10) * 10;
 };
 const getDeliveryPrice = (item) => {
+  // If an explicit delivery price was set by the owner, use it as-is (no rounding)
   const explicitDeliveryPrice = Number(item.delivery_price);
   if (Number.isFinite(explicitDeliveryPrice) && explicitDeliveryPrice > 0) {
-    return roundUpToTen(explicitDeliveryPrice);
+    return explicitDeliveryPrice;
   }
 
+  // If a delivery price marker exists in the description, use it as-is
   const descriptionDeliveryPrice = String(item.description || '').match(/\s*\[\[BVR_DELIVERY_PRICE:([0-9]+(?:\.[0-9]+)?)\]\]\s*$/);
   if (descriptionDeliveryPrice) {
-    return roundUpToTen(Number(descriptionDeliveryPrice[1]));
+    return Number(descriptionDeliveryPrice[1]);
   }
 
+  // Auto-calculate: 1.2x restaurant price, rounded up
   return roundUpToTen(Number(item.price || 0) * 1.2);
 };
+
 const foodMarkLabel = (foodType) => (foodType === 'non-veg' ? 'Non-Veg' : 'Veg');
 const buildPriceDrafts = (items, priceType = 'restaurant') =>
   Object.fromEntries(items.map((item) => [item.id, String(priceType === 'delivery' ? getDeliveryPrice(item) : item.price ?? '')]));
