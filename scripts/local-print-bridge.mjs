@@ -105,12 +105,14 @@ const header = () =>
   ]);
 const finish = () => Buffer.concat([line(divider), line(''), line(''), line(''), command(GS, 0x56, 0x41, 0x10)]);
 
-const buildKotBytes = (order) =>
-  Buffer.concat([
+const buildKotBytes = (order) => {
+  const isCancelled = order.status === 'CANCELLED';
+  const heading = isCancelled ? 'CANCEL KOT' : 'KOT';
+  return Buffer.concat([
     header(),
     command(ESC, 0x61, 0x01),
     command(ESC, 0x21, 0x30),
-    line('KOT'),
+    line(heading),
     command(ESC, 0x21, 0x00),
     command(ESC, 0x61, 0x00),
     command(ESC, 0x21, 0x08),
@@ -125,6 +127,7 @@ const buildKotBytes = (order) =>
     command(ESC, 0x21, 0x00),
     finish(),
   ]);
+};
 
 const buildQrCodeBytes = (dataText) => {
   const storeLen = dataText.length + 3;
@@ -421,13 +424,16 @@ const server = http.createServer(async (req, res) => {
       const copyLabel = body.copyLabel || '';
 
       const printType = body.printType || 'both';
+      const copies = Number(body.copies || 1);
 
-      if (printType === 'kot' || printType === 'both') {
-        await sendToPrinter({ host: kitchenHost, port: kitchenPort, payload: buildKotBytes(body.order) });
-      }
-      
-      if (printType === 'bill' || printType === 'both') {
-        await sendToPrinter({ host: counterHost, port: counterPort, payload: buildBillBytes(body.order, variant, copyLabel) });
+      for (let i = 0; i < copies; i++) {
+        if (printType === 'kot' || printType === 'both') {
+          await sendToPrinter({ host: kitchenHost, port: kitchenPort, payload: buildKotBytes(body.order) });
+        }
+        
+        if (printType === 'bill' || printType === 'both') {
+          await sendToPrinter({ host: counterHost, port: counterPort, payload: buildBillBytes(body.order, variant, copyLabel) });
+        }
       }
 
       sendJson(res, 200, { ok: true });
@@ -453,10 +459,11 @@ const AUTO_PRINT_POLL_INTERVAL_MS = 3000;
 
 const printedKotOrderIds = new Set();
 const printedBillOrderIds = new Set();
+const printedCancelKotOrderIds = new Set();
 let isFirstPrintPoll = true;
 
 const fetchActiveOrdersForPrinting = async () => {
-  const url = `${SUPABASE_URL}/rest/v1/orders?status=in.(NEW,IN_KITCHEN,COMPLETED)&order=created_at.desc&limit=30`;
+  const url = `${SUPABASE_URL}/rest/v1/orders?status=in.(NEW,IN_KITCHEN,COMPLETED,CANCELLED)&order=created_at.desc&limit=30`;
   const response = await fetch(`${url}&select=*,order_items(*)`, {
     headers: {
       apikey: SUPABASE_KEY,
@@ -478,9 +485,10 @@ const pollForAutoPrint = async () => {
       for (const o of orders) {
         printedKotOrderIds.add(o.id);
         printedBillOrderIds.add(o.id);
+        printedCancelKotOrderIds.add(o.id);
       }
       isFirstPrintPoll = false;
-      console.log(`[AUTO-PRINT] Initialized. Watching for new KOTs and Bills...`);
+      console.log(`[AUTO-PRINT] Initialized. Watching for KOTs, Bills, and Cancel KOTs...`);
       return;
     }
 
@@ -488,6 +496,7 @@ const pollForAutoPrint = async () => {
       const isNew = order.status === 'NEW';
       const isInKitchen = order.status === 'IN_KITCHEN';
       const isCompleted = order.status === 'COMPLETED' && order.payment_status === 'PAID';
+      const isCancelled = order.status === 'CANCELLED';
 
       // 1. KOT Printing (Dine-in / Counter / Delivery / Takeaway)
       if ((isNew || isInKitchen) && !printedKotOrderIds.has(order.id)) {
@@ -503,7 +512,21 @@ const pollForAutoPrint = async () => {
         }
       }
 
-      // 2. Bill Printing (Delivery / Takeaway / Settled Dine-in)
+      // 2. Cancel KOT Printing (Kitchen Printer only)
+      if (isCancelled && !printedCancelKotOrderIds.has(order.id)) {
+        printedCancelKotOrderIds.add(order.id);
+        console.log(`[AUTO-PRINT] Printing Cancel KOT for #${order.order_code || order.id}...`);
+        try {
+          const kotBytes = buildKotBytes(order);
+          await sendToPrinter({ host: KITCHEN_PRINTER_HOST, port: PRINTER_PORT, payload: kotBytes });
+          console.log(`[AUTO-PRINT] Cancel KOT printed for #${order.order_code}`);
+        } catch (err) {
+          console.error(`[AUTO-PRINT] Cancel KOT Print failed for #${order.order_code || order.id}:`, err.message);
+          printedCancelKotOrderIds.delete(order.id); // Retry on next poll
+        }
+      }
+
+      // 3. Bill Printing (Delivery / Takeaway / Settled Dine-in)
       const shouldPrintBill = isNew || isCompleted;
       if (shouldPrintBill && !printedBillOrderIds.has(order.id)) {
         printedBillOrderIds.add(order.id);
