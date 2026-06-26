@@ -499,7 +499,8 @@ export default function OwnerPage() {
       if (knownOrderIdsRef.current.size && incomingOrders.length && currentTab !== 'delivery') {
         const latestOrder = incomingOrders[0];
         showToast(`New order received: #${latestOrder.order_code}`);
-        startNewOrderAlertLoop();
+        // Sound is handled by the background Windows service (order-alert.mjs)
+        // so we only show visual alerts here to avoid double-ringing
         notifyNewOrder('New BVR order', `Order #${latestOrder.order_code} is waiting in the owner dashboard.`);
       }
       knownOrderIdsRef.current = nextOrderIds;
