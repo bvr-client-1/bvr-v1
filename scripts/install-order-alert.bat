@@ -26,11 +26,13 @@ if not exist "%ALERT_SCRIPT%" (
 echo [OK] Found alert script at: %ALERT_SCRIPT%
 
 :: Check if sound file exists
-set SOUND_FILE=%USERPROFILE%\Downloads\swiggy_new_order.mp3.mpeg
+set SOUND_FILE=%USERPROFILE%\Downloads\swiggy_new_order.mp3
 if not exist "%SOUND_FILE%" (
-    echo [WARNING] swiggy_new_order.mp3.mpeg not found in Downloads.
-    echo The script will use system beep instead.
-    echo For best results, copy swiggy_new_order.mp3.mpeg to Downloads.
+    set SOUND_FILE=%USERPROFILE%\Downloads\swiggy_new_order.mp3.mpeg
+)
+if not exist "%SOUND_FILE%" (
+    echo [WARNING] swiggy_new_order.mp3 not found in Downloads!
+    echo Please copy swiggy_new_order.mp3 to your Downloads folder.
     echo.
 )
 
