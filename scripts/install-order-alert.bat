@@ -39,10 +39,8 @@ if not exist "%SOUND_FILE%" (
 :: Create a VBS wrapper to run node silently (no visible window)
 set VBS_FILE=%USERPROFILE%\Downloads\bvr-order-alert.vbs
 echo Creating silent launcher...
-(
-    echo Set objShell = CreateObject("WScript.Shell"^)
-    echo objShell.Run """" ^& "%NODE_PATH%" ^& """ """ ^& "%ALERT_SCRIPT%" ^& """", 0, False
-) > "%VBS_FILE%"
+echo Set objShell = CreateObject("WScript.Shell") > "%VBS_FILE%"
+echo objShell.Run """%NODE_PATH%"" ""%ALERT_SCRIPT%""", 0, False >> "%VBS_FILE%"
 echo [OK] Silent launcher created at: %VBS_FILE%
 
 :: Create shortcut in Windows Startup folder

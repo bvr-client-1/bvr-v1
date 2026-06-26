@@ -69,7 +69,7 @@ const playMp3Once = () =>
     const ps = [
       'Add-Type -AssemblyName presentationCore',
       '$player = New-Object System.Windows.Media.MediaPlayer',
-      `$player.Open([uri]"file:///${escaped}")`,
+      `$player.Open([uri]'file:///${escaped}')`,
       'Start-Sleep -Milliseconds 500',
       '$player.Volume = 1.0',
       '$player.Play()',
