@@ -1,8 +1,8 @@
 {
   "kitchenPaused": false,
   "maintenanceMode": false,
-  "tableCount": 16,
-  "deliveryRadiusKm": 4,
-  "updatedAt": "2026-04-07T08:50:22.893Z",
+  "tableCount": 20,
+  "deliveryRadiusKm": 6.5,
+  "updatedAt": "2026-06-25T07:28:28.942Z",
   "updatedByRole": "owner"
 }

@@ -445,3 +445,85 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(`Counter bill printer: ${COUNTER_PRINTER_HOST}:${PRINTER_PORT}`);
   console.log(`Kitchen KOT printer: ${KITCHEN_PRINTER_HOST}:${PRINTER_PORT}`);
 });
+
+// ─── Supabase Polling for Cloud Auto-Printing ────────────────
+const SUPABASE_URL = process.env.SUPABASE_URL || 'https://feglxiibeuzsahoevzuu.supabase.co';
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZlZ2x4aWliZXV6c2Fob2V2enV1Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MzIxODczMywiZXhwIjoyMDg4Nzk0NzMzfQ.e3xVmckMyEij5GXTw52B1QzpAKvtosJqiggmOfn8sFg';
+const AUTO_PRINT_POLL_INTERVAL_MS = 3000;
+
+const printedKotOrderIds = new Set();
+const printedBillOrderIds = new Set();
+let isFirstPrintPoll = true;
+
+const fetchActiveOrdersForPrinting = async () => {
+  const url = `${SUPABASE_URL}/rest/v1/orders?status=in.(NEW,IN_KITCHEN,COMPLETED)&order=created_at.desc&limit=30`;
+  const response = await fetch(`${url}&select=*,order_items(*)`, {
+    headers: {
+      apikey: SUPABASE_KEY,
+      Authorization: `Bearer ${SUPABASE_KEY}`,
+      'Content-Type': 'application/json',
+    },
+  });
+  if (!response.ok) {
+    throw new Error(`Supabase API error: ${response.status} ${response.statusText}`);
+  }
+  return response.json();
+};
+
+const pollForAutoPrint = async () => {
+  try {
+    const orders = await fetchActiveOrdersForPrinting();
+
+    if (isFirstPrintPoll) {
+      for (const o of orders) {
+        printedKotOrderIds.add(o.id);
+        printedBillOrderIds.add(o.id);
+      }
+      isFirstPrintPoll = false;
+      console.log(`[AUTO-PRINT] Initialized. Watching for new KOTs and Bills...`);
+      return;
+    }
+
+    for (const order of orders) {
+      const isNew = order.status === 'NEW';
+      const isInKitchen = order.status === 'IN_KITCHEN';
+      const isCompleted = order.status === 'COMPLETED' && order.payment_status === 'PAID';
+
+      // 1. KOT Printing (Dine-in / Counter / Delivery / Takeaway)
+      if ((isNew || isInKitchen) && !printedKotOrderIds.has(order.id)) {
+        printedKotOrderIds.add(order.id);
+        console.log(`[AUTO-PRINT] Printing KOT for #${order.order_code || order.id}...`);
+        try {
+          const kotBytes = buildKotBytes(order);
+          await sendToPrinter({ host: KITCHEN_PRINTER_HOST, port: PRINTER_PORT, payload: kotBytes });
+          console.log(`[AUTO-PRINT] KOT printed for #${order.order_code}`);
+        } catch (err) {
+          console.error(`[AUTO-PRINT] KOT Print failed for #${order.order_code || order.id}:`, err.message);
+          printedKotOrderIds.delete(order.id); // Retry on next poll
+        }
+      }
+
+      // 2. Bill Printing (Delivery / Takeaway / Settled Dine-in)
+      const shouldPrintBill = isNew || isCompleted;
+      if (shouldPrintBill && !printedBillOrderIds.has(order.id)) {
+        printedBillOrderIds.add(order.id);
+        console.log(`[AUTO-PRINT] Printing Bill for #${order.order_code || order.id}...`);
+        try {
+          const variant = order.type === 'dine-in' ? 'counter' : 'customer';
+          const copyLabel = order.type === 'dine-in' ? 'COUNTER RECORD COPY' : 'ORIGINAL COPY';
+          const billBytes = buildBillBytes(order, variant, copyLabel);
+          await sendToPrinter({ host: COUNTER_PRINTER_HOST, port: PRINTER_PORT, payload: billBytes });
+          console.log(`[AUTO-PRINT] Bill printed for #${order.order_code}`);
+        } catch (err) {
+          console.error(`[AUTO-PRINT] Bill Print failed for #${order.order_code || order.id}:`, err.message);
+          printedBillOrderIds.delete(order.id); // Retry on next poll
+        }
+      }
+    }
+  } catch (error) {
+    console.error('[AUTO-PRINT ERROR]', error.message);
+  }
+};
+
+// Start auto-print polling
+setInterval(pollForAutoPrint, AUTO_PRINT_POLL_INTERVAL_MS);
