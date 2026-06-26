@@ -870,21 +870,10 @@ export default function OwnerPage() {
   };
 
   const handleAutoPrintKitchenAndCounter = async (order, printType = 'both') => {
-    const options = { variant: order.type === 'dine-in' ? 'counter' : 'customer' };
-    const result = await printOrderCopiesLocally(order, printType, options);
-    if (result.ok) {
-      const msg = printType === 'kot' ? 'KOT sent to kitchen' : printType === 'bill' ? 'Bill sent to counter' : 'KOT and Bill sent to printers';
-      showToast(`${msg} for order #${order.order_code}`, 'success');
-      return true;
-    }
-    if (result.queued) {
-      const msg = printType === 'kot' ? 'KOT' : printType === 'bill' ? 'Bill' : 'KOT and Bill';
-      showToast(`Printer offline. ${msg} queued for order #${order.order_code}`, 'warning');
-      setPrintQueueCount(getPrintQueue().length);
-      return true;
-    }
-    showToast(`Automatic printing failed: ${result.message}`, 'error');
-    return false;
+    // Frontend automatic printing is disabled to prevent duplicate prints.
+    // The background print bridge service handles all auto-printing via database polling.
+    console.log('[AUTO-PRINT-FRONTEND] Ignored to prevent duplicate prints:', order.order_code);
+    return true;
   };
 
   const handleAssignDelivery = async (orderId, deliveryPersonId) => {
