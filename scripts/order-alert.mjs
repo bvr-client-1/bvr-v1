@@ -1,4 +1,4 @@
-import { execSync, exec } from 'node:child_process';
+import { exec } from 'node:child_process';
 import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -13,9 +13,9 @@ process.on('unhandledRejection', (reason) => {
 // ─── Configuration ───────────────────────────────────────────
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://feglxiibeuzsahoevzuu.supabase.co';
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZlZ2x4aWliZXV6c2Fob2V2enV1Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MzIxODczMywiZXhwIjoyMDg4Nzk0NzMzfQ.e3xVmckMyEij5GXTw52B1QzpAKvtosJqiggmOfn8sFg';
-const POLL_INTERVAL_MS = 8000; // Check every 8 seconds
-const ALERT_REPEAT_COUNT = 5;  // Ring 5 times for each new order batch
-const ALERT_STATUSES = ['NEW']; // Which statuses trigger the alert
+const POLL_INTERVAL_MS = 6000;       // Check every 6 seconds
+const ALERT_STATUSES = ['NEW'];      // Which statuses trigger the alert
+const ALERT_GAP_MS = 1500;           // Gap between alert repeats (1.5 seconds)
 
 // ─── Resolve sound file path ─────────────────────────────────
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -23,6 +23,8 @@ const SOUND_CANDIDATES = [
   path.join(__dirname, 'swiggy_new_order.mp3.mpeg'),
   path.join(__dirname, '..', 'swiggy_new_order.mp3.mpeg'),
   path.join(process.env.USERPROFILE || '', 'Downloads', 'swiggy_new_order.mp3.mpeg'),
+  path.join(__dirname, '..', 'public', 'swiggy-new-order.mp3'),
+  path.join(process.env.USERPROFILE || '', 'Downloads', 'swiggy-new-order.mp3'),
 ];
 
 let SOUND_FILE = '';
@@ -34,61 +36,92 @@ for (const candidate of SOUND_CANDIDATES) {
 }
 
 if (!SOUND_FILE) {
-  console.warn('[WARN] No alert sound file found. Will use system beep instead.');
+  console.warn('[WARN] No alert sound file found! Sound alerts will not work.');
   console.warn('       Place swiggy_new_order.mp3.mpeg in the same folder as this script.');
 }
 
-// ─── Track known orders ──────────────────────────────────────
+// ─── State ───────────────────────────────────────────────────
 const knownOrderIds = new Set();
 let isFirstPoll = true;
-let alertPlaying = false;
+let alertActive = false;            // Is the continuous alert currently ringing?
+let pendingNewOrderCodes = [];      // Order codes that haven't been acknowledged
+let currentAudioProcess = null;     // Reference to current playing audio process
 
-// ─── Play alert sound ────────────────────────────────────────
-const playSystemBeep = () => {
-  try {
-    execSync('powershell -Command "[console]::beep(1000, 800)"', { stdio: 'ignore' });
-  } catch { /* ignore */ }
-};
-
-const playMp3Once = (filePath) =>
+// ─── Play sound using PowerShell (LOUD, full volume) ─────────
+const playMp3Once = () =>
   new Promise((resolve) => {
-    const escaped = filePath.replace(/'/g, "''");
-    const ps = `
-      Add-Type -AssemblyName presentationCore
-      $player = New-Object System.Windows.Media.MediaPlayer
-      $player.Open([uri]"file:///${escaped.replace(/\\/g, '/')}")
-      Start-Sleep -Milliseconds 500
-      $player.Play()
-      Start-Sleep -Milliseconds 4000
-      $player.Stop()
-      $player.Close()
-    `;
-    const child = exec(`powershell -Command "${ps.replace(/\n/g, '; ')}"`, { stdio: 'ignore' });
-    child.on('close', resolve);
-    child.on('error', resolve);
+    if (!SOUND_FILE) {
+      // Fallback: loud system beeps
+      const beepCmd = `powershell -Command "[console]::beep(1200, 600); [console]::beep(1500, 600); [console]::beep(1200, 600)"`;
+      const child = exec(beepCmd, { stdio: 'ignore' });
+      child.on('close', resolve);
+      child.on('error', resolve);
+      setTimeout(resolve, 3000);
+      return;
+    }
+
+    const escaped = SOUND_FILE.replace(/\\/g, '/').replace(/'/g, "''");
+    // Use MediaPlayer with volume set to MAX (1.0) and wait for full playback
+    const ps = [
+      'Add-Type -AssemblyName presentationCore',
+      '$player = New-Object System.Windows.Media.MediaPlayer',
+      `$player.Open([uri]"file:///${escaped}")`,
+      'Start-Sleep -Milliseconds 600',
+      '$player.Volume = 1.0',
+      '$player.Play()',
+      'Start-Sleep -Milliseconds 4500',
+      '$player.Stop()',
+      '$player.Close()',
+    ].join('; ');
+
+    const child = exec(`powershell -Command "${ps}"`, { stdio: 'ignore' });
+    currentAudioProcess = child;
+    child.on('close', () => {
+      if (currentAudioProcess === child) currentAudioProcess = null;
+      resolve();
+    });
+    child.on('error', () => {
+      if (currentAudioProcess === child) currentAudioProcess = null;
+      resolve();
+    });
     // Safety timeout
-    setTimeout(resolve, 6000);
+    setTimeout(resolve, 7000);
   });
 
-const playAlertLoop = async (count, orderCodes) => {
-  if (alertPlaying) return;
-  alertPlaying = true;
+// ─── Continuous alert loop — keeps ringing until orders are acknowledged ───
+const startContinuousAlert = async () => {
+  if (alertActive) return; // Already ringing
+  alertActive = true;
 
-  console.log(`[ALERT] 🔔 NEW ORDER(S): ${orderCodes.join(', ')} — ringing ${count} times...`);
+  console.log(`[ALERT] 🔔🔔🔔 NEW ORDER(S): ${pendingNewOrderCodes.join(', ')}`);
+  console.log(`[ALERT] 🔊 CONTINUOUS ALERT STARTED — will ring until order is accepted!`);
 
-  for (let i = 0; i < count; i++) {
-    if (SOUND_FILE) {
-      await playMp3Once(SOUND_FILE);
-    } else {
-      playSystemBeep();
-      await new Promise((r) => setTimeout(r, 1000));
+  let ringCount = 0;
+  while (alertActive && pendingNewOrderCodes.length > 0) {
+    ringCount++;
+    console.log(`[ALERT] 🔔 Ring #${ringCount} — Pending orders: ${pendingNewOrderCodes.join(', ')}`);
+    await playMp3Once();
+
+    // Small gap between rings
+    if (alertActive && pendingNewOrderCodes.length > 0) {
+      await new Promise((r) => setTimeout(r, ALERT_GAP_MS));
     }
   }
 
-  alertPlaying = false;
+  alertActive = false;
+  console.log(`[ALERT] ✅ Alert stopped after ${ringCount} rings — all orders acknowledged.`);
 };
 
-// ─── Fetch new orders from Supabase ──────────────────────────
+const stopAlert = () => {
+  alertActive = false;
+  pendingNewOrderCodes = [];
+  if (currentAudioProcess) {
+    try { currentAudioProcess.kill(); } catch { /* ignore */ }
+    currentAudioProcess = null;
+  }
+};
+
+// ─── Fetch orders from Supabase ──────────────────────────────
 const fetchNewOrders = async () => {
   const statusFilter = ALERT_STATUSES.map((s) => `"${s}"`).join(',');
   const url = `${SUPABASE_URL}/rest/v1/orders?status=in.(${statusFilter})&order=created_at.desc&limit=50`;
@@ -112,39 +145,46 @@ const fetchNewOrders = async () => {
 const poll = async () => {
   try {
     const orders = await fetchNewOrders();
-    const currentIds = new Set(orders.map((o) => o.id));
+    const currentNewOrders = orders.filter((o) => ALERT_STATUSES.includes(o.status));
 
     if (isFirstPoll) {
-      // On startup, just record existing orders — don't ring
-      for (const id of currentIds) {
-        knownOrderIds.add(id);
+      // On startup, record existing orders — don't ring
+      for (const o of currentNewOrders) {
+        knownOrderIds.add(o.id);
       }
       isFirstPoll = false;
-      console.log(`[STARTUP] Loaded ${currentIds.size} existing order(s). Watching for new ones...`);
+      console.log(`[STARTUP] Loaded ${currentNewOrders.length} existing NEW order(s). Watching for new ones...`);
       return;
     }
 
     // Find orders we haven't seen before
-    const newOrders = orders.filter((o) => !knownOrderIds.has(o.id));
+    const brandNewOrders = currentNewOrders.filter((o) => !knownOrderIds.has(o.id));
 
-    if (newOrders.length > 0) {
-      const newCodes = newOrders.map((o) => `#${o.order_code || o.id}`);
-
-      // Add to known set
-      for (const o of newOrders) {
+    if (brandNewOrders.length > 0) {
+      for (const o of brandNewOrders) {
         knownOrderIds.add(o.id);
+        const code = `#${o.order_code || o.id}`;
+        if (!pendingNewOrderCodes.includes(code)) {
+          pendingNewOrderCodes.push(code);
+        }
       }
 
-      // Ring the alert
-      playAlertLoop(ALERT_REPEAT_COUNT, newCodes);
+      // Start continuous alert (if not already ringing)
+      startContinuousAlert();
     }
 
-    // Also add current IDs (in case orders moved to another status and back)
-    for (const id of currentIds) {
-      knownOrderIds.add(id);
+    // Check if all pending orders have been acknowledged (no longer in NEW status)
+    if (pendingNewOrderCodes.length > 0 && currentNewOrders.length === 0) {
+      console.log('[ALERT] ✅ All orders have been acknowledged! Stopping alert.');
+      stopAlert();
     }
 
-    // Cleanup: remove orders older than 24h from tracking set (prevent memory leak)
+    // Also check: if the orders that triggered alert are no longer NEW
+    if (alertActive && currentNewOrders.length === 0) {
+      stopAlert();
+    }
+
+    // Cleanup: prevent memory leak in knownOrderIds
     if (knownOrderIds.size > 500) {
       const idsArray = [...knownOrderIds];
       const toRemove = idsArray.slice(0, idsArray.length - 200);
@@ -159,13 +199,19 @@ const poll = async () => {
 
 // ─── Start ───────────────────────────────────────────────────
 console.log('============================================');
-console.log('  BVR ORDER ALERT - New Order Sound Monitor');
+console.log('  BVR ORDER ALERT v2.0 - Continuous Sound');
 console.log('============================================');
 console.log(`  Supabase:  ${SUPABASE_URL}`);
-console.log(`  Sound:     ${SOUND_FILE || 'System beep (no MP3 found)'}`);
+console.log(`  Sound:     ${SOUND_FILE || '⚠️  NO MP3 FOUND — will use beeps'}`);
 console.log(`  Polling:   Every ${POLL_INTERVAL_MS / 1000}s`);
 console.log(`  Watching:  ${ALERT_STATUSES.join(', ')} orders`);
+console.log(`  Alert:     CONTINUOUS until order accepted`);
+console.log(`  Volume:    MAX (1.0)`);
 console.log('============================================');
+console.log('');
+console.log('🔊 Sound will ring NON-STOP when new order');
+console.log('   arrives. Stops ONLY when order is accepted');
+console.log('   from the owner dashboard.');
 console.log('');
 
 // Initial poll
