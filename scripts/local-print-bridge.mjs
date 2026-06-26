@@ -493,13 +493,13 @@ const pollForAutoPrint = async () => {
     }
 
     for (const order of orders) {
-      const isNew = order.status === 'NEW';
       const isInKitchen = order.status === 'IN_KITCHEN';
       const isCompleted = order.status === 'COMPLETED' && order.payment_status === 'PAID';
       const isCancelled = order.status === 'CANCELLED';
 
       // 1. KOT Printing (Dine-in / Counter / Delivery / Takeaway)
-      if ((isNew || isInKitchen) && !printedKotOrderIds.has(order.id)) {
+      // Print KOT automatically only when order is accepted/sent to the kitchen (status becomes IN_KITCHEN)
+      if (isInKitchen && !printedKotOrderIds.has(order.id)) {
         printedKotOrderIds.add(order.id);
         console.log(`[AUTO-PRINT] Printing KOT for #${order.order_code || order.id}...`);
         try {
@@ -526,14 +526,18 @@ const pollForAutoPrint = async () => {
         }
       }
 
-      // 3. Bill Printing (Delivery / Takeaway / Settled Dine-in)
-      const shouldPrintBill = isNew || isCompleted;
+      // 3. Bill Printing:
+      // For online/delivery/takeaway: print bill when status is IN_KITCHEN (i.e. accepted).
+      // For dine-in: print bill when status is COMPLETED (settled).
+      const isDineIn = order.type === 'dine-in';
+      const shouldPrintBill = isDineIn ? isCompleted : isInKitchen;
+
       if (shouldPrintBill && !printedBillOrderIds.has(order.id)) {
         printedBillOrderIds.add(order.id);
         console.log(`[AUTO-PRINT] Printing Bill for #${order.order_code || order.id}...`);
         try {
-          const variant = order.type === 'dine-in' ? 'counter' : 'customer';
-          const copyLabel = order.type === 'dine-in' ? 'COUNTER RECORD COPY' : 'ORIGINAL COPY';
+          const variant = isDineIn ? 'counter' : 'customer';
+          const copyLabel = isDineIn ? 'COUNTER RECORD COPY' : 'ORIGINAL COPY';
           const billBytes = buildBillBytes(order, variant, copyLabel);
           await sendToPrinter({ host: COUNTER_PRINTER_HOST, port: PRINTER_PORT, payload: billBytes });
           console.log(`[AUTO-PRINT] Bill printed for #${order.order_code}`);
